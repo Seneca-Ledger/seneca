@@ -1,3 +1,4 @@
+import type { Repository } from 'typeorm';
 import { type AuditEvent, EntityType } from '../../entities/audit-event.entity';
 
 /**
@@ -66,4 +67,32 @@ export function toActivityEntry(event: AuditEvent): WorkspaceActivityEntry {
     descriptionParams: descriptor?.params ?? null,
     createdAt: event.createdAt,
   };
+}
+
+/**
+ * The household's latest moves, newest first, at most `limit` (1..100); with
+ * `month` (`YYYY-MM`) only that month's.
+ */
+export async function queryWorkspaceActivity(
+  events: Repository<AuditEvent>,
+  workspaceId: string,
+  limit: number,
+  month?: string,
+): Promise<WorkspaceActivityEntry[]> {
+  const query = events
+    .createQueryBuilder('event')
+    .leftJoinAndSelect('event.actor', 'actor')
+    .where('event.workspaceId = :workspaceId', { workspaceId })
+    .andWhere('event.entityType IN (:...entityTypes)', { entityTypes: HOUSEHOLD_ENTITY_TYPES });
+  if (month) {
+    const [year, monthNumber] = month.split('-').map(Number);
+    query
+      .andWhere('event.createdAt >= :monthStart', { monthStart: new Date(year, monthNumber - 1, 1) })
+      .andWhere('event.createdAt < :monthEnd', { monthEnd: new Date(year, monthNumber, 1) });
+  }
+  const rows = await query
+    .orderBy('event.createdAt', 'DESC')
+    .take(Math.min(Math.max(limit, 1), 100))
+    .getMany();
+  return rows.map(toActivityEntry);
 }

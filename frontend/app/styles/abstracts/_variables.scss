@@ -112,6 +112,9 @@ $seneca-font-size-base: 14px;
 $seneca-font-size-md:   15px;
 $seneca-font-size-lg:   16px;
 $seneca-font-size-xl:   18px;
+// A card's headline figure: never below an h3 unless it would not fit, never above the max.
+$seneca-font-size-figure-min: 28px;
+$seneca-font-size-figure-max: 48px;
 $seneca-font-weight-regular:  400;
 $seneca-font-weight-medium:   500;
 $seneca-font-weight-semibold: 600;

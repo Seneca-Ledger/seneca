@@ -10,6 +10,8 @@ const refresh = vi.hoisted(() => vi.fn());
 const effectivePeriod = vi.hoisted(() => ({ current: null as string | null }));
 
 const searchParams = vi.hoisted(() => ({ current: new URLSearchParams() }));
+/** The saved Overview arrangement: `undefined` while it loads, `null` when nothing was saved. */
+const savedLayout = vi.hoisted(() => ({ current: null as Record<string, unknown> | null | undefined }));
 
 // Reads the Review counts through React Query; its own test covers it.
 
@@ -46,6 +48,10 @@ vi.mock('@/app/components/ui/page-title', () => ({ PageTitle: () => null }));
 vi.mock('@/app/components/ui/snapshot-skeleton/SnapshotSkeleton', () => ({
   SnapshotSkeleton: ({ loading, children }: { loading: boolean; children?: React.ReactNode }) =>
     loading ? <div role="status" /> : children,
+}));
+
+vi.mock('@/app/components/dashboard/use-overview-layout-state', () => ({
+  useOverviewLayoutState: () => ({ state: savedLayout.current, save: vi.fn() }),
 }));
 
 vi.mock('@/app/components/dashboard/OverviewTab', () => ({
@@ -138,6 +144,20 @@ describe('DashboardPage', () => {
     replace.mockClear();
     searchParams.current = new URLSearchParams();
     effectivePeriod.current = null;
+    savedLayout.current = null;
+  });
+
+  it('keeps the skeleton until the saved arrangement is known, not the default one first', () => {
+    savedLayout.current = undefined;
+    const { rerender } = render(<DashboardPage />);
+
+    expect(screen.getByRole('status')).toBeInTheDocument();
+    expect(screen.queryByText('Overview tab')).not.toBeInTheDocument();
+
+    savedLayout.current = { overviewRows: [['net-worth']] };
+    rerender(<DashboardPage />);
+
+    expect(screen.getByText('Overview tab')).toBeInTheDocument();
   });
 
   it('is the Overview alone, with no tabs to switch', () => {

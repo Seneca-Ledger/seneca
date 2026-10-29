@@ -7,8 +7,9 @@ import { DashboardCard } from '@/app/components/dashboard/ui/DashboardCard';
 import { useHouseholdMembers } from '@/app/components/transactions/hooks/useWorkspaceMembers';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer, useLocale } from '@/app/i18n';
-import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import { formatStoredDateTime } from '@/app/lib/user-format-store';
+import { useOverviewMonth } from './overview-month';
 import { useIsWideSection } from './section-span';
 
 /**
@@ -20,7 +21,7 @@ const NARROW_ACTIVITY_LIMIT = 8;
 const ACTIVITY_STALE_TIME = 60 * 1000;
 
 /**
- * Who in the household moved what, lately.
+ * Who in the household moved what, lately, or in the Overview's month.
  *
  * Hidden for a workspace of one: with nobody else to have done it, every line
  * would read "you did this", which the rest of the dashboard already shows.
@@ -31,13 +32,16 @@ export function WorkspaceActivityCard(): React.JSX.Element | null {
   const t = useIntlayer('workspaceActivity');
   const { locale } = useLocale();
   const wide = useIsWideSection();
+  // On the Overview, only its month's moves, named in the subtitle.
+  const shown = useOverviewMonth();
+  const month = shown?.month;
 
   const { data } = useQuery({
-    queryKey: ['workspace-activity', workspaceId, ACTIVITY_LIMIT],
+    queryKey: ['workspace-activity', workspaceId, ACTIVITY_LIMIT, month ?? null],
     queryFn: ({ signal }) =>
       apiQueryDecoded({
         url: '/audit-events/activity',
-        params: { limit: ACTIVITY_LIMIT },
+        params: { limit: ACTIVITY_LIMIT, month } satisfies ContractInput<'WorkspaceActivityQuery'>,
         signal,
         contract: 'WorkspaceActivity',
       }),
@@ -53,7 +57,7 @@ export function WorkspaceActivityCard(): React.JSX.Element | null {
   const items = wide ? all : all.slice(0, NARROW_ACTIVITY_LIMIT);
 
   return (
-    <DashboardCard title={t.title.value}>
+    <DashboardCard title={t.title.value} subtitle={shown?.label}>
       {items.length === 0 ? (
         <p style={{ fontSize: 13, color: 'var(--muted-foreground)', margin: 0 }}>{t.empty.value}</p>
       ) : (

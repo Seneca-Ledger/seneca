@@ -152,8 +152,8 @@ export const queryKeys = {
     ['subscriptions', o.workspaceId, 'upcoming', o.days] as const,
   subscriptionsChargeCalendar: (o: { workspaceId: string | null; months: number }) =>
     ['subscriptions', o.workspaceId, 'charge-calendar', o.months] as const,
-  subscriptionsMonthStatus: (workspaceId: string | null) =>
-    ['subscriptions', workspaceId, 'month-status'] as const,
+  subscriptionsMonthStatus: (workspaceId: string | null, month: string) =>
+    ['subscriptions', workspaceId, 'month-status', month] as const,
   subscriptionDetail: (o: { workspaceId: string | null; id: string }) =>
     ['subscriptions', o.workspaceId, 'detail', o.id] as const,
   subscriptionChargeCandidates: (o: {

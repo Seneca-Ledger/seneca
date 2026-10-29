@@ -38,6 +38,7 @@ import {
   SubscriptionItem,
   SubscriptionList,
   SubscriptionMonthStatus,
+  SubscriptionMonthStatusQuery,
   SubscriptionParams,
   SubscriptionRecord,
   SubscriptionSummary,
@@ -85,8 +86,11 @@ export class SubscriptionsController {
   @Get('month-status')
   @WorkspaceAuth(Permission.SUBSCRIPTION_VIEW)
   @SchemaResponse(SubscriptionMonthStatus)
-  async getMonthStatus(@WorkspaceId() workspaceId: string) {
-    return this.subscriptionsService.getMonthStatus(workspaceId);
+  async getMonthStatus(
+    @WorkspaceId() workspaceId: string,
+    @SchemaQuery(SubscriptionMonthStatusQuery) { month }: SubscriptionMonthStatusQuery,
+  ) {
+    return this.subscriptionsService.getMonthStatus(workspaceId, month);
   }
 
   @Get('charge-candidates')

@@ -76,6 +76,21 @@ export const DEFAULT_OVERVIEW_ROWS: OverviewRows = [
   ['advice', 'month-close'],
 ];
 
+/**
+ * Sections that tell the present or the future (what is safe to spend, what
+ * charges next, what is owed, taxes, advice), whatever month is picked: in
+ * another month they stay in place, muted, under their "Today" note.
+ */
+const PRESENT_SECTION_IDS = new Set<string>([
+  'safe-to-spend',
+  'upcoming-charges',
+  'money-owed',
+  'taxes',
+  'advice',
+]);
+
+export const tellsThePresent = (id: string): boolean => PRESENT_SECTION_IDS.has(id);
+
 const KNOWN = new Set<string>(OVERVIEW_SECTION_IDS);
 const TILES = new Set<string>(TILE_SECTION_IDS);
 const OFF_BY_DEFAULT = new Set<string>(OFF_BY_DEFAULT_SECTION_IDS);

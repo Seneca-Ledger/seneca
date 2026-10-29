@@ -19,7 +19,9 @@ describe('KpiCard', () => {
     const { container } = render(
       <KpiCard label="Spent" value="$3,072" tone="negative" caption="excludes transfers" />,
     );
-    expect(screen.getByText('$3,072').className).toBe('seneca-dashboard__stat-value seneca-private');
+    expect(screen.getByText('$3,072').className).toBe(
+      'seneca-figure__value seneca-dashboard__stat-value seneca-private',
+    );
     expect(container.querySelector('.seneca-dashboard__stat-dot--negative')).not.toBeNull();
     expect(screen.getByText('excludes transfers')).toBeInTheDocument();
   });
@@ -80,8 +82,11 @@ describe('KpiCard', () => {
 
     expect(icon).not.toBeNull();
     expect(icon).toHaveAttribute('aria-hidden', 'true');
-    // First in the card, so the label and the figure stay the content read first.
-    expect(container.querySelector('.seneca-dashboard__stat')?.firstElementChild).toBe(icon);
+    // First in the card, so the label and the figure stay the content read first,
+    // and left out of the loading skeleton, where it would be a solid block.
+    const first = container.querySelector('.seneca-dashboard__stat')?.firstElementChild;
+    expect(first).toHaveAttribute('data-skeleton-skip');
+    expect(first?.firstElementChild).toBe(icon);
   });
 
   it('draws no icon unless given one', () => {

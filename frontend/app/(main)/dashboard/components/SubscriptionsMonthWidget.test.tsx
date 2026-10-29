@@ -2,6 +2,7 @@
 import { screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DonutSlice } from '@/app/components/charts/CategoryDonut';
+import { OverviewMonthProvider } from '@/app/components/dashboard/overview-month';
 import { renderWithQuery } from '@/app/test/query-wrapper';
 import { SubscriptionsMonthWidget } from './SubscriptionsMonthWidget';
 
@@ -65,10 +66,26 @@ const status = (overrides = {}) => ({
 });
 
 const money = (value: number) => `${value} €`;
+const MONTH = '2026-10';
 
 describe('SubscriptionsMonthWidget', () => {
   beforeEach(() => {
     apiGet.mockReset();
+  });
+
+  it('asks for the Overview’s month and names it under the title', async () => {
+    apiGet.mockResolvedValue({ data: status() });
+    renderWithQuery(
+      <OverviewMonthProvider value={MONTH}>
+        <SubscriptionsMonthWidget formatAmount={money} />
+      </OverviewMonthProvider>,
+    );
+
+    expect(await screen.findByText('October 2026')).toBeInTheDocument();
+    expect(apiGet).toHaveBeenCalledWith(
+      '/subscriptions/month-status',
+      expect.objectContaining({ params: { month: MONTH } }),
+    );
   });
 
   it('says on hover what each part is in the subscriptions’ own currencies', async () => {

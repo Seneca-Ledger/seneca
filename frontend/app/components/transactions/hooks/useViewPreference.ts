@@ -14,7 +14,7 @@ export type ViewScope = 'transactions' | 'review' | 'reports' | 'dashboard' | 'o
 const PREFERENCE_STALE_TIME = 30 * 60 * 1000;
 
 export interface UseViewPreferenceResult<T> {
-  /** `undefined` until the saved state has loaded; `null` when nothing was saved. */
+  /** `undefined` until the saved state has loaded; `null` when nothing was saved or it failed to load. */
   state: T | null | undefined;
   save: (next: T) => void;
 }
@@ -39,7 +39,7 @@ export function useViewPreference<T extends Record<string, unknown>>(
   // Written on every filter change; a ref keeps the latest without re-rendering.
   const pending = useRef<T | null>(null);
 
-  const { data } = useQuery({
+  const { data, isError } = useQuery({
     queryKey,
     queryFn: ({ signal }) =>
       apiQueryDecoded({
@@ -68,8 +68,15 @@ export function useViewPreference<T extends Record<string, unknown>>(
   );
 
   const state = useMemo(
-    () => (data === undefined ? undefined : data.state === null ? null : read(data.state)),
-    [data, read],
+    () =>
+      data === undefined
+        ? isError
+          ? null
+          : undefined
+        : data.state === null
+          ? null
+          : read(data.state),
+    [data, isError, read],
   );
 
   return { state, save };

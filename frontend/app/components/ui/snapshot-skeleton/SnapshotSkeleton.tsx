@@ -36,10 +36,14 @@ export function SnapshotSkeleton({
   const { skeletonRef, contentRef, snapshot } = useSkeletonSnapshot(id, loading, capture);
 
   if (loading) {
+    // Before the remembered layout is read (the server, hydration), an empty
+    // block of the sketch's height: a sketch of some other layout would show
+    // for a moment and then jump to the real one.
+    const sketch = fallbackSnapshot(fallback);
     return (
       <SkeletonBoxes
         ref={skeletonRef}
-        snapshot={snapshot ?? fallbackSnapshot(fallback)}
+        snapshot={snapshot === undefined ? { h: sketch.h, boxes: [] } : (snapshot ?? sketch)}
         label={t.loading.value}
         className={className}
       />

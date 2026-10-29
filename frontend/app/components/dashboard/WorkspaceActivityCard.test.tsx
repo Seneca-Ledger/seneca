@@ -2,6 +2,7 @@
 import { waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderWithQuery } from '@/app/test/query-wrapper';
+import { OverviewMonthProvider } from './overview-month';
 import { SectionSpanProvider } from './section-span';
 import { WorkspaceActivityCard } from './WorkspaceActivityCard';
 
@@ -49,6 +50,25 @@ describe('WorkspaceActivityCard', () => {
 
     await waitFor(() => expect(container.textContent).toContain('Partner'));
     expect(container.textContent).toContain('Changed: category');
+  });
+
+  it('on the Overview asks for its month only and names it under the title', async () => {
+    members.value = [{ memberId: 'm-1' }, { memberId: 'm-2' }];
+    apiGet.mockResolvedValue({ data: { items: [entry()] } });
+    const month = '2026-03';
+
+    const { container } = renderWithQuery(
+      <OverviewMonthProvider value={month}>
+        <WorkspaceActivityCard />
+      </OverviewMonthProvider>,
+    );
+
+    // The month's name in the reader's language, whatever it is in this test.
+    await waitFor(() => expect(container.textContent).toContain('2026'));
+    expect(apiGet).toHaveBeenCalledWith(
+      '/audit-events/activity',
+      expect.objectContaining({ params: expect.objectContaining({ month }) }),
+    );
   });
 
   it('says so when nothing has happened', async () => {
