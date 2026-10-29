@@ -76,7 +76,7 @@ export default async function RootLayout({
         <IntlayerServerProvider>
           <ThemeProvider
             attribute="class"
-            defaultTheme="dark"
+            defaultTheme="system"
             enableSystem
             disableTransitionOnChange
           >

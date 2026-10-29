@@ -409,14 +409,14 @@ const paletteByMode: Record<ThemeMode, ThemeOptions['palette']> = {
       contrastText: '#ffffff',
     },
     background: {
-      default: '#faf8f5',
-      paper: '#ffffff',
+      default: '#ebe7df',
+      paper: '#f3f0ea',
     },
     text: {
       primary: '#0b0b10',
       secondary: '#4a4a58',
     },
-    divider: '#ececef',
+    divider: '#e1dbd1',
   },
   dark: {
     mode: 'dark',
