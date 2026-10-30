@@ -76,8 +76,14 @@ const data: CashFlowMapData = {
     links: [{ source: 'total', target: 'cat:rent', value: 1000 }],
   },
   treemap: [
-    { id: 'rent', name: 'Rent', value: 1000, children: [] },
-    { id: 'food', name: 'Food', value: 400, children: [{ id: 'groceries', name: 'Groceries', value: 400 }] },
+    { id: 'rent', name: 'Rent', icon: null, value: 1000, children: [] },
+    {
+      id: 'food',
+      name: 'Food',
+      icon: null,
+      value: 400,
+      children: [{ id: 'groceries', name: 'Groceries', icon: null, value: 400 }],
+    },
   ],
 };
 
@@ -266,8 +272,8 @@ describe('CashFlowView in the reader\'s language', () => {
       ],
     },
     treemap: [
-      { id: 'rent', name: 'Rent', value: 1000, children: [] },
-      { id: 'ads', name: 'Advertising', value: 400, children: [] },
+      { id: 'rent', name: 'Rent', icon: null, value: 1000, children: [] },
+      { id: 'ads', name: 'Advertising', icon: null, value: 400, children: [] },
     ],
   };
 
