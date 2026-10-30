@@ -7,7 +7,12 @@ import { Statement, StatementStatus } from '../../entities/statement.entity';
 import { Transaction } from '../../entities/transaction.entity';
 import { Wallet } from '../../entities/wallet.entity';
 import { normalizeCurrencyCode } from '../exchange-rates/currency-converter';
-import { pickWalletForAccount, realAccountNumber } from './wallet-account-match';
+import { linkedSources, sourceOfStatement } from './linked-sources';
+import {
+  pickWalletBySource,
+  pickWalletForAccount,
+  realAccountNumber,
+} from './wallet-account-match';
 import { WalletsService } from './wallets.service';
 
 /** Statements whose rows are read and real; the same set the balance sheet trusts. */
@@ -51,7 +56,7 @@ export class WalletStatementsService {
    * bank account, so they are not offered.
    */
   async unlinked(workspaceId: string): Promise<AccountStatement[]> {
-    const [statements, wallets] = await Promise.all([
+    const [statements, wallets, linked] = await Promise.all([
       this.statementRepository
         .createQueryBuilder('statement')
         .where('statement.workspaceId = :workspaceId', { workspaceId })
@@ -67,14 +72,15 @@ export class WalletStatementsService {
         .addOrderBy('statement.createdAt', 'DESC')
         .getMany(),
       this.statementRepository.manager.getRepository(Wallet).find({ where: { workspaceId } }),
+      linkedSources(this.statementRepository.manager, workspaceId),
     ]);
 
-    return statements.map(statement =>
-      toAccountStatement(
-        statement,
-        pickWalletForAccount(wallets, statement.accountNumber, statement.currency)?.id ?? null,
-      ),
-    );
+    return statements.map(statement => {
+      const suggested = realAccountNumber(statement.accountNumber)
+        ? pickWalletForAccount(wallets, statement.accountNumber, statement.currency)
+        : pickWalletBySource(wallets, linked, sourceOfStatement(statement), statement.currency);
+      return toAccountStatement(statement, suggested?.id ?? null);
+    });
   }
 
   /** The statements an account holds, latest first. */

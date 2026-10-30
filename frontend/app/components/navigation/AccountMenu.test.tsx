@@ -23,13 +23,10 @@ vi.mock('./hooks/useThemePreference', () => ({
   useThemePreference: () => ({ handleThemePreferenceChange: vi.fn() }),
 }));
 vi.mock('@/app/i18n', () => ({
-  useIntlayer: (key: string) =>
-    key === 'adminPage'
-      ? { title: 'Admin panel' }
-      : {
-          userMenu: new Proxy({}, { get: (_target, name) => String(name) }),
-          nav: new Proxy({}, { get: (_target, name) => String(name) }),
-        },
+  useIntlayer: () => ({
+    userMenu: new Proxy({}, { get: (_target, name) => String(name) }),
+    nav: new Proxy({}, { get: (_target, name) => String(name) }),
+  }),
 }));
 
 afterEach(() => {
@@ -62,9 +59,9 @@ describe('AccountMenu', () => {
 
     const items = screen.getAllByRole('menuitem').map(item => item.textContent);
     expect(items).not.toContain('whatsNew');
-    expect(items.indexOf('Admin panel')).toBe(items.indexOf('settings') - 1);
+    expect(items.indexOf('admin')).toBe(items.indexOf('settings') - 1);
 
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Admin panel' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'admin' }));
     expect(push).toHaveBeenCalledWith('/admin');
   });
 
@@ -72,6 +69,6 @@ describe('AccountMenu', () => {
     render(<AccountMenu />);
     fireEvent.click(screen.getByRole('button', { name: /Administrator/ }));
 
-    expect(screen.queryByRole('menuitem', { name: 'Admin panel' })).toBeNull();
+    expect(screen.queryByRole('menuitem', { name: 'admin' })).toBeNull();
   });
 });

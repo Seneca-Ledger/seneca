@@ -255,6 +255,8 @@ export const StatementDetail = Schema.Struct({
   statementDateFrom: Schema.NullOr(DateOnly),
   statementDateTo: Schema.NullOr(DateOnly),
   categoryId: Schema.NullOr(Schema.String),
+  /** The account the statement belongs to, or null. */
+  walletId: Schema.NullOr(Schema.String),
   /** Free-form parser output; read leniently by the editor. */
   parsingDetails: Schema.NullOr(StatementParsingDetails),
   createdAt: Timestamp,

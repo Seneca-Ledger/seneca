@@ -19,6 +19,7 @@ import { ImportSessionMode } from '../../../entities/import-session.entity';
 import { BankName, FileType, Statement, StatementStatus } from '../../../entities/statement.entity';
 import { Transaction, TransactionType } from '../../../entities/transaction.entity';
 import { User } from '../../../entities/user.entity';
+import { countWithoutCategory } from '../../categories/uncategorized-category';
 import { extractTaxFromPurpose } from '../../classification/helpers/tax-extractor.util';
 import { ClassificationService } from '../../classification/services/classification.service';
 import { ImportSessionService } from '../../import/services/import-session.service';
@@ -818,9 +819,7 @@ export class StatementProcessingService {
           source: 'statement',
         } satisfies ImportCommittedEvent);
 
-        const uncategorizedCount = creationResult.transactions.filter(
-          transaction => !transaction.categoryId,
-        ).length;
+        const uncategorizedCount = countWithoutCategory(creationResult.transactions);
         if (uncategorizedCount > 0) {
           this.eventEmitter.emit('transactions.uncategorized', {
             workspaceId: statement.workspaceId,

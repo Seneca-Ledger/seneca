@@ -1,7 +1,9 @@
 import {
   normalizeAccountNumber,
+  pickWalletBySource,
   pickWalletForAccount,
   realAccountNumber,
+  statementSource,
 } from '@/modules/wallets/wallet-account-match';
 
 const statementNumber = 'DE00 1234 5678 0000 0001';
@@ -43,5 +45,47 @@ describe('wallet account matching', () => {
   it('leaves an ambiguous match to the user', () => {
     const wallets = [wallet('w1', '0001'), wallet('w2', '00000001')];
     expect(pickWalletForAccount(wallets, statementNumber, 'EUR')).toBeNull();
+  });
+
+  describe('by source, for statements with no number', () => {
+    const source = statementSource('other', 'ACME Bank', 'date amount memo');
+    const linked = (walletId: string, currency = 'EUR', from = source) => ({
+      walletId,
+      source: from,
+      currency,
+    });
+
+    it('names a source by its bank and preset, else its header, ignoring case', () => {
+      expect(source).toBe(statementSource('OTHER', 'acme bank', null));
+      expect(statementSource('other', null, 'Date Amount Memo')).toBe(
+        statementSource('other', '', 'date amount memo'),
+      );
+      expect(statementSource('other', null, '  ')).toBeNull();
+    });
+
+    it('takes the one account earlier statements of the source went to', () => {
+      const wallets = [wallet('w1', null), wallet('w2', null)];
+      expect(pickWalletBySource(wallets, [linked('w1'), linked('w1')], source, 'eur')?.id).toBe(
+        'w1',
+      );
+    });
+
+    it('leaves it to the user when the source feeds two accounts, or none fits', () => {
+      const wallets = [wallet('w1', null), wallet('w2', null)];
+      expect(pickWalletBySource(wallets, [linked('w1'), linked('w2')], source, 'EUR')).toBeNull();
+      expect(pickWalletBySource(wallets, [linked('w1', 'USD')], source, 'EUR')).toBeNull();
+      expect(
+        pickWalletBySource(
+          wallets,
+          [linked('w1', 'EUR', statementSource('other', 'Other', null))],
+          source,
+          'EUR',
+        ),
+      ).toBeNull();
+      expect(pickWalletBySource(wallets, [linked('w1')], null, 'EUR')).toBeNull();
+      expect(
+        pickWalletBySource([wallet('w1', null, 'EUR', false)], [linked('w1')], source, 'EUR'),
+      ).toBeNull();
+    });
   });
 });
