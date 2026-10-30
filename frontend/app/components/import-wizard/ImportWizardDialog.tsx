@@ -11,7 +11,6 @@ import {
   type TabularWorkbook,
 } from '@/app/(main)/custom-tables/[id]/utils/tabularFileReader';
 import { buildSourceColumnTitles } from '@/app/(main)/custom-tables/labels';
-import { Checkbox } from '@/app/components/ui/checkbox';
 import { ModalFooter, ModalShell } from '@/app/components/ui/modal-shell';
 import { Select } from '@/app/components/ui/select';
 import { SnapshotSkeleton } from '@/app/components/ui/snapshot-skeleton/SnapshotSkeleton';
@@ -45,6 +44,8 @@ import {
   prepareSheet,
   roleByColumn,
 } from './import-wizard-utils';
+import { TransactionImportOptions } from './TransactionImportOptions';
+import { useImportRequest } from './useImportRequest';
 import { useSavedMapping } from './useSavedMapping';
 
 const IGNORE = '__ignore__';
@@ -61,6 +62,8 @@ export interface ImportWizardDialogProps {
   /** When the wizard is opened from a section page the target is not a choice. */
   fixedTarget?: ImportTarget;
   onImported?: (result: ImportRunResult) => void;
+  /** Opened from an account: its rows go there, in its currency. */
+  account?: { id: string; currency: string };
 }
 
 type Step = 'reading' | 'mapping' | 'result';
@@ -86,7 +89,8 @@ export function ImportWizardDialog(props: ImportWizardDialogProps): React.JSX.El
   const [suggestion, setSuggestion] = useState<ImportSuggestion | null>(null);
   const [target, setTarget] = useState<ImportTarget>(fixedTarget ?? 'transactions');
   const [mapping, setMapping] = useState<Record<string, number>>({});
-  const [currency, setCurrency] = useState(workspaceCurrency);
+  const [currency, setCurrency] = useState(props.account?.currency ?? workspaceCurrency);
+  const [walletId, setWalletId] = useState(props.account?.id ?? '');
   const [categorize, setCategorize] = useState(true);
   const [dryRun, setDryRun] = useState<ImportRunResult | null>(null);
   const [dryRunPending, setDryRunPending] = useState(false);
@@ -206,9 +210,15 @@ export function ImportWizardDialog(props: ImportWizardDialogProps): React.JSX.El
 
   const missing = useMemo(() => missingRequiredFields(target, mapping), [target, mapping]);
 
+  const request = useImportRequest(sheet, target, mapping, fileName ?? file?.name, {
+    currency,
+    categorize,
+    walletId,
+  });
+
   // A dry run after every mapping change shows what the import would do before it does it.
   useEffect(() => {
-    if (step !== 'mapping' || !sheet || missing.length) {
+    if (step !== 'mapping' || !request || missing.length) {
       setDryRun(null);
       return;
     }
@@ -216,14 +226,7 @@ export function ImportWizardDialog(props: ImportWizardDialogProps): React.JSX.El
     setDryRunPending(true);
     const timer = setTimeout(async () => {
       try {
-        const preview = await runEntityImport({
-          target,
-          mapping,
-          rows: sheet.rows,
-          fileName: fileName ?? file?.name,
-          dryRun: true,
-          options: { currency, categorize },
-        });
+        const preview = await runEntityImport({ ...request, dryRun: true });
         if (version === requestVersion.current) {
           setDryRun(preview);
         }
@@ -238,21 +241,15 @@ export function ImportWizardDialog(props: ImportWizardDialogProps): React.JSX.El
       }
     }, DRY_RUN_DEBOUNCE_MS);
     return () => clearTimeout(timer);
-  }, [step, sheet, target, mapping, missing.length, currency, categorize, fileName, file]);
+  }, [step, request, missing.length]);
 
   const runImport = async () => {
-    if (!sheet || missing.length) {
+    if (!(sheet && request) || missing.length) {
       return;
     }
     setRunning(true);
     try {
-      const imported = await runEntityImport({
-        target,
-        mapping,
-        rows: sheet.rows,
-        fileName: fileName ?? file?.name,
-        options: { currency, categorize },
-      });
+      const imported = await runEntityImport(request);
       setResult(imported);
       setStep('result');
       onImported?.(imported);
@@ -460,10 +457,13 @@ export function ImportWizardDialog(props: ImportWizardDialogProps): React.JSX.El
             </table>
 
             {target === 'transactions' && (
-              <div className="seneca-iw__check">
-                <Checkbox checked={categorize} onCheckedChange={setCategorize} />
-                <span>{t.categorize}</span>
-              </div>
+              <TransactionImportOptions
+                categorize={categorize}
+                onCategorizeChange={setCategorize}
+                walletId={walletId}
+                onWalletChange={setWalletId}
+                onCurrencyChange={setCurrency}
+              />
             )}
 
             {missing.length > 0 ? (
