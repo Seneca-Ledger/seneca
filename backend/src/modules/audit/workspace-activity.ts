@@ -87,7 +87,9 @@ export async function queryWorkspaceActivity(
   if (month) {
     const [year, monthNumber] = month.split('-').map(Number);
     query
-      .andWhere('event.createdAt >= :monthStart', { monthStart: new Date(year, monthNumber - 1, 1) })
+      .andWhere('event.createdAt >= :monthStart', {
+        monthStart: new Date(year, monthNumber - 1, 1),
+      })
       .andWhere('event.createdAt < :monthEnd', { monthEnd: new Date(year, monthNumber, 1) });
   }
   const rows = await query
