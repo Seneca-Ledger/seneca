@@ -85,6 +85,12 @@ export const ForecastResponse = Schema.Struct({
   monthlyIncome: Schema.Number,
   monthlyExpense: Schema.Number,
   monthsObserved: Schema.Number,
+  /**
+   * Why the projection may be off: fewer full months of history than the
+   * averages want, no everyday spending left beyond the subscriptions, or an
+   * opening balance summed from rows because no account holds a real one.
+   */
+  caveats: Schema.Array(Schema.Literals(['shortHistory', 'noEverydaySpending', 'derivedBalance'])),
   recurringIncome: Schema.Array(ForecastRecurringIncome),
   /** Payables without a due date: owed, but not placeable on the curve. */
   unscheduledCommitted: Schema.Number,

@@ -45,6 +45,7 @@ const data: ForecastData = {
   monthlyIncome: 2000,
   monthlyExpense: 1700,
   monthsObserved: 3,
+  caveats: [],
   unscheduledCommitted: 0,
   recurringIncome: [],
 };
@@ -119,6 +120,23 @@ describe('ForecastContent', () => {
     expect(screen.getByText(/other income beyond regular paydays/)).toHaveTextContent(
       /\$450 a month of other income beyond regular paydays/,
     );
+  });
+
+  it('says the forecast is rough and why when what it stands on is thin', () => {
+    setState({ caveats: ['shortHistory', 'noEverydaySpending', 'derivedBalance'], monthsObserved: 1 });
+    render(<ForecastContent />);
+
+    expect(screen.getByRole('note')).toHaveTextContent('A rough estimate');
+    expect(screen.getByText(/Only 1 of the last 3 months have data/)).toBeInTheDocument();
+    expect(screen.getByText(/no everyday spending beyond subscriptions/)).toBeInTheDocument();
+    expect(screen.getByText(/not read from an account/)).toBeInTheDocument();
+  });
+
+  it('says nothing about reliability when the forecast has no caveats', () => {
+    setState();
+    render(<ForecastContent />);
+
+    expect(screen.queryByRole('note')).not.toBeInTheDocument();
   });
 
   it('says overdue bills are counted as paid today', () => {

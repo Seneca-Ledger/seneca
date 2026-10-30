@@ -17,6 +17,18 @@ export async function sumConverted(
   return total;
 }
 
+/** Whether the workspace has an active account, so balances are read rather than summed. */
+export async function hasActiveAccounts(
+  transactionRepo: Repository<Transaction>,
+  workspaceId: string,
+): Promise<boolean> {
+  const [{ count }] = await transactionRepo.query(
+    'SELECT COUNT(*)::int AS count FROM wallets WHERE workspace_id = $1 AND is_active',
+    [workspaceId],
+  );
+  return count > 0;
+}
+
 /**
  * The money there is today. With accounts, what the everyday ones hold minus
  * what the cards owe (savings and deposits are not for spending), plus the
@@ -34,11 +46,7 @@ export async function spendableBalance(
     allTime: () => Promise<number>;
   },
 ): Promise<number> {
-  const [{ count }] = await transactionRepo.query(
-    'SELECT COUNT(*)::int AS count FROM wallets WHERE workspace_id = $1 AND is_active',
-    [workspaceId],
-  );
-  if (count === 0) {
+  if (!(await hasActiveAccounts(transactionRepo, workspaceId))) {
     return allTime();
   }
 
