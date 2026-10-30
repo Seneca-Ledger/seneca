@@ -9,41 +9,37 @@ import { TransactionRow } from './TransactionRow';
 const base: Transaction = {
   id: 'tx-1',
   transactionDate: '2026-01-28',
-  counterpartyName: 'N26 Business',
-  paymentPurpose: 'Business You account fee',
+  counterpartyName: 'Example Bank',
+  paymentPurpose: 'Monthly account fee',
   debit: 9.9,
   credit: 0,
   transactionType: 'expense',
   category: { id: 'c-1', name: 'Bank fees' },
 };
 
-const renderRow = (transaction: Transaction, onDelete = vi.fn(async () => undefined)) =>
+const renderRow = (
+  transaction: Transaction,
+  onDelete = vi.fn(async () => undefined),
+  onCategoryClick = vi.fn(),
+) =>
   render(
     <Table>
       <TableBody>
         <TransactionRow
           transaction={transaction}
-          isEditing={false}
-          edited={{}}
           selectedRows={new Set()}
-          categories={[]}
-          branches={[]}
-          wallets={[]}
           locale="en"
           formatNumber={value => (value ?? 0).toFixed(2)}
           confirmDeleteLabel="Delete transaction?"
           deleteLabel="Delete"
           moreActionsLabel="More actions"
           cancelLabel="Cancel"
-          notSelectedLabel="Not selected"
           noCategoryLabel="No category"
           assignCategoryLabel="Assign category"
+          suggestedLabel="Suggested"
           onRowSelect={vi.fn()}
-          onEdit={vi.fn()}
-          onSave={vi.fn()}
-          onCancel={vi.fn()}
+          onCategoryClick={onCategoryClick}
           onDelete={onDelete}
-          onFieldChange={vi.fn()}
         />
       </TableBody>
     </Table>,
@@ -67,6 +63,32 @@ describe('TransactionRow', () => {
 
     renderRow({ ...base, category: undefined });
     expect(screen.getByText('No category')).toBeInTheDocument();
+  });
+
+  it('opens the category drawer from a click on the category, with no edit mode', () => {
+    const onCategoryClick = vi.fn();
+    renderRow({ ...base, category: undefined }, undefined, onCategoryClick);
+
+    fireEvent.click(screen.getByRole('button', { name: 'No category' }));
+    expect(onCategoryClick).toHaveBeenCalledWith(expect.objectContaining({ id: base.id }));
+    expect(screen.queryByRole('textbox')).toBeNull();
+  });
+
+  it('marks a suggested category until the row is confirmed', () => {
+    const suggested: Transaction = { ...base, isVerified: false, categorySource: 'kind' };
+    const { unmount } = renderRow(suggested);
+    expect(screen.getByRole('button', { name: `Suggested: ${base.category?.name}` })).toBeTruthy();
+    unmount();
+
+    renderRow({ ...suggested, isVerified: true });
+    expect(screen.queryByRole('button', { name: /^Suggested/ })).toBeNull();
+    expect(screen.getByRole('button', { name: base.category?.name })).toBeTruthy();
+  });
+
+  it('keeps what the bank printed as text: no field to retype it', () => {
+    renderRow(base);
+    fireEvent.click(screen.getByText(base.counterpartyName));
+    expect(screen.queryByRole('textbox')).toBeNull();
   });
 
   it('deletes only from the menu, after a confirmation', () => {

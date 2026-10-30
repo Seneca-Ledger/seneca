@@ -4034,8 +4034,8 @@
   }
 }
 
-// Statement edit table: edit/delete stay out of sight until their row is
-// hovered or holds focus, so 15+ rows don't repeat two icons down the edge.
+// Statement edit table: the "…" menu stays out of sight until its row is
+// hovered or holds focus, so 15+ rows don't repeat an icon down the edge.
 // Touch screens have no hover, so there they stay visible.
 .seneca-stmt-edit-table {
   @media (hover: hover) {
@@ -4050,12 +4050,19 @@
     }
   }
 
-  // The category reads as text; on the row under the pointer it gets a light
-  // frame, the sign it can be changed.
-  .MuiTableRow-root:hover .seneca-stmt-edit-table__category {
+  // The category reads as text; on the row under the pointer (or with keyboard
+  // focus) it gets a light frame, the sign a click changes it.
+  .MuiTableRow-root:hover .seneca-stmt-edit-table__category,
+  .seneca-stmt-edit-table__category.Mui-focusVisible {
     border-color: var(--border);
     background: var(--card-bg);
   }
+}
+
+// A category the import only suggested: dashed until a person confirms the row.
+.seneca-suggested-category {
+  color: var(--text-muted);
+  border-bottom: 1px dashed var(--border);
 }
 
 // "Transactions: 24 ▾" beside the date of a multi-row statement. Sits above the

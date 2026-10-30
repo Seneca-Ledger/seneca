@@ -92,6 +92,12 @@ export const ClassifyTransactionParams = Schema.Struct({
 });
 export type ClassifyTransactionParams = Wire<typeof ClassifyTransactionParams>;
 
+/** `POST /classification/statements/:id/suggestions`. */
+export const StatementSuggestionsParams = Schema.Struct({
+  id: Schema.String.check(Schema.isUUID()),
+});
+export type StatementSuggestionsParams = Wire<typeof StatementSuggestionsParams>;
+
 /** `/categorization-rules/:id`. */
 export const CategorizationRuleParams = Schema.Struct({
   id: Schema.String.check(Schema.isUUID()),

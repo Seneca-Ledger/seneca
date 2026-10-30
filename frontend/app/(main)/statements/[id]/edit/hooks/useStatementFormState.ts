@@ -1,11 +1,6 @@
 import { useRef, useState } from 'react';
-import type {
-  BranchOption,
-  CategoryOption,
-  Statement,
-  Transaction,
-  WalletOption,
-} from '../editHelpers';
+import type { CategoryOption, Statement, Transaction } from '../editHelpers';
+import type { CategoryTarget } from './category-target';
 
 type MetaForm = {
   balanceStart: string;
@@ -31,24 +26,14 @@ export type StatementFormStateResult = {
   setSuccess: React.Dispatch<React.SetStateAction<boolean>>;
   selectedRows: Set<string>;
   setSelectedRows: React.Dispatch<React.SetStateAction<Set<string>>>;
-  editingRow: string | null;
-  setEditingRow: React.Dispatch<React.SetStateAction<string | null>>;
-  editedData: Record<string, Partial<Transaction>>;
-  setEditedData: React.Dispatch<React.SetStateAction<Record<string, Partial<Transaction>>>>;
   categories: CategoryOption[];
   setCategories: React.Dispatch<React.SetStateAction<CategoryOption[]>>;
-  branches: BranchOption[];
-  setBranches: React.Dispatch<React.SetStateAction<BranchOption[]>>;
-  wallets: WalletOption[];
-  setWallets: React.Dispatch<React.SetStateAction<WalletOption[]>>;
   optionsLoading: boolean;
   setOptionsLoading: React.Dispatch<React.SetStateAction<boolean>>;
   bulkCategoryDialogOpen: boolean;
   setBulkCategoryDialogOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  statementCategoryDrawerOpen: boolean;
-  setStatementCategoryDrawerOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  statementCategorySaving: boolean;
-  setStatementCategorySaving: React.Dispatch<React.SetStateAction<boolean>>;
+  categoryTarget: CategoryTarget | null;
+  setCategoryTarget: React.Dispatch<React.SetStateAction<CategoryTarget | null>>;
   bulkCategoryId: string;
   setBulkCategoryId: React.Dispatch<React.SetStateAction<string>>;
   metadataForm: MetaForm;
@@ -70,15 +55,11 @@ export function useStatementFormState(): StatementFormStateResult {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
-  const [editingRow, setEditingRow] = useState<string | null>(null);
-  const [editedData, setEditedData] = useState<Record<string, Partial<Transaction>>>({});
   const [categories, setCategories] = useState<CategoryOption[]>([]);
-  const [branches, setBranches] = useState<BranchOption[]>([]);
-  const [wallets, setWallets] = useState<WalletOption[]>([]);
   const [optionsLoading, setOptionsLoading] = useState(false);
   const [bulkCategoryDialogOpen, setBulkCategoryDialogOpen] = useState(false);
-  const [statementCategoryDrawerOpen, setStatementCategoryDrawerOpen] = useState(false);
-  const [statementCategorySaving, setStatementCategorySaving] = useState(false);
+  // The rows a category chip opened the drawer for; null while it serves the selection.
+  const [categoryTarget, setCategoryTarget] = useState<CategoryTarget | null>(null);
   const [bulkCategoryId, setBulkCategoryId] = useState('');
   const [metadataForm, setMetadataForm] = useState({
     balanceStart: '',
@@ -108,24 +89,14 @@ export function useStatementFormState(): StatementFormStateResult {
     setSuccess,
     selectedRows,
     setSelectedRows,
-    editingRow,
-    setEditingRow,
-    editedData,
-    setEditedData,
     categories,
     setCategories,
-    branches,
-    setBranches,
-    wallets,
-    setWallets,
     optionsLoading,
     setOptionsLoading,
     bulkCategoryDialogOpen,
     setBulkCategoryDialogOpen,
-    statementCategoryDrawerOpen,
-    setStatementCategoryDrawerOpen,
-    statementCategorySaving,
-    setStatementCategorySaving,
+    categoryTarget,
+    setCategoryTarget,
     bulkCategoryId,
     setBulkCategoryId,
     metadataForm,

@@ -16,6 +16,7 @@ import {
   TransferPairSource,
 } from '../../../entities/transaction.entity';
 import { ExchangeRatesService } from '../../exchange-rates/exchange-rates.service';
+import { writeTransferPairs } from './transfer-pair-writer';
 import {
   absAmount,
   accountKey,
@@ -104,32 +105,12 @@ export class TransferPairingService {
     return matchTransferPairs(toCheck, pool, this.lookupRateIn(workspaceId));
   }
 
-  /**
-   * Writes the pairs. Each one only lands if both legs are still unpaired, so
-   * two overlapping runs (an import and a manual detect) cannot cross-link rows.
-   */
-  async apply(
+  /** Writes the pairs; see writeTransferPairs. */
+  apply(
     pairs: Array<{ outgoing: { id: string }; incoming: { id: string } }>,
     source: TransferPairSource = TransferPairSource.AUTO,
   ): Promise<number> {
-    let applied = 0;
-    for (const pair of pairs) {
-      const transferPairId = randomUUID();
-      const result = await this.transactionRepository.update(
-        { id: In([pair.outgoing.id, pair.incoming.id]), transferPairId: IsNull() },
-        { transferPairId, transferPairSource: source },
-      );
-      if (result.affected === 2) {
-        applied += 1;
-        continue;
-      }
-      // Lost the race on one leg: a half-written pair would hide a single row.
-      await this.transactionRepository.update(
-        { transferPairId },
-        { transferPairId: null, transferPairSource: null },
-      );
-    }
-    return applied;
+    return writeTransferPairs(this.transactionRepository, pairs, source);
   }
 
   async detectAndApply(workspaceId: string, statementId?: string): Promise<TransferPairingResult> {

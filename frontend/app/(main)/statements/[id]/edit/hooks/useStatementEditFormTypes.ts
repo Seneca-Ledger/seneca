@@ -1,10 +1,5 @@
-import type {
-  BranchOption,
-  CategoryOption,
-  Statement,
-  Transaction,
-  WalletOption,
-} from '../editHelpers';
+import type { CategoryOption, Statement, Transaction } from '../editHelpers';
+import type { CategoryTarget } from './category-target';
 
 type MetaForm = {
   balanceStart: string;
@@ -28,16 +23,11 @@ export interface UseStatementEditFormReturn {
   setSuccess: React.Dispatch<React.SetStateAction<boolean>>;
   selectedRows: Set<string>;
   setSelectedRows: React.Dispatch<React.SetStateAction<Set<string>>>;
-  editingRow: string | null;
-  editedData: Record<string, Partial<Transaction>>;
   categories: CategoryOption[];
-  branches: BranchOption[];
-  wallets: WalletOption[];
   bulkCategoryDialogOpen: boolean;
   setBulkCategoryDialogOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  statementCategoryDrawerOpen: boolean;
-  setStatementCategoryDrawerOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  statementCategorySaving: boolean;
+  /** The rows the category drawer is open for; null when it serves the selection. */
+  categoryTarget: CategoryTarget | null;
   bulkCategoryId: string;
   setBulkCategoryId: React.Dispatch<React.SetStateAction<string>>;
   metadataForm: MetaForm;
@@ -52,14 +42,6 @@ export interface UseStatementEditFormReturn {
   handleExportToCustomTable: () => Promise<void>;
   handleRowSelect: (id: string) => void;
   handleSelectAll: () => void;
-  handleEdit: (transaction: Transaction) => void;
-  handleFieldChange: (
-    transactionId: string,
-    field: keyof Transaction,
-    value: Transaction[keyof Transaction],
-  ) => void;
-  handleSave: (transactionId: string) => Promise<void>;
-  handleCancel: () => void;
   handleMetadataChange: (field: string, value: string) => void;
   handleResolveParsingWarning: (warning: string) => void;
   handleConvertDroppedSample: (
@@ -68,10 +50,13 @@ export interface UseStatementEditFormReturn {
     warning?: string,
   ) => Promise<void>;
   handleDelete: (transactionId: string) => Promise<void>;
-  handleBulkUpdate: () => Promise<void>;
   handleBulkDelete: (confirmMessage: string) => Promise<void>;
   handleOpenBulkCategory: () => void;
-  /** Applies `categoryId` (picked in the drawer) to every selected row. */
-  handleApplyBulkCategory: (categoryId: string) => Promise<void>;
-  handleStatementCategorySelect: (categoryId: string) => Promise<void>;
+  /** Opens the category drawer for one row, from a click on its category. */
+  handleOpenRowCategory: (transaction: Transaction) => void;
+  /** Opens the category drawer for a set of rows: one payee's, or all still to file. */
+  handleOpenRowsCategory: (rows: Transaction[]) => void;
+  handleCloseCategory: () => void;
+  /** Applies `categoryId` (picked in the drawer) to its rows, or to every selected row. */
+  handleApplyCategory: (categoryId: string) => Promise<void>;
 }

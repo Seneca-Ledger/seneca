@@ -57,7 +57,7 @@ describe('CategoryIconBadge', () => {
 
   it('shows the generic tag for unknown categories and the more glyph for Other', () => {
     const { getByTestId, rerender } = render(
-      <CategoryIconBadge name="Groceries" color={null} icon={null} />,
+      <CategoryIconBadge name="Model Trains" color={null} icon={null} />,
     );
     expect(getByTestId('icon-tag')).toBeInTheDocument();
     rerender(<CategoryIconBadge name="Other" color="#898781" icon={null} isOther />);

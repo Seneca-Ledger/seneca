@@ -93,6 +93,31 @@ describe('payeeKeyOf', () => {
     });
   });
 
+  describe('a descriptor that only names the kind of operation', () => {
+    it.each([
+      'POS Purchase',
+      'Direct Debit',
+      'MOBILE Transfer',
+      'MOBILE Interac e-Transfer Sent',
+      'ABM Network Fee',
+      'Withdrawal Interac',
+      'Loan Payment Transfer',
+      'Покупка',
+    ])('makes no payee of "%s"', descriptor => {
+      expect(payeeKeyOf({ counterpartyName: descriptor, paymentPurpose: descriptor })).toBeNull();
+    });
+
+    it('keeps the merchant the bank printed after the kind', () => {
+      expect(payeeKeyOf({ counterpartyName: 'POS Purchase ACME MARKET' })).toBe(
+        'pos purchase acme market',
+      );
+    });
+
+    it('keeps a business whose name holds an operation word', () => {
+      expect(payeeKeyOf({ counterpartyName: 'Example Insurance AG' })).toBe('example insurance ag');
+    });
+  });
+
   it('is stable across the casing and spacing a bank happens to use', () => {
     const variants = ['EDEKA CITY MARKT', 'Edeka City Markt', 'edeka  city   markt'];
     const keys = new Set(variants.map(name => payeeKeyOf({ counterpartyName: name })));

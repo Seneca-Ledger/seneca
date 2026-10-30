@@ -2,6 +2,7 @@
 
 import * as Schema from 'effect/Schema';
 import { Timestamp, type Wire } from '../common/wire';
+import { TransactionCategorySource } from '../transactions/transaction-list';
 
 /** A write that answers with a sentence for the person: email and password changes. */
 export const MessageResult = Schema.Struct({ message: Schema.String });
@@ -64,9 +65,7 @@ export const TransactionPayeeResult = Schema.Struct({
   id: Schema.String,
   payee: Schema.Struct({ id: Schema.String, name: Schema.String }),
   categoryId: Schema.NullOr(Schema.String),
-  categorySource: Schema.NullOr(
-    Schema.Literals(['manual', 'rule', 'keyword', 'learned', 'history', 'ai', 'default']),
-  ),
+  categorySource: Schema.NullOr(TransactionCategorySource),
 });
 export type TransactionPayeeResult = Wire<typeof TransactionPayeeResult>;
 

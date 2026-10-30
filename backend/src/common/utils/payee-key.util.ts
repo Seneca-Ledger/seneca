@@ -80,6 +80,81 @@ const DOCUMENT_WORDS = new Set([
   'номер',
 ]);
 
+/**
+ * Words that name the kind of operation rather than who got the money. Some
+ * banks print nothing else ("POS Purchase", "Direct Debit", "MOBILE Transfer",
+ * "ABM Network Fee"): a key made only of these would make one payee of every
+ * shop paid by card, and teaching it a category would file them all alike.
+ * Such a descriptor has no key, so no payee and no history.
+ */
+const OPERATION_WORDS = new Set([
+  'pos',
+  'purchase',
+  'purchases',
+  'debit',
+  'credit',
+  'card',
+  'direct',
+  'deposit',
+  'deposits',
+  'withdrawal',
+  'withdrawals',
+  'interac',
+  'mobile',
+  'online',
+  'internet',
+  'banking',
+  'transfer',
+  'transfers',
+  'sent',
+  'received',
+  'e',
+  'etransfer',
+  'bills',
+  'payments',
+  'loan',
+  'abm',
+  'atm',
+  'cheque',
+  'check',
+  'preauthorized',
+  'pre',
+  'authorized',
+  'ach',
+  'eft',
+  'wire',
+  'incoming',
+  'outgoing',
+  'cash',
+  'network',
+  'fee',
+  'fees',
+  'service',
+  'charge',
+  'charges',
+  'refund',
+  'monthly',
+  'maintenance',
+  'insurance',
+  'premium',
+  'recurring',
+  'contactless',
+  'kartenzahlung',
+  'lastschrift',
+  'uberweisung',
+  'dauerauftrag',
+  'gutschrift',
+  'покупка',
+  'оплата',
+  'перевод',
+  'пополнение',
+  'снятие',
+  'наличных',
+  'платеж',
+  'зачисление',
+  'списание',
+]);
+
 const stripDiacritics = (value: string): string =>
   value.normalize('NFKD').replace(/\p{Diacritic}/gu, '');
 
@@ -120,13 +195,16 @@ const keyOf = (value: string | null | undefined): string | null => {
     .split(/[^\p{L}\p{N}]+/u)
     .filter(token => token && !isReference(token));
 
-  return tokens.some(token => !DOCUMENT_WORDS.has(token)) ? tokens.join(' ') : null;
+  return tokens.some(token => !(DOCUMENT_WORDS.has(token) || OPERATION_WORDS.has(token)))
+    ? tokens.join(' ')
+    : null;
 };
 
 /**
  * The payee key, or `null` when the descriptor holds no name to key on. The
  * payment purpose is only read when the counterparty names nobody: missing, a
- * parser placeholder, or only document words like "Invoice number 2955".
+ * parser placeholder, or only document or operation words like "Invoice
+ * number 2955" or "POS Purchase".
  */
 export function payeeKeyOf({ counterpartyName, paymentPurpose }: PayeeKeyInput): string | null {
   return keyOf(counterpartyName) ?? keyOf(paymentPurpose);

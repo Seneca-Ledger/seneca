@@ -1,0 +1,128 @@
+{"counterpartyName": "UPI/P2A/534439589175/MEMBER ONE/Paytm Pay/Payment", "paymentPurpose": "UPI/P2A/534439589175/MEMBER ONE/Paytm Pay/Payment", "type": "expense", "expectKey": "transfers_people", "note": "upi p2a"}
+{"counterpartyName": "MEMBER TWO", "paymentPurpose": "UPI/P2A/205380810795/MEMBER TWO/GPay/Payment", "type": "expense", "expectKey": "transfers_people", "note": "upi p2a"}
+{"counterpartyName": "UPI/P2A/162632597597/MEMBER THR/Payment/Payment", "paymentPurpose": "UPI/P2A/162632597597/MEMBER THR/Payment/Payment", "type": "expense", "expectKey": "transfers_people", "note": "upi p2a"}
+{"counterpartyName": "ANU RAO K", "paymentPurpose": "UPI/P2A/139576827340/ANU RAO K/Paytm Pay/Payment", "type": "expense", "expectKey": "transfers_people", "note": "upi p2a"}
+{"counterpartyName": "UPI/P2A/561423994714/RAVI KUMAR/Paytm Pay/Payment", "paymentPurpose": "UPI/P2A/561423994714/RAVI KUMAR/Paytm Pay/Payment", "type": "expense", "expectKey": "transfers_people", "note": "upi p2a"}
+{"counterpartyName": "SITA DEVI", "paymentPurpose": "UPI/P2A/199817887524/SITA DEVI/Payment/Payment", "type": "expense", "expectKey": "transfers_people", "note": "upi p2a"}
+{"counterpartyName": "UPI/P2A/166247805478/ARJUN MEHRA/Payment/Payment", "paymentPurpose": "UPI/P2A/166247805478/ARJUN MEHRA/Payment/Payment", "type": "expense", "expectKey": "transfers_people", "note": "upi p2a"}
+{"counterpartyName": "NEHA SHARMA", "paymentPurpose": "UPI/P2A/792448538713/NEHA SHARMA/Payment/Payment", "type": "expense", "expectKey": "transfers_people", "note": "upi p2a"}
+{"counterpartyName": "UPI/P2A/168494888361/PRIYA NAIR/Payment/Payment", "paymentPurpose": "UPI/P2A/168494888361/PRIYA NAIR/Payment/Payment", "type": "expense", "expectKey": "transfers_people", "note": "upi p2a"}
+{"counterpartyName": "KIRAN BOSE", "paymentPurpose": "UPI/P2A/536306578165/KIRAN BOSE/Paytm Pay/Payment", "type": "expense", "expectKey": "transfers_people", "note": "upi p2a"}
+{"counterpartyName": "UPI/P2A/344711152332/MEERA IYER/Paytm Pay/Payment", "paymentPurpose": "UPI/P2A/344711152332/MEERA IYER/Paytm Pay/Payment", "type": "expense", "expectKey": "transfers_people", "note": "upi p2a"}
+{"counterpartyName": "VIKRAM SINGH", "paymentPurpose": "UPI/P2A/418399561389/VIKRAM SINGH/BHIM/Payment", "type": "expense", "expectKey": "transfers_people", "note": "upi p2a"}
+{"counterpartyName": "UPI/P2A/693325057700/DEV PATEL/Paytm Pay/Payment", "paymentPurpose": "UPI/P2A/693325057700/DEV PATEL/Paytm Pay/Payment", "type": "expense", "expectKey": "transfers_people", "note": "upi p2a"}
+{"counterpartyName": "ASHA VERMA", "paymentPurpose": "UPI/P2A/437459504728/ASHA VERMA/Payment/Payment", "type": "expense", "expectKey": "transfers_people", "note": "upi p2a"}
+{"counterpartyName": "UPI/P2A/850829545519/RAHUL DAS/PhonePe/Payment", "paymentPurpose": "UPI/P2A/850829545519/RAHUL DAS/PhonePe/Payment", "type": "expense", "expectKey": "transfers_people", "note": "upi p2a"}
+{"counterpartyName": "ANITA GHOSH", "paymentPurpose": "UPI/P2A/736097780706/ANITA GHOSH/Payment/Payment", "type": "expense", "expectKey": "transfers_people", "note": "upi p2a"}
+{"counterpartyName": "RTGS/MB/EXMB3521562201/MEMBER ONE/P", "paymentPurpose": "RTGS/MB/EXMB3521562201/MEMBER ONE/P", "type": "expense", "expectKey": "transfers_people", "note": "neft person"}
+{"counterpartyName": "IMPS/MB/EXMB2307691001/MEMBER TWO/P", "paymentPurpose": "IMPS/MB/EXMB2307691001/MEMBER TWO/P", "type": "expense", "expectKey": "transfers_people", "note": "neft person"}
+{"counterpartyName": "RTGS/MB/EXMB1842739301/MEMBER THR/P", "paymentPurpose": "RTGS/MB/EXMB1842739301/MEMBER THR/P", "type": "expense", "expectKey": "transfers_people", "note": "neft person"}
+{"counterpartyName": "RTGS/MB/EXMB1799953301/ANU RAO K/P", "paymentPurpose": "RTGS/MB/EXMB1799953301/ANU RAO K/P", "type": "expense", "expectKey": "transfers_people", "note": "neft person"}
+{"counterpartyName": "RTGS/MB/EXMB3764331001/RAVI KUMAR/P", "paymentPurpose": "RTGS/MB/EXMB3764331001/RAVI KUMAR/P", "type": "expense", "expectKey": "transfers_people", "note": "neft person"}
+{"counterpartyName": "IMPS/MB/EXMB8136628301/SITA DEVI/P", "paymentPurpose": "IMPS/MB/EXMB8136628301/SITA DEVI/P", "type": "expense", "expectKey": "transfers_people", "note": "neft person"}
+{"counterpartyName": "IMPS/MB/EXMB5216411901/ARJUN MEHRA/P", "paymentPurpose": "IMPS/MB/EXMB5216411901/ARJUN MEHRA/P", "type": "expense", "expectKey": "transfers_people", "note": "neft person"}
+{"counterpartyName": "IMPS/MB/EXMB8859278201/NEHA SHARMA/P", "paymentPurpose": "IMPS/MB/EXMB8859278201/NEHA SHARMA/P", "type": "expense", "expectKey": "transfers_people", "note": "neft person"}
+{"counterpartyName": "IMPS/MB/EXMB5853076201/PRIYA NAIR/P", "paymentPurpose": "IMPS/MB/EXMB5853076201/PRIYA NAIR/P", "type": "expense", "expectKey": "transfers_people", "note": "neft person"}
+{"counterpartyName": "IMPS/MB/EXMB4334325101/KIRAN BOSE/P", "paymentPurpose": "IMPS/MB/EXMB4334325101/KIRAN BOSE/P", "type": "expense", "expectKey": "transfers_people", "note": "neft person"}
+{"counterpartyName": "Member One", "paymentPurpose": "SEPA Überweisung Miete Oktober", "type": "expense", "expectKey": "transfers_people", "note": "sepa person"}
+{"counterpartyName": "Member Two", "paymentPurpose": "Dauerauftrag Taschengeld", "type": "expense", "expectKey": "transfers_people", "note": "standing order person"}
+{"counterpartyName": "Member Three", "paymentPurpose": "Faster Payment ref 0042", "type": "expense", "expectKey": "transfers_people", "note": "uk faster payment"}
+{"counterpartyName": "Member Four", "paymentPurpose": "Standing order household", "type": "expense", "expectKey": "transfers_people", "note": "uk standing order"}
+{"counterpartyName": "Zelle payment to Member Two", "paymentPurpose": "Zelle payment to Member Two", "type": "expense", "expectKey": "transfers_people", "note": "zelle"}
+{"counterpartyName": "Venmo", "paymentPurpose": "Venmo cashout to Member Five", "type": "expense", "expectKey": "transfers_people", "note": "venmo"}
+{"counterpartyName": "Иван П.", "paymentPurpose": "Перевод по номеру телефона", "type": "expense", "expectKey": "transfers_people", "note": "ru transfer"}
+{"counterpartyName": "Анна Сидорова", "paymentPurpose": "Перевод клиенту", "type": "expense", "expectKey": "transfers_people", "note": "ru transfer 2"}
+{"counterpartyName": "Айгерим Б.", "paymentPurpose": "Аударым", "type": "expense", "expectKey": "transfers_people", "note": "kz transfer"}
+{"counterpartyName": "ATM-CASH- EXAMPLE/CPCN00001/2410/010926/CITY", "paymentPurpose": "ATM-CASH- EXAMPLE/CPCN00001/2410/010926/CITY", "type": "expense", "expectKey": "cash", "note": "cash"}
+{"counterpartyName": "ATM WITHDRAWAL 0042 MAIN ST", "paymentPurpose": "ATM WITHDRAWAL 0042 MAIN ST", "type": "expense", "expectKey": "cash", "note": "cash"}
+{"counterpartyName": "CASH WDL ATM 0042", "paymentPurpose": "CASH WDL ATM 0042", "type": "expense", "expectKey": "cash", "note": "cash"}
+{"counterpartyName": "ATM Withdrawal", "paymentPurpose": "ATM Withdrawal", "type": "expense", "expectKey": "cash", "note": "cash"}
+{"counterpartyName": "ATM/CASH/0042/EXAMPLE BANK", "paymentPurpose": "ATM/CASH/0042/EXAMPLE BANK", "type": "expense", "expectKey": "cash", "note": "cash"}
+{"counterpartyName": "Bargeldauszahlung Geldautomat 0042", "paymentPurpose": "Bargeldauszahlung Geldautomat 0042", "type": "expense", "expectKey": "cash", "note": "cash"}
+{"counterpartyName": "Geldautomat Example Bank", "paymentPurpose": "Geldautomat Example Bank", "type": "expense", "expectKey": "cash", "note": "cash"}
+{"counterpartyName": "Снятие наличных в банкомате", "paymentPurpose": "Снятие наличных в банкомате", "type": "expense", "expectKey": "cash", "note": "cash"}
+{"counterpartyName": "Выдача наличных", "paymentPurpose": "Выдача наличных", "type": "expense", "expectKey": "cash", "note": "cash"}
+{"counterpartyName": "Қолма-қол ақша алу", "paymentPurpose": "Қолма-қол ақша алу", "type": "expense", "expectKey": "cash", "note": "cash"}
+{"counterpartyName": "ATM CASH WDL 12/10", "paymentPurpose": "ATM CASH WDL 12/10", "type": "expense", "expectKey": "cash", "note": "cash"}
+{"counterpartyName": "CASH WITHDRAWAL EXAMPLE BRANCH", "paymentPurpose": "CASH WITHDRAWAL EXAMPLE BRANCH", "type": "expense", "expectKey": "cash", "note": "cash"}
+{"counterpartyName": "ACME WORKS", "paymentPurpose": "SALARY OCT 2026 ACME WORKS", "type": "income", "expectKey": "salary", "note": "salary"}
+{"counterpartyName": "ACME WORKS", "paymentPurpose": "NEFT/ACMEWORKS/SAL CR", "type": "income", "expectKey": "salary", "note": "salary"}
+{"counterpartyName": "ACME WORKS", "paymentPurpose": "SAL CREDIT ACME WORKS", "type": "income", "expectKey": "salary", "note": "salary"}
+{"counterpartyName": "ACME WORKS", "paymentPurpose": "Gehalt Oktober Example GmbH", "type": "income", "expectKey": "salary", "note": "salary"}
+{"counterpartyName": "ACME WORKS", "paymentPurpose": "Lohn 10/2026", "type": "income", "expectKey": "salary", "note": "salary"}
+{"counterpartyName": "ACME WORKS", "paymentPurpose": "Payroll ACME Inc", "type": "income", "expectKey": "salary", "note": "salary"}
+{"counterpartyName": "ACME WORKS", "paymentPurpose": "Зарплата за октябрь", "type": "income", "expectKey": "salary", "note": "salary"}
+{"counterpartyName": "ACME WORKS", "paymentPurpose": "Заработная плата за октябрь ТОО Пример", "type": "income", "expectKey": "salary", "note": "salary"}
+{"counterpartyName": "ACME WORKS", "paymentPurpose": "Жалақы қазан", "type": "income", "expectKey": "salary", "note": "salary"}
+{"counterpartyName": "ACME WORKS", "paymentPurpose": "SALARIS ACME BV", "type": "income", "expectKey": "salary", "note": "salary"}
+{"counterpartyName": "ACME WORKS", "paymentPurpose": "Salary advance credit", "type": "income", "expectKey": "salary", "note": "salary"}
+{"counterpartyName": "ACME WORKS", "paymentPurpose": "NACH/SALARY/EXAMPLE CORP", "type": "income", "expectKey": "salary", "note": "salary"}
+{"counterpartyName": "UPI/P2M/123456789012/ACME STORE/Paytm Pay/Payment", "paymentPurpose": "UPI/P2M/123456789012/ACME STORE/Paytm Pay/Payment", "type": "expense", "expectKey": null, "note": "upi merchant"}
+{"counterpartyName": "UPI/P2M/123456789013/ACME GAZI MEAT SHO/PhonePe/Payment", "paymentPurpose": "UPI/P2M/123456789013/ACME GAZI MEAT SHO/PhonePe/Payment", "type": "expense", "expectKey": null, "note": "upi merchant truncated"}
+{"counterpartyName": "NEFT/MB/EXMB1234567801/ACME WORKS PVT LTD/P", "paymentPurpose": "NEFT/MB/EXMB1234567801/ACME WORKS PVT LTD/P", "type": "expense", "expectKey": null, "note": "neft company"}
+{"counterpartyName": "NEFT/EXAMPLE TECHNOLOGIES LIM/INV 42", "paymentPurpose": "NEFT/EXAMPLE TECHNOLOGIES LIM/INV 42", "type": "expense", "expectKey": null, "note": "neft company truncated"}
+{"counterpartyName": "IMPS/P2A/123456789014/RITADAS/Payment", "paymentPurpose": "IMPS/P2A/123456789014/RITADAS/Payment", "type": "expense", "expectKey": null, "note": "single word name"}
+{"counterpartyName": "UPI/P2A/123456789015/INNOVATIV/Payment", "paymentPurpose": "UPI/P2A/123456789015/INNOVATIV/Payment", "type": "expense", "expectKey": null, "note": "single word shop"}
+{"counterpartyName": "NEFT/self transfer/MEMBER ONE", "paymentPurpose": "NEFT/self transfer/MEMBER ONE", "type": "expense", "expectKey": null, "note": "own move words"}
+{"counterpartyName": "Перевод между своими счетами", "paymentPurpose": "Перевод между своими счетами", "type": "expense", "expectKey": null, "note": "own move ru"}
+{"counterpartyName": "Перевод собственных средств", "paymentPurpose": "Перевод собственных средств", "type": "expense", "expectKey": null, "note": "own move ru 2"}
+{"counterpartyName": "ATM fee", "paymentPurpose": "ATM fee", "type": "expense", "expectKey": "fees", "note": "fee not cash"}
+{"counterpartyName": "ATM CASH DEPOSIT 0042", "paymentPurpose": "ATM CASH DEPOSIT 0042", "type": "income", "expectKey": null, "note": "cash deposit income"}
+{"counterpartyName": "PAYPAL *SPOTIFY", "paymentPurpose": "PAYPAL *SPOTIFY", "type": "expense", "expectKey": "subscriptions", "note": "brand after acquirer star"}
+{"counterpartyName": "Five Elephant", "paymentPurpose": "Five Elephant", "type": "expense", "expectKey": null, "note": "cafe"}
+{"counterpartyName": "Cash Free", "paymentPurpose": "Cash Free", "type": "expense", "expectKey": null, "note": "payment gateway"}
+{"counterpartyName": "CASHFREE PAYMENTS", "paymentPurpose": "CASHFREE PAYMENTS", "type": "expense", "expectKey": null, "note": "gateway"}
+{"counterpartyName": "NEFT/M G MOTORS/INV", "paymentPurpose": "NEFT/M G MOTORS/INV", "type": "expense", "expectKey": null, "note": "company motors"}
+{"counterpartyName": "Jio Prepaid Recharges", "paymentPurpose": "Jio Prepaid Recharges", "type": "expense", "expectKey": null, "note": "telecom"}
+{"counterpartyName": "DELHIVERY LIMITED", "paymentPurpose": "DELHIVERY LIMITED", "type": "expense", "expectKey": null, "note": "courier"}
+{"counterpartyName": "NEFT/SANWARIYA TRANSPORT/42", "paymentPurpose": "NEFT/SANWARIYA TRANSPORT/42", "type": "expense", "expectKey": null, "note": "transport company"}
+{"counterpartyName": "EMPLOYEE PROVIDENT FUND ORGA", "paymentPurpose": "EMPLOYEE PROVIDENT FUND ORGA", "type": "expense", "expectKey": null, "note": "fund"}
+{"counterpartyName": "Venmo payment from Member Five", "paymentPurpose": "Venmo payment from Member Five", "type": "income", "expectKey": null, "note": "incoming p2p"}
+{"counterpartyName": "Salary advance repayment", "paymentPurpose": "Salary advance repayment", "type": "expense", "expectKey": null, "note": "salary word on expense"}
+{"counterpartyName": "ACME SALAD BAR", "paymentPurpose": "ACME SALAD BAR", "type": "expense", "expectKey": null, "note": "sal substring"}
+{"counterpartyName": "Gehaltsabrechnung Gebühr", "paymentPurpose": "Gehaltsabrechnung Gebühr", "type": "expense", "expectKey": null, "note": "gehalt on expense"}
+{"counterpartyName": "NEFT/MB/EXMB9999/EXAMPLE BANK/P", "paymentPurpose": "NEFT/MB/EXMB9999/EXAMPLE BANK/P", "type": "expense", "expectKey": null, "note": "bank"}
+{"counterpartyName": "IMPS/ACME TRADERS/42", "paymentPurpose": "IMPS/ACME TRADERS/42", "type": "expense", "expectKey": null, "note": "traders"}
+{"counterpartyName": "UPI/CRADJ/123456789016/12.10.2026", "paymentPurpose": "UPI/CRADJ/123456789016/12.10.2026", "type": "expense", "expectKey": null, "note": "adjustment"}
+{"counterpartyName": "POS PURCHASE 4949 ACME MART CITY", "paymentPurpose": "POS PURCHASE 4949 ACME MART CITY", "type": "expense", "expectKey": null, "note": "card purchase"}
+{"counterpartyName": "Example Coffee House", "paymentPurpose": "Example Coffee House", "type": "expense", "expectKey": null, "note": "cafe 2"}
+{"counterpartyName": "ECS Txn Chrgs Incl GST", "paymentPurpose": "ECS Txn Chrgs Incl GST", "type": "expense", "expectKey": "fees", "note": "bank fee"}
+{"counterpartyName": "Überweisung an Example GmbH Rechnung 42", "paymentPurpose": "Überweisung an Example GmbH Rechnung 42", "type": "expense", "expectKey": null, "note": "sepa company"}
+{"counterpartyName": "SEPA Überweisung Example Versicherung AG", "paymentPurpose": "SEPA Überweisung Example Versicherung AG", "type": "expense", "expectKey": null, "note": "sepa insurer"}
+{"counterpartyName": "Faster Payment ACME LTD", "paymentPurpose": "Faster Payment ACME LTD", "type": "expense", "expectKey": null, "note": "uk company"}
+{"counterpartyName": "Zelle payment to ACME LLC", "paymentPurpose": "Zelle payment to ACME LLC", "type": "expense", "expectKey": null, "note": "zelle company"}
+{"counterpartyName": "Перевод ТОО Пример", "paymentPurpose": "Перевод ТОО Пример", "type": "expense", "expectKey": null, "note": "ru company"}
+{"counterpartyName": "Перевод ИП Пример", "paymentPurpose": "Перевод ИП Пример", "type": "expense", "expectKey": null, "note": "ru sole trader"}
+{"counterpartyName": "Cash back reward", "paymentPurpose": "Cash back reward", "type": "income", "expectKey": null, "note": "cashback"}
+{"counterpartyName": "ATM machine rental ACME", "paymentPurpose": "ATM machine rental ACME", "type": "expense", "expectKey": null, "note": "atm word not withdrawal"}
+{"counterpartyName": "Interest credited", "paymentPurpose": "Interest credited", "type": "income", "expectKey": "interest_income", "note": "interest"}
+{"counterpartyName": "Payroll service fee ACME", "paymentPurpose": "Payroll service fee ACME", "type": "expense", "expectKey": null, "note": "payroll vendor fee"}
+{"counterpartyName": "MEMBER ONE", "paymentPurpose": "NEFT/MB/EXMB4242/MEMBER ONE/P", "type": "expense", "expectKey": null, "note": "own name", "ctx": {"memberNames": [["member", "one"]]}}
+{"counterpartyName": "MEMBER SIX", "paymentPurpose": "NEFT/MB/EXMB4243/MEMBER SIX/P", "type": "expense", "expectKey": null, "note": "own account number", "ctx": {"ownAccountTails": ["4321"]}, "counterpartyAccount": "000012344321"}
+{"counterpartyName": "UPI/P2M/123456789017/ACME FOOD COURT/GPay/Payment", "paymentPurpose": "UPI/P2M/123456789017/ACME FOOD COURT/GPay/Payment", "type": "expense", "expectKey": null, "note": "merchant food"}
+{"counterpartyName": "NEFT/ACME ENTERPRISES/INV 7", "paymentPurpose": "NEFT/ACME ENTERPRISES/INV 7", "type": "expense", "expectKey": null, "note": "enterprises"}
+{"counterpartyName": "Refund from Member One", "paymentPurpose": "Refund from Member One", "type": "income", "expectKey": null, "note": "incoming refund"}
+{"counterpartyName": "IMPS/P2A/123456789018/ACME/Payment", "paymentPurpose": "IMPS/P2A/123456789018/ACME/Payment", "type": "expense", "expectKey": null, "note": "single word"}
+{"counterpartyName": "Standing order Example Housing Society", "paymentPurpose": "Standing order Example Housing Society", "type": "expense", "expectKey": null, "note": "society"}
+{"counterpartyName": "Dauerauftrag Example Bank Kredit", "paymentPurpose": "Dauerauftrag Example Bank Kredit", "type": "expense", "expectKey": null, "note": "loan to bank"}
+{"counterpartyName": "Withdrawal Interac", "paymentPurpose": "Withdrawal Interac", "type": "expense", "expectKey": "cash", "note": "interac withdrawal"}
+{"counterpartyName": "ABM WITHDRAWAL 0042", "paymentPurpose": "ABM WITHDRAWAL 0042", "type": "expense", "expectKey": "cash", "note": "abm withdrawal"}
+{"counterpartyName": "ABM Network Fee", "paymentPurpose": "ABM Network Fee", "type": "expense", "expectKey": "fees", "note": "abm fee"}
+{"counterpartyName": "Insurance Premium Payment", "paymentPurpose": "Insurance Premium Payment", "type": "expense", "expectKey": "insurance", "note": "insurance premium"}
+{"counterpartyName": "Versicherungsbeitrag Example Versicherung", "paymentPurpose": "Versicherungsbeitrag Example Versicherung", "type": "expense", "expectKey": "insurance", "note": "de premium"}
+{"counterpartyName": "Example Insurance AG", "paymentPurpose": "Example Insurance AG", "type": "expense", "expectKey": null, "note": "insurer name only"}
+{"counterpartyName": "Insurance claim payout", "paymentPurpose": "Insurance claim payout", "type": "income", "expectKey": null, "note": "insurance income"}
+{"counterpartyName": "Withdrawal", "paymentPurpose": "Withdrawal", "type": "expense", "expectKey": null, "note": "bare withdrawal"}
+{"counterpartyName": "Deposit ABM", "paymentPurpose": "Deposit ABM", "type": "income", "expectKey": null, "note": "cash deposit"}
+{"counterpartyName": "Refund ABM Network Fee", "paymentPurpose": "Refund ABM Network Fee", "type": "income", "expectKey": null, "note": "fee refund"}
+{"counterpartyName": "POS Purchase", "paymentPurpose": "POS Purchase", "type": "expense", "expectKey": null, "note": "no merchant"}
+{"counterpartyName": "Direct Debit", "paymentPurpose": "Direct Debit", "type": "expense", "expectKey": null, "note": "no payee"}
+{"counterpartyName": "MEMBER ONE", "paymentPurpose": "UPI/P2A/412345678901/MEMBER ONE/Paytm Pay/Payment/", "type": "income", "expectKey": "other_income", "note": "incoming upi person"}
+{"counterpartyName": "MEMBER TWO", "paymentPurpose": "IMPS/P2A/412345678902/MEMBER TWO/Example B/Payment", "type": "income", "expectKey": "other_income", "note": "incoming imps person"}
+{"counterpartyName": "ANZ INTERNET BANKING TRANSFER WAGES 01012026 EXAMPLE CLEANING", "paymentPurpose": "ANZ INTERNET BANKING TRANSFER WAGES 01012026 EXAMPLE CLEANING", "type": "income", "expectKey": "salary", "note": "wages"}
+{"counterpartyName": "EXAMPLE LOGISTICS LIMITED", "paymentPurpose": "NEFT/N123456789012/EXAMPLE LOGISTICS LIMITED/EXAMPLE BANK/1234", "type": "income", "expectKey": null, "note": "company income by neft"}
+{"counterpartyName": "TRANSFER FROM MEMBER THREE", "paymentPurpose": "TRANSFER FROM MEMBER THREE", "type": "income", "expectKey": null, "note": "transfer from words"}
+{"counterpartyName": "INNOVATIV", "paymentPurpose": "NEFT/EXMB1234/INNOVATIV/EXAMPLE BANK//ACC/NEF", "type": "income", "expectKey": null, "note": "single word payer"}
+{"counterpartyName": "Wages Example Corner", "paymentPurpose": "Wages Example Corner", "type": "expense", "expectKey": null, "note": "wages on expense"}
+{"counterpartyName": "PENNYDRO", "paymentPurpose": "IMPS/P2A/412345678903/PENNYDRO/ICICIBA N/FTTransf/91798", "type": "income", "expectKey": null, "note": "single word, bank cut-off after it"}
+{"counterpartyName": "EXAMPLE TECH", "paymentPurpose": "UPI/P2A/412345678904/EXAMPLE TECH/ICICI Ban/Razorpay/", "type": "income", "expectKey": null, "note": "company, bank cut-off after it"}

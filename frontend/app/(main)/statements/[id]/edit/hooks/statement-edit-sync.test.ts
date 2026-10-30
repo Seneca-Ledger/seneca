@@ -1,92 +1,104 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Transaction } from '../editHelpers';
-import { buildTransactionUpdate, saveTransactionAction } from './statement-edit-sync';
+import type { CategoryOption, Transaction } from '../editHelpers';
+import { saveCategoriesAction } from './statement-edit-sync';
 
 const mocks = vi.hoisted(() => ({
   put: vi.fn(),
+  post: vi.fn(),
   patch: vi.fn(),
   invalidateQueries: vi.fn(),
 }));
 
-vi.mock('@/app/lib/api', () => ({ default: { put: mocks.put, patch: mocks.patch } }));
+vi.mock('@/app/lib/api', () => ({ default: { put: mocks.put, post: mocks.post, patch: mocks.patch } }));
 vi.mock('@/app/lib/query-client', () => ({
   getQueryClient: () => ({ invalidateQueries: mocks.invalidateQueries }),
 }));
 
-// As the API returns it: decimals come back as strings, relations embedded.
-const original = {
+const child: CategoryOption = { id: 'cat-2', name: 'Groceries', isEnabled: true };
+const categories: CategoryOption[] = [{ id: 'cat-1', name: 'Food', children: [child] }];
+
+const row: Transaction = {
   id: 'tx-1',
   transactionDate: '2026-09-25',
-  counterpartyName: '1 / 4',
+  counterpartyName: 'ACME Store',
   paymentPurpose: 'Receipt',
-  debit: '100.00',
+  debit: 100,
   transactionType: 'expense',
-  categoryId: 'cat-1',
-  category: { id: 'cat-1', name: 'Food' },
-} as unknown as Transaction;
+};
+const twin: Transaction = { ...row, id: 'tx-2' };
 
-function ctxFor(edited: Partial<Transaction>) {
+function ctx() {
+  let rows: Transaction[] = [row, twin];
   return {
-    original,
-    editedData: { 'tx-1': edited },
-    setTransactions: vi.fn(),
-    setEditingRow: vi.fn(),
-    setSuccess: vi.fn(),
+    categories,
+    setTransactions: vi.fn((fn: (prev: Transaction[]) => Transaction[]) => {
+      rows = fn(rows);
+    }),
     setError: vi.fn(),
     messages: { saveTransactionError: 'Could not save' },
+    rows: () => rows,
   };
 }
 
-describe('saveTransactionAction', () => {
+describe('saveCategoriesAction', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.put.mockResolvedValue({ data: {} });
+    mocks.post.mockResolvedValue({ data: {} });
   });
 
-  it('saves a renamed counterparty with PUT, sending only that field', async () => {
-    // The row editor starts from a full copy of the transaction.
-    const ctx = ctxFor({ ...original, counterpartyName: 'Lidl' });
+  it('sends only the category and shows the picked one, found deep in the tree', async () => {
+    const c = ctx();
 
-    await saveTransactionAction('tx-1', ctx);
+    await saveCategoriesAction({ [row.id]: child.id }, c);
 
     expect(mocks.patch).not.toHaveBeenCalled();
-    expect(mocks.put).toHaveBeenCalledWith('/transactions/tx-1', { counterpartyName: 'Lidl' });
-    expect(ctx.setError).not.toHaveBeenCalled();
-    expect(ctx.setEditingRow).toHaveBeenCalledWith(null);
+    expect(mocks.put).toHaveBeenCalledWith(`/transactions/${row.id}`, { categoryId: child.id });
+    expect(c.rows()[0]?.categoryId).toBe(child.id);
+    expect(c.rows()[0]?.category?.name).toBe(child.name);
+    expect(c.rows()[1]?.categoryId).toBeUndefined();
+    expect(c.setError).not.toHaveBeenCalled();
+  });
+
+  it('files several rows in one bulk request, each to its own category', async () => {
+    const c = ctx();
+
+    const saved = await saveCategoriesAction({ [row.id]: child.id, [twin.id]: '' }, c);
+
+    expect(saved).toBe(true);
+    expect(mocks.put).not.toHaveBeenCalled();
+    expect(mocks.post).toHaveBeenCalledWith('/transactions/bulk-update', {
+      items: [
+        { id: row.id, updates: { categoryId: child.id } },
+        { id: twin.id, updates: { categoryId: null } },
+      ],
+    });
+    expect(c.rows().map(r => r.categoryId)).toEqual([child.id, undefined]);
+  });
+
+  it('clears the category with null', async () => {
+    const c = ctx();
+
+    await saveCategoriesAction({ [row.id]: '' }, c);
+
+    expect(mocks.put).toHaveBeenCalledWith(`/transactions/${row.id}`, { categoryId: null });
+    expect(c.rows()[0]?.category).toBeUndefined();
   });
 
   it('refreshes the dashboard and transaction lists after a save', async () => {
-    await saveTransactionAction('tx-1', ctxFor({ ...original, counterpartyName: 'Lidl' }));
+    await saveCategoriesAction({ [row.id]: child.id }, ctx());
 
     expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['dashboard'] });
     expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['transactions'] });
   });
 
-  it('makes no request when nothing changed', async () => {
-    const ctx = ctxFor({ ...original });
+  it('keeps the row and reports the error when the save fails', async () => {
+    mocks.put.mockRejectedValue(new Error('offline'));
+    const c = ctx();
 
-    await saveTransactionAction('tx-1', ctx);
+    await saveCategoriesAction({ [row.id]: child.id }, c);
 
-    expect(mocks.put).not.toHaveBeenCalled();
-    expect(mocks.invalidateQueries).not.toHaveBeenCalled();
-    expect(ctx.setEditingRow).toHaveBeenCalledWith(null);
-  });
-});
-
-describe('buildTransactionUpdate', () => {
-  it('sends typed amounts, clears a select with null and ignores unknown fields', () => {
-    expect(
-      buildTransactionUpdate(original, {
-        ...original,
-        debit: '120.5' as unknown as number,
-        categoryId: '',
-      }),
-    ).toEqual({ debit: 120.5, categoryId: null });
-  });
-
-  it('treats an amount that differs only in type as unchanged', () => {
-    expect(
-      buildTransactionUpdate(original, { debit: '100' as unknown as number }),
-    ).toEqual({});
+    expect(c.setTransactions).not.toHaveBeenCalled();
+    expect(c.setError).toHaveBeenCalled();
   });
 });
