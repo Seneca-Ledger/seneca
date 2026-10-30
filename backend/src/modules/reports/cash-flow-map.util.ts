@@ -18,6 +18,8 @@ export interface CategoryNode {
   id: string;
   name: string;
   parentId: string | null;
+  /** The icon picked in the category editor, if any. */
+  icon?: string | null;
   /** An income row filed under an expense category is money coming back. */
   isExpenseCategory?: boolean;
 }
@@ -47,8 +49,9 @@ export interface CashFlowMap {
   treemap: Array<{
     id: string;
     name: string;
+    icon: string | null;
     value: number;
-    children: Array<{ id: string; name: string; value: number }>;
+    children: Array<{ id: string; name: string; icon: string | null; value: number }>;
   }>;
 }
 
@@ -89,6 +92,7 @@ export function buildCashFlowMap(
     }
     return current?.id ?? null;
   };
+  const iconOf = (id: string): string | null => byId.get(id)?.icon ?? null;
   const nameOf = (id: string | null): string =>
     id ? (byId.get(id)?.name ?? options.labels.uncategorised) : options.labels.uncategorised;
 
@@ -241,10 +245,16 @@ export function buildCashFlowMap(
       .map(category => ({
         id: category.id,
         name: category.name,
+        icon: iconOf(category.id),
         value: category.amount,
         children: category.children
           .filter(child => child.amount > 0)
-          .map(child => ({ id: child.id, name: child.name, value: child.amount })),
+          .map(child => ({
+            id: child.id,
+            name: child.name,
+            icon: iconOf(child.id),
+            value: child.amount,
+          })),
       })),
   };
 }

@@ -20,8 +20,8 @@ import clsx from 'clsx';
 import type React from 'react';
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { GripVertical } from '@/app/components/icons';
-import { useViewPreference } from '@/app/components/transactions/hooks/useViewPreference';
 import { useIntlayer } from '@/app/i18n';
+import { requestSnapshotRecapture } from '@/app/lib/snapshot-skeleton/recapture';
 import { OverviewWidgetPicker } from './OverviewWidgetPicker';
 import {
   canSitBeside,
@@ -36,8 +36,11 @@ import {
   type OverviewSectionId,
   rowSpans,
   showSection,
+  tellsThePresent,
 } from './overview-layout';
+import { useShowsOtherMonth } from './overview-month';
 import { SectionSpanProvider } from './section-span';
+import { useOverviewLayoutState } from './use-overview-layout-state';
 
 interface Drop {
   target: string;
@@ -103,6 +106,7 @@ function OverviewSection({
   const { setNodeRef: setDropRef } = useDroppable({ id });
   const nodeRef = useRef<HTMLDivElement | null>(null);
 
+  const muted = useShowsOtherMonth() && tellsThePresent(id);
   const setRef = useCallback(
     (node: HTMLDivElement | null) => {
       nodeRef.current = node;
@@ -135,6 +139,7 @@ function OverviewSection({
       className={clsx(
         'seneca-overview__section',
         isTile(id) && 'seneca-overview__section--tile',
+        muted && 'seneca-overview__section--muted',
         unpaired && 'seneca-overview__section--unpaired',
         drag.isDragging && 'seneca-overview__section--dragging',
         drop && `seneca-overview__section--drop-${drop}`,
@@ -144,6 +149,7 @@ function OverviewSection({
         type="button"
         ref={drag.setActivatorNodeRef}
         className="seneca-overview__handle"
+        data-skeleton-skip=""
         {...drag.attributes}
         {...drag.listeners}
         aria-label={handleLabel}
@@ -204,19 +210,9 @@ interface OverviewLayoutProps {
  * below it gets a row of its own. The arrangement is remembered per person and
  * workspace. Phones get no grips: there everything is one column anyway.
  */
-/** The saved rows as stored; `normalizeRows` decides what of them is still usable. */
-const readOverviewLayout = (
-  saved: Readonly<Record<string, unknown>>,
-): { overviewRows: unknown; hiddenSections?: string[] } => ({
-  overviewRows: saved.overviewRows,
-  hiddenSections: Array.isArray(saved.hiddenSections)
-    ? saved.hiddenSections.filter((id): id is string => typeof id === 'string')
-    : [],
-});
-
 export function OverviewLayout({ sections }: OverviewLayoutProps): React.JSX.Element {
   const t = useIntlayer('overviewTab');
-  const { state, save } = useViewPreference('dashboard', readOverviewLayout);
+  const { state, save } = useOverviewLayoutState();
   const hidden = useMemo(() => state?.hiddenSections ?? [], [state]);
   const rows = useMemo(
     () => normalizeRows(state ? { rows: state.overviewRows, hidden } : null),
@@ -226,6 +222,9 @@ export function OverviewLayout({ sections }: OverviewLayoutProps): React.JSX.Ele
   const [drop, setDrop] = useState<Drop | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
   const pointer = useRef<Point | null>(null);
+  const root = useRef<HTMLDivElement>(null);
+  // A new arrangement is what the next visit's skeleton should show, at once.
+  useLayoutEffect(() => requestSnapshotRecapture(root.current), [rows]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -323,7 +322,7 @@ export function OverviewLayout({ sections }: OverviewLayoutProps): React.JSX.Ele
       onDragEnd={handleDragEnd}
       onDragCancel={stopTracking}
     >
-      <div className="seneca-dashboard__tab seneca-overview">
+      <div ref={root} className="seneca-dashboard__tab seneca-overview">
         <div className="seneca-overview__body">
           <div className="seneca-overview__grid">
             {/* One flat list, not a wrapper per row: a moved card keeps its place

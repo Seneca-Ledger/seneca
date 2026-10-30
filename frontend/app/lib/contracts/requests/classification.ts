@@ -13,6 +13,10 @@ export const ClassificationConditionInput = Schema.Struct({
     'counterparty_bin',
     'document_number',
     'owner',
+    /** `income` or `expense`. */
+    'direction',
+    /** The account (wallet) the row sits in, by id. */
+    'wallet',
   ]),
   operator: Schema.Literals([
     'contains',
@@ -38,6 +42,10 @@ export const ClassificationResultInput = Schema.Struct({
   activityType: Schema.optional(Schema.String),
   /** Hands the row to one member, or to the household with `null`. */
   ownerMemberId: optionalNullable(Schema.String.check(Schema.isUUID())),
+  /** Tags added to the row; the ones it already has stay. */
+  tagIds: Schema.optional(
+    Schema.Array(Schema.String.check(Schema.isUUID())).check(Schema.isMaxLength(20)),
+  ),
 });
 export type ClassificationResultInput = Wire<typeof ClassificationResultInput>;
 
@@ -65,6 +73,8 @@ export const TestCategorizationRuleBody = Schema.Struct({
   conditions: Schema.Array(ClassificationConditionInput).check(Schema.isMinLength(1)),
   /** Rows to test against; without them the workspace's most recent rows are used. */
   transactionIds: Schema.optional(Schema.Array(Schema.String).check(Schema.isMinLength(1))),
+  /** The saved rule being edited: rules ranked above it are what can win its rows. */
+  ruleId: Schema.optional(Schema.String.check(Schema.isUUID())),
 });
 export type TestCategorizationRuleBody = Wire<typeof TestCategorizationRuleBody>;
 
@@ -89,3 +99,12 @@ export const CategorizationRuleParams = Schema.Struct({
   id: Schema.String.check(Schema.isUUID()),
 });
 export type CategorizationRuleParams = Wire<typeof CategorizationRuleParams>;
+
+/** `PUT /categorization-rules/order`: every rule of the workspace, the first one wins. */
+export const ReorderCategorizationRulesBody = Schema.Struct({
+  ids: Schema.Array(Schema.String.check(Schema.isUUID())).check(
+    Schema.isMinLength(1),
+    Schema.isMaxLength(1000),
+  ),
+});
+export type ReorderCategorizationRulesBody = Wire<typeof ReorderCategorizationRulesBody>;

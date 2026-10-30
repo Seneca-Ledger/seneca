@@ -12,6 +12,8 @@ const ClassificationCondition = Schema.Struct({
     'counterparty_bin',
     'document_number',
     'owner',
+    'direction',
+    'wallet',
   ]),
   operator: Schema.Literals([
     'contains',
@@ -34,6 +36,8 @@ const ClassificationResult = Schema.Struct({
   activityType: Schema.optional(Schema.String),
   /** One member, or the household with `null`. */
   ownerMemberId: Schema.optional(Schema.NullOr(Schema.String)),
+  /** Tags added to a matching row; the ones it already has stay. */
+  tagIds: Schema.optional(Schema.Array(Schema.String)),
 });
 
 /** `GET /categorization-rules/:id`, and what creating or updating one answers. */
@@ -79,17 +83,46 @@ export const CategorizationRuleTestResult = Schema.Struct({
       counterparty: Schema.String,
       purpose: Schema.String,
       matchReason: Schema.String,
+      direction: Schema.NullOr(Schema.Literals(['income', 'expense'])),
+      currency: Schema.String,
+      categoryId: Schema.NullOr(Schema.String),
+      /** A person (or a rule) chose the category, so applying leaves it. */
+      decided: Schema.Boolean,
+      /** A rule ranked above this one that matches the row too, and so files it instead. */
+      wonBy: Schema.NullOr(Schema.Struct({ id: Schema.String, name: Schema.String })),
     }),
   ),
+  /** Matches a higher-ranked rule takes first. */
+  shadowed: Schema.Number,
 });
 export type CategorizationRuleTestResult = Wire<typeof CategorizationRuleTestResult>;
 
-/** `POST /categorization-rules/:id/apply`: rows changed, and rows kept because a person chose them. */
+/** `POST /categorization-rules/:id/apply`: rows refiled, rows whose hand-picked category stayed, rows tagged. */
 export const CategorizationRuleApplyResult = Schema.Struct({
   applied: Schema.Number,
   skippedManual: Schema.Number,
+  /** Rows that got at least one of the rule's tags, filed by hand or not. */
+  tagged: Schema.Number,
 });
 export type CategorizationRuleApplyResult = Wire<typeof CategorizationRuleApplyResult>;
+
+/**
+ * `GET /categorization-rules/suggestions`: payees filed under the same category
+ * by hand again and again, with the rule that would do it for them.
+ */
+export const CategorizationRuleSuggestionList = Schema.Struct({
+  data: Schema.Array(
+    Schema.Struct({
+      payeeId: Schema.String,
+      payeeName: Schema.String,
+      categoryId: Schema.String,
+      /** How many rows of the payee a person filed under the category. */
+      decidedCount: Schema.Number,
+      conditions: Schema.Array(ClassificationCondition),
+    }),
+  ),
+});
+export type CategorizationRuleSuggestionList = Wire<typeof CategorizationRuleSuggestionList>;
 
 /**
  * `POST /classification/transaction/:id`: the row as stored after the rules ran

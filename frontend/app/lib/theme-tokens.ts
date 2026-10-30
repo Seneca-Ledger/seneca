@@ -57,10 +57,10 @@ export const tokens = {
     ink500: '#6b6b78',
     ink400: '#8e8e9a',
     ink300: '#b7b7c0',
-    ink200: '#dcdce1',
-    ink150: '#ececef',
-    ink100: '#f2f2f4',
-    ink50: '#f8f8f9',
+    ink200: '#d6cfc3',
+    ink150: '#e1dbd1',
+    ink100: '#e7e2d9',
+    ink50: '#eeeae3',
     white: '#ffffff',
 
     success: '#10b981',
@@ -72,9 +72,9 @@ export const tokens = {
     info: '#0ea5e9',
     infoSoft: '#f0f9ff',
 
-    bg: '#faf8f5',
-    surface: '#ffffff',
-    surfaceMuted: '#f2f2f4',
+    bg: '#ebe7df',
+    surface: '#f3f0ea',
+    surfaceMuted: '#e7e2d9',
     surfaceWarning: '#fffbeb',
     surfaceError: '#fff1f2',
 
@@ -83,7 +83,7 @@ export const tokens = {
 
     border: '#ececef',
     borderStrong: '#dcdce1',
-    skeleton: '#efebe4',
+    skeleton: '#e2ddd3',
   },
 
   shadow: {

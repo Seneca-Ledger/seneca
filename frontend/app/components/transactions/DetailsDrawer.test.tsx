@@ -6,6 +6,7 @@ import DetailsDrawer from './DetailsDrawer';
 import type { Transaction } from './types';
 
 const api = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn(), delete: vi.fn() }));
+const router = vi.hoisted(() => ({ push: vi.fn() }));
 
 vi.mock('@/app/lib/api', () => ({ default: api, apiBaseUrl: '/api/v1' }));
 vi.mock('@/app/hooks/useWorkspaceId', () => ({ useWorkspaceId: () => 'ws-1' }));
@@ -22,6 +23,7 @@ vi.mock('next/link', () => ({
     </a>
   ),
 }));
+vi.mock('next/navigation', () => ({ useRouter: () => router }));
 vi.mock('@/app/components/notes/NotesPanel', () => ({ NotesPanel: () => <div>notes panel</div> }));
 vi.mock('@/app/components/payees/useOfferPayeeQueue', () => ({ useOfferPayeeQueue: () => vi.fn() }));
 vi.mock('./hooks/useWorkspaceMembers', () => ({ useWorkspaceMembers: () => [] }));
@@ -98,8 +100,10 @@ describe('DetailsDrawer', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /drawer\.createFromRow/ }));
 
-    expect(await screen.findByText('dialog.createTitle')).toBeInTheDocument();
-    expect(screen.getByDisplayValue('Blue Bottle Coffee')).toBeInTheDocument();
+    // The rule editor page, filled in with the payee and the direction of the row.
+    expect(router.push).toHaveBeenCalledWith(
+      '/rules/new?payee=Blue+Bottle+Coffee&direction=expense',
+    );
   });
 
   it('offers no rule from a private row', () => {
@@ -118,6 +122,46 @@ describe('DetailsDrawer', () => {
     );
 
     expect(screen.getByText('drawer.fromRule').closest('a')?.getAttribute('href')).toBe('/rules');
+  });
+
+  it("links straight to the rule's own page once the rule is found by its name", async () => {
+    api.get.mockImplementation(async (url: string) =>
+      url === '/categorization-rules'
+        ? {
+            data: {
+              data: [
+                {
+                  id: 'rule-7',
+                  name: 'Coffee shops',
+                  description: null,
+                  conditions: [{ field: 'counterparty_name', operator: 'contains', value: 'coffee' }],
+                  result: { categoryId: 'cat-1' },
+                  priority: 1,
+                  isActive: true,
+                  matchCount: 1,
+                  lastMatchedAt: null,
+                  createdAt: '2026-09-01T10:00:00.000Z',
+                  updatedAt: '2026-09-01T10:00:00.000Z',
+                },
+              ],
+              total: 1,
+            },
+          }
+        : { data: [] },
+    );
+    renderDrawer(
+      transaction({
+        category: { id: 'cat-1', name: 'Coffee' },
+        categorySource: 'rule',
+        categoryReason: 'Coffee shops',
+      }),
+    );
+
+    await waitFor(() =>
+      expect(screen.getByText('drawer.fromRule').closest('a')?.getAttribute('href')).toBe(
+        '/rules/rule-7',
+      ),
+    );
   });
 
   it('confirms an unconfirmed row the way Review does, then hands back', async () => {

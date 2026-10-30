@@ -86,6 +86,18 @@ describe('UniversalExtractorService', () => {
       expect(result.totalAmount).toBe(23.99);
     });
 
+    it.each([
+      'Acme Bank”',
+      '“Acme Bank"',
+      "'Acme Bank'",
+      'Acme Bank »',
+    ])('drops the stray quotes OCR reads off a logo in "%s"', async header => {
+      const text = `${header}\nP.O. Box 100\nTotal: $5.50`;
+      const result = await service.extractFromText(text);
+
+      expect(result.vendor).toBe('Acme Bank');
+    });
+
     it('prefers a Cyrillic total line over a larger glued table number', async () => {
       // pdf-parse glues the "times used / times charged / fee" columns: "1", "0", "0 EUR" -> "100 EUR".
       const text = [

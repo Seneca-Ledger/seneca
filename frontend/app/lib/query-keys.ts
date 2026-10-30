@@ -27,8 +27,15 @@ export const queryKeys = {
   payee: (workspaceId: string | null, id: string) => ['payees', workspaceId, 'one', id] as const,
   categorizationRules: (workspaceId: string | null) =>
     ['categorization-rules', workspaceId] as const,
-  categorizationRulePreview: (workspaceId: string | null, conditions: unknown) =>
-    ['categorization-rules', workspaceId, 'preview', conditions] as const,
+  categorizationRule: (workspaceId: string | null, id: string) =>
+    ['categorization-rules', workspaceId, 'one', id] as const,
+  categorizationRulePreview: (
+    workspaceId: string | null,
+    conditions: unknown,
+    ruleId: string | null = null,
+  ) => ['categorization-rules', workspaceId, 'preview', conditions, ruleId] as const,
+  categorizationRuleSuggestions: (workspaceId: string | null) =>
+    ['categorization-rules', workspaceId, 'suggestions'] as const,
   reviewInbox: (o: { workspaceId: string | null; params: Record<string, unknown> }) =>
     ['review-inbox', o.workspaceId, o.params] as const,
   reviewInboxCounts: (workspaceId: string | null, reviewer?: string) =>
@@ -152,8 +159,8 @@ export const queryKeys = {
     ['subscriptions', o.workspaceId, 'upcoming', o.days] as const,
   subscriptionsChargeCalendar: (o: { workspaceId: string | null; months: number }) =>
     ['subscriptions', o.workspaceId, 'charge-calendar', o.months] as const,
-  subscriptionsMonthStatus: (workspaceId: string | null) =>
-    ['subscriptions', workspaceId, 'month-status'] as const,
+  subscriptionsMonthStatus: (workspaceId: string | null, month: string) =>
+    ['subscriptions', workspaceId, 'month-status', month] as const,
   subscriptionDetail: (o: { workspaceId: string | null; id: string }) =>
     ['subscriptions', o.workspaceId, 'detail', o.id] as const,
   subscriptionChargeCandidates: (o: {

@@ -3,6 +3,7 @@
 import Box from '@mui/material/Box';
 import type React from 'react';
 import { OverviewTab } from '@/app/components/dashboard/OverviewTab';
+import { useOverviewLayoutState } from '@/app/components/dashboard/use-overview-layout-state';
 import { AlertBanner } from '@/app/components/insights/AlertBanner';
 import { SnapshotSkeleton } from '@/app/components/ui/snapshot-skeleton/SnapshotSkeleton';
 import type { DashboardData } from '@/app/hooks/useDashboard';
@@ -38,12 +39,14 @@ export function DashboardContent({
   locale,
   headerLabels,
 }: DashboardContentProps): React.JSX.Element {
+  // Drawn only once the arrangement is known, so it never shows the default first.
+  const layoutPending = useOverviewLayoutState().state === undefined;
   if (error) {
     return <DashboardErrorBanner error={error} onRefresh={onRefresh} />;
   }
   // Ошибка уже обработана выше, поэтому "не грузится / нет данных" — не пустой
   // экран, а всё тот же скелетон.
-  if (loading || !data) {
+  if (loading || !data || layoutPending) {
     return <SnapshotSkeleton id={DASHBOARD_SKELETON_ID} loading />;
   }
   return (

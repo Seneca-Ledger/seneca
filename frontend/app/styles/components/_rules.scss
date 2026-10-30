@@ -1,6 +1,6 @@
 @use '../abstracts' as *;
 
-/* The rules page (RulesView.tsx) and the rule dialog (RuleFormDialog.tsx). */
+/* The rules page (RulesView.tsx) and the rule editor page (RuleEditorView.tsx). */
 .seneca-rules {
   &__intro {
     max-width: 640px;
@@ -9,67 +9,95 @@
     color: var(--text-muted);
   }
 
-  &__list {
-    display: flex;
-    flex-direction: column;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-    border: 1px solid var(--border);
-    border-radius: $seneca-radius-md;
-    background: var(--card);
+  &__order-hint {
+    margin: 0 0 8px;
+    font-size: 13px;
+    color: var(--text-muted);
   }
+}
 
-  &__row {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 16px;
-    padding: 14px 16px;
+// The rules list: Name · When · Then · Matched, in the order they are tried.
+.seneca-rules-table {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: $seneca-radius-md;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: var(--card);
+  font-size: 14px;
+  color: var(--foreground);
 
-    & + & {
-      border-top: 1px solid var(--border);
-    }
-
-    @media (max-width: 600px) {
-      flex-direction: column;
-      gap: 8px;
-    }
-  }
-
-  &__row--paused &__body {
-    opacity: 0.6;
-  }
-
-  &__body {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    min-width: 0;
-  }
-
-  &__name {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 15px;
+  th {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
     font-weight: $seneca-font-weight-medium;
-    color: var(--foreground);
-  }
-
-  &__paused {
-    font-size: 12px;
-    font-weight: normal;
+    text-align: left;
     color: var(--text-muted);
   }
 
-  &__line {
-    font-size: 14px;
-    color: var(--foreground);
+  td {
+    padding: 12px;
+    vertical-align: top;
     overflow-wrap: anywhere;
   }
 
-  &__key {
+  &__row + &__row td {
+    border-top: 1px solid var(--border);
+  }
+
+  &__row--paused td:not(.seneca-rules-table__controls) {
+    opacity: 0.6;
+  }
+
+  &__row--dragging {
+    position: relative;
+    z-index: 1;
+    background: var(--surface-soft);
+  }
+
+  &__grip-cell {
+    width: 32px;
+    padding-right: 0 !important;
+  }
+
+  &__grip {
+    display: inline-flex;
+    padding: 2px;
+    border: 0;
+    border-radius: $seneca-radius-sm;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: grab;
+    touch-action: none;
+
+    &:hover,
+    &:focus-visible {
+      background: var(--surface-soft);
+      color: var(--foreground);
+    }
+  }
+
+  &__name-cell {
+    min-width: 160px;
+  }
+
+  &__name {
+    font-weight: $seneca-font-weight-medium;
+    color: var(--foreground);
+    text-decoration: none;
+
+    &:hover,
+    &:focus-visible {
+      color: var(--primary);
+      text-decoration: underline;
+    }
+  }
+
+  &__paused {
+    display: block;
+    margin-top: 2px;
+    font-size: 12px;
     color: var(--text-muted);
   }
 
@@ -77,13 +105,261 @@
     font-size: 13px;
     color: var(--text-muted);
     font-variant-numeric: tabular-nums;
+    white-space: nowrap;
   }
 
   &__controls {
+    width: 1%;
+    white-space: nowrap;
+    text-align: right;
+  }
+
+  // One card per rule on a phone: the column headers move into each line.
+  @media (max-width: 720px) {
+    thead {
+      display: none;
+    }
+
+    tr {
+      display: grid;
+      grid-template-columns: 32px minmax(0, 1fr) auto;
+      padding: 8px 0;
+    }
+
+    td {
+      padding: 4px 12px;
+    }
+
+    td[data-label] {
+      grid-column: 2 / 4;
+
+      &::before {
+        content: attr(data-label) ' ';
+        color: var(--text-muted);
+      }
+    }
+
+    &__grip-cell {
+      grid-row: 1;
+    }
+
+    &__stats {
+      grid-column: 2 / 4;
+      white-space: normal;
+    }
+
+    &__controls {
+      grid-column: 3;
+      grid-row: 1;
+    }
+
+    &__row + &__row td {
+      border-top: 0;
+    }
+
+    &__row + &__row {
+      border-top: 1px solid var(--border);
+    }
+  }
+}
+
+.seneca-rule-suggestions {
+  margin: 0 0 20px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: $seneca-radius-md;
+  background: var(--card);
+
+  &__title {
+    margin: 0 0 8px;
+    font-size: 15px;
+    font-weight: $seneca-font-weight-medium;
+    color: var(--foreground);
+  }
+
+  &__list {
     display: flex;
+    flex-direction: column;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  &__item {
+    display: flex;
+    flex-wrap: wrap;
     align-items: center;
+    justify-content: space-between;
+    gap: 8px 16px;
+    padding: 8px 0;
+
+    & + & {
+      border-top: 1px solid var(--border);
+    }
+  }
+
+  &__text {
+    min-width: 0;
+    font-size: 14px;
+    color: var(--foreground);
+  }
+
+  &__actions {
+    display: flex;
     gap: 4px;
-    flex-shrink: 0;
+  }
+}
+
+// The rule editor page: the form, and the rows it would match beside it.
+.seneca-rule-editor {
+  display: grid;
+  grid-template-columns: minmax(0, 560px) minmax(0, 1fr);
+  align-items: start;
+  gap: 32px;
+
+  @media (max-width: 1100px) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  &__back {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    margin-bottom: 8px;
+    font-size: 14px;
+    color: var(--text-muted);
+    text-decoration: none;
+
+    &:hover,
+    &:focus-visible {
+      color: var(--foreground);
+    }
+  }
+
+  &__title {
+    margin: 0 0 24px;
+    font-size: 22px;
+    font-weight: $seneca-font-weight-medium;
+    color: var(--foreground);
+    overflow-wrap: anywhere;
+  }
+
+  &__form {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    padding: 20px;
+    border: 1px solid var(--border);
+    border-radius: $seneca-radius-md;
+    background: var(--card);
+  }
+
+  &__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+}
+
+.seneca-rule-matches {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+
+  &__title {
+    margin: 0;
+    font-size: 15px;
+    font-weight: $seneca-font-weight-medium;
+    color: var(--foreground);
+  }
+
+  &__summary {
+    margin: 0;
+    font-size: 14px;
+    color: var(--foreground);
+  }
+
+  &__hint {
+    margin: 0;
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+
+  &__warning {
+    margin: 0;
+    padding: 10px 12px;
+    border-left: 3px solid var(--attention);
+    border-radius: $seneca-radius-sm;
+    background: var(--surface-soft);
+    font-size: 14px;
+    color: var(--foreground);
+  }
+
+  &__scroll {
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: $seneca-radius-md;
+    background: var(--card);
+  }
+
+  &__table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    color: var(--foreground);
+
+    th {
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+      font-weight: $seneca-font-weight-medium;
+      text-align: left;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
+    td {
+      padding: 8px 12px;
+      vertical-align: top;
+    }
+
+    tbody tr + tr td {
+      border-top: 1px solid var(--border);
+    }
+  }
+
+  &__row--taken td {
+    color: var(--text-muted);
+  }
+
+  &__date {
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__payee {
+    min-width: 160px;
+  }
+
+  &__purpose {
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__num {
+    text-align: right !important;
+    white-space: nowrap;
+    font-weight: $seneca-font-weight-medium;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__taken {
+    display: block;
+    font-size: 12px;
+    color: var(--text-muted);
   }
 }
 
@@ -188,44 +464,5 @@
   &__action-label {
     font-size: 14px;
     color: var(--foreground);
-  }
-
-  &__preview {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    padding: 12px 14px;
-    border-radius: $seneca-radius-sm;
-    background: var(--surface-soft);
-    font-size: 14px;
-    color: var(--foreground);
-  }
-
-  &__examples {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    margin: 4px 0 0;
-    padding: 0;
-    list-style: none;
-
-    li {
-      display: flex;
-      justify-content: space-between;
-      gap: 12px;
-      min-width: 0;
-
-      > :first-child {
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-    }
-  }
-
-  &__example-meta {
-    flex-shrink: 0;
-    color: var(--text-muted);
-    font-variant-numeric: tabular-nums;
   }
 }

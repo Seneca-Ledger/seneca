@@ -928,6 +928,12 @@ export class StatementProcessingService {
       // Calculate amount preserving zero values
       const amount = (parsed.debit ?? parsed.credit ?? 0) as number;
 
+      const currency =
+        parsed.currency ||
+        statement.currency ||
+        statement.workspace?.currency ||
+        appDefaultCurrency();
+
       // Classify transaction first (before creating entity)
       const tempTransaction = {
         transactionDate: parsed.transactionDate,
@@ -939,14 +945,12 @@ export class StatementProcessingService {
         debit: parsed.debit ?? null,
         credit: parsed.credit ?? null,
         amount,
-        currency:
-          parsed.currency ||
-          statement.currency ||
-          statement.workspace?.currency ||
-          appDefaultCurrency(),
+        currency,
         paymentPurpose,
         transactionType,
         workspaceId: statement.workspaceId,
+        // The statement's account, so a rule can ask which account a row is in.
+        walletId: account?.id ?? null,
       } as Transaction;
 
       const classification = await this.classificationService.classifyTransaction(
@@ -960,11 +964,6 @@ export class StatementProcessingService {
         classification.categoryReason = null;
       }
 
-      const currency =
-        parsed.currency ||
-        statement.currency ||
-        statement.workspace?.currency ||
-        appDefaultCurrency();
       const exchangeRate = parsed.exchangeRate ?? null;
       const amountForeign = parsed.amountForeign ?? null;
 

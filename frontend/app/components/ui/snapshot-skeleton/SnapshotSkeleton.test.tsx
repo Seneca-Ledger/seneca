@@ -4,6 +4,7 @@ import { renderToString } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { RECAPTURE_DELAY_MS } from '@/app/hooks/useSkeletonSnapshot';
 import { fallbackSnapshot } from '@/app/lib/snapshot-skeleton/fallback';
+import { requestSnapshotRecapture } from '@/app/lib/snapshot-skeleton/recapture';
 import { SnapshotSkeleton } from './SnapshotSkeleton';
 
 // Measure right away instead of waiting for two frames and an idle period.
@@ -114,7 +115,28 @@ describe('SnapshotSkeleton', () => {
     expect(boxes()).toHaveLength(2);
   });
 
-  it('renders the generic sketch on the server, so hydration matches', () => {
+  it('measures again at once when the content asks, without the quiet time', () => {
+    vi.useFakeTimers();
+    const { rerender, unmount } = render(
+      <SnapshotSkeleton id="overview" loading={false}>
+        <img alt="" data-box="0,0,200,100" />
+      </SnapshotSkeleton>,
+    );
+    rerender(
+      <SnapshotSkeleton id="overview" loading={false}>
+        <img alt="" data-box="0,0,200,100" />
+        <img alt="moved" data-box="0,120,200,100" />
+      </SnapshotSkeleton>,
+    );
+    requestSnapshotRecapture(screen.getByAltText('moved'));
+    unmount();
+
+    render(<SnapshotSkeleton id="overview" loading />);
+
+    expect(boxes()).toHaveLength(2);
+  });
+
+  it('renders an empty block of the sketch height on the server, not some other layout', () => {
     const { unmount } = render(
       <SnapshotSkeleton id="accounts" loading={false}>
         <img alt="" data-box="0,0,200,100" />
@@ -124,8 +146,24 @@ describe('SnapshotSkeleton', () => {
 
     const html = renderToString(<SnapshotSkeleton id="accounts" loading fallback="cards" />);
 
-    expect(html.match(/seneca-snapshot-skeleton__box /g)).toHaveLength(
-      fallbackSnapshot('cards').boxes.length,
+    expect(html).not.toContain('seneca-snapshot-skeleton__box ');
+    expect(html).toContain(`height:${fallbackSnapshot('cards').h}px`);
+  });
+
+  it('leaves out what is marked as decoration', () => {
+    const { unmount } = render(
+      <SnapshotSkeleton id="tile" loading={false}>
+        <img alt="" data-box="0,0,200,100" />
+        <span data-skeleton-skip="">
+          <img alt="" data-box="700,0,120,120" />
+        </span>
+      </SnapshotSkeleton>,
     );
+    unmount();
+
+    render(<SnapshotSkeleton id="tile" loading />);
+
+    expect(boxes()).toHaveLength(1);
+    expect(boxes()[0]).toHaveStyle({ left: '0%', width: '20%' });
   });
 });

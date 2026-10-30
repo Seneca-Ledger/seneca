@@ -1,14 +1,18 @@
-export type ThemePreference = 'dark' | 'light' | 'auto';
+export type ThemePreference = 'dark' | 'light' | 'system';
 export type ResolvedAppTheme = 'dark' | 'light';
 
-/** Dark until someone picks otherwise: new accounts and signed-out pages with no choice kept. */
-export const DEFAULT_THEME_PREFERENCE: ThemePreference = 'dark';
+/** Follows the system until someone picks otherwise: new accounts and signed-out pages with no choice kept. */
+export const DEFAULT_THEME_PREFERENCE: ThemePreference = 'system';
 
 export const THEME_STORAGE_EVENT = 'seneca-theme-preference-change';
 
 export const resolveThemePreference = (value: unknown): ThemePreference => {
-  if (value === 'light' || value === 'dark' || value === 'auto') {
+  if (value === 'light' || value === 'dark' || value === 'system') {
     return value;
+  }
+  // The old name, still in browsers that cached the user before the rename.
+  if (value === 'auto') {
+    return 'system';
   }
 
   return DEFAULT_THEME_PREFERENCE;
@@ -17,7 +21,7 @@ export const resolveThemePreference = (value: unknown): ThemePreference => {
 /**
  * The last preference a signed-in user had, kept outside the `user` record:
  * logging out removes that record, and the sign-in page then fell back to the
- * time-of-day schedule — a user who picked light got a dark sign-in at night.
+ * default — a user who picked light got the system theme on sign-in.
  */
 const LAST_THEME_PREFERENCE_KEY = 'seneca-last-theme-preference';
 
@@ -34,7 +38,7 @@ export const rememberThemePreference = (preference: ThemePreference): void => {
   try {
     localStorage.setItem(LAST_THEME_PREFERENCE_KEY, preference);
   } catch {
-    // Private mode: the sign-in page just follows the schedule.
+    // Private mode: the sign-in page just follows the system.
   }
 };
 
@@ -75,46 +79,6 @@ export const forgetStoredUser = (): void => {
   localStorage.removeItem('user');
 };
 
-export const getStoredThemeTimeZone = () => {
-  if (typeof window === 'undefined') {
-    return null;
-  }
-
-  try {
-    const raw = localStorage.getItem('user');
-    if (!raw) {
-      return null;
-    }
-
-    const parsed = JSON.parse(raw) as { timeZone?: string | null };
-    return typeof parsed?.timeZone === 'string' && parsed.timeZone.trim() ? parsed.timeZone : null;
-  } catch {
-    return null;
-  }
-};
-
-const getHourForTimeZone = (timeZone: string | null) => {
-  if (!timeZone) {
-    return new Date().getHours();
-  }
-
-  const parts = new Intl.DateTimeFormat('en-US', {
-    hour: 'numeric',
-    hour12: false,
-    timeZone,
-  }).formatToParts(new Date());
-
-  const hourValue = parts.find(part => part.type === 'hour')?.value;
-  const parsedHour = Number.parseInt(hourValue || '', 10);
-
-  return Number.isFinite(parsedHour) ? parsedHour : new Date().getHours();
-};
-
-export const getScheduledTheme = (timeZone: string | null): ResolvedAppTheme => {
-  const hour = getHourForTimeZone(timeZone);
-  return hour >= 7 && hour < 19 ? 'light' : 'dark';
-};
-
 /**
  * Last resolved mode, mirrored into a cookie so the server can render MUI in it.
  * Without it the SSR markup (and everything until hydration) uses the light
@@ -122,7 +86,7 @@ export const getScheduledTheme = (timeZone: string | null): ResolvedAppTheme => 
  */
 export const PALETTE_MODE_COOKIE = 'seneca-palette-mode';
 
-/** No cookie yet (a first visit) paints the default, dark. */
+/** No cookie yet (a first visit) paints dark until the client resolves the system theme. */
 export const parsePaletteModeCookie = (value: string | undefined): ResolvedAppTheme =>
   value === 'light' ? 'light' : 'dark';
 
