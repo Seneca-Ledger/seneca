@@ -66,6 +66,22 @@ function toPayload(form: AccountForm) {
   };
 }
 
+/** Bank statements no account holds yet, each with the account it most likely belongs to. */
+export function useUnlinkedStatements() {
+  const workspaceId = useWorkspaceId();
+  const unlinked = useQuery({
+    queryKey: queryKeys.walletsUnlinked(workspaceId),
+    queryFn: ({ signal }) =>
+      apiQueryDecoded({
+        url: '/wallets/unlinked-statements',
+        signal,
+        contract: 'AccountStatementList',
+      }),
+    enabled: Boolean(workspaceId),
+  });
+  return unlinked.data ?? [];
+}
+
 /** Every account with its balance, the totals, and the statements no account holds yet. */
 export function useAccounts() {
   const workspaceId = useWorkspaceId();
@@ -82,21 +98,12 @@ export function useAccounts() {
       apiQueryDecoded({ url: '/wallets/summary', signal, contract: 'WalletSummary' }),
     enabled: ready,
   });
-  const unlinked = useQuery({
-    queryKey: queryKeys.walletsUnlinked(workspaceId),
-    queryFn: ({ signal }) =>
-      apiQueryDecoded({
-        url: '/wallets/unlinked-statements',
-        signal,
-        contract: 'AccountStatementList',
-      }),
-    enabled: ready,
-  });
+  const unlinked = useUnlinkedStatements();
 
   return {
     accounts: accounts.data ?? [],
     summary: summary.data ?? null,
-    unlinked: unlinked.data ?? [],
+    unlinked,
     isPending: accounts.isPending,
     isFetching: accounts.isFetching,
     error: accounts.error,

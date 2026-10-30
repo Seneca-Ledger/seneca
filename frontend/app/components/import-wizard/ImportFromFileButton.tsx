@@ -11,6 +11,8 @@ export interface ImportFromFileButtonProps {
   onImported?: (result: ImportRunResult) => void;
   /** Renders the trigger in the page's own button kit; receives the label and the opener. */
   renderTrigger: (open: () => void, label: string) => React.ReactNode;
+  /** Bank exports picked from an account's page go to that account. */
+  account?: { id: string; currency: string };
 }
 
 /** File picker + wizard for a section page; the page decides how the button looks. */
@@ -43,6 +45,7 @@ export function ImportFromFileButton(props: ImportFromFileButtonProps): React.JS
           file={file}
           fixedTarget={props.target}
           onImported={props.onImported}
+          account={props.account}
         />
       )}
     </>
