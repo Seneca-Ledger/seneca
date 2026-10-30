@@ -44,7 +44,6 @@ import {
 import { User } from '../../entities/user.entity';
 import { AuditService } from '../audit/audit.service';
 import {
-  type DataDeletedEvent,
   type StatementUploadedEvent,
   transactionCreatedEvent,
 } from '../notifications/events/notification-events';
@@ -54,7 +53,6 @@ import { TaxAssignmentService } from '../tax/tax-assignment.service';
 import { WorkspaceCurrencyService } from '../workspaces/workspace-currency.service';
 import { ReceiptStatementService } from './services/receipt-statement.service';
 import { ensureCanEditStatements, ensureCanModifyStatement } from './statement-access';
-import { removeStatementFile } from './statement-file-removal.util';
 import { StatementFilesService } from './statement-files.service';
 import {
   applyStatementFilters,
@@ -66,6 +64,7 @@ import {
   loadTransactionSummaries,
   type StatementTransactionSummary,
 } from './statement-transaction-summary';
+import { StatementTrashService } from './statement-trash.service';
 
 type StatementFileAvailability = Awaited<ReturnType<FileStorageService['getFileAvailability']>>;
 type StatementWithFileAvailability = Statement & {
@@ -118,6 +117,7 @@ export class StatementsService {
     private readonly taxAssignmentService: TaxAssignmentService,
     private readonly workspaceCurrency: WorkspaceCurrencyService,
     private readonly statementFiles: StatementFilesService,
+    private readonly statementTrash: StatementTrashService,
     private readonly eventEmitter?: EventEmitter2,
   ) {}
 
@@ -1001,101 +1001,11 @@ export class StatementsService {
   }
 
   async moveToTrash(id: string, userId: string, workspaceId: string): Promise<Statement> {
-    const statement = await this.findOne(id, workspaceId);
-    await this.ensureCanModify(statement, userId, workspaceId);
-    // A trashed statement's rows drop out of every total, including the
-    // filed return they were reported on.
-    await assertNoTaxLockedTransactions(this.transactionRepository, {
-      statementId: statement.id,
-      workspaceId,
-    });
-
-    // Mark as deleted (soft delete)
-    const beforeState = { ...statement };
-    statement.deletedAt = new Date();
-    await this.statementRepository.save(statement);
-
-    // Audit: record statement deletion with before snapshot.
-    await this.auditService.createEvent({
-      workspaceId,
-      actorType: ActorType.USER,
-      actorId: userId,
-      entityType: EntityType.STATEMENT,
-      entityId: statement.id,
-      action: AuditAction.DELETE,
-      diff: { before: beforeState, after: null },
-      meta: {
-        fileName: statement.fileName,
-        source: 'trash',
-      },
-      isUndoable: true,
-    });
-
-    this.eventEmitter?.emit('data.deleted', {
-      workspaceId,
-      actorId: userId,
-      actorName: statement.user?.name || statement.user?.email || 'User',
-      entityType: 'statement',
-      entityLabel: statement.fileName,
-      count: 1,
-    } satisfies DataDeletedEvent);
-
-    return statement;
+    return this.statementTrash.trash(await this.findOne(id, workspaceId), userId, workspaceId);
   }
 
   async permanentDelete(id: string, userId: string, workspaceId: string): Promise<void> {
-    const statement = await this.statementRepository.findOne({
-      where: { id, workspaceId },
-      relations: {
-        user: true,
-      },
-    });
-
-    if (!statement) {
-      throw new NotFoundException(appError('STATEMENT_NOT_FOUND'));
-    }
-    await assertNoTaxLockedTransactions(this.transactionRepository, {
-      statementId: statement.id,
-      workspaceId,
-    });
-
-    await this.ensureCanModify(statement, userId, workspaceId);
-
-    // Audit: record statement rollback for restore operations.
-    await this.auditService.createEvent({
-      workspaceId,
-      actorType: ActorType.USER,
-      actorId: userId,
-      entityType: EntityType.STATEMENT,
-      entityId: statement.id,
-      action: AuditAction.DELETE,
-      diff: { before: { ...statement }, after: null },
-      meta: {
-        fileName: statement.fileName,
-        source: 'permanent',
-      },
-      isUndoable: true,
-    });
-
-    this.eventEmitter?.emit('data.deleted', {
-      workspaceId,
-      actorId: userId,
-      actorName: statement.user?.name || statement.user?.email || 'User',
-      entityType: 'statement',
-      entityLabel: statement.fileName,
-      count: 1,
-    } satisfies DataDeletedEvent);
-
-    // Delete all related transactions first
-    await this.transactionRepository.delete({ statementId: id });
-
-    await removeStatementFile(this.statementRepository, statement, this.logger);
-
-    // Finally delete the statement
-    await this.statementRepository.remove(statement);
-
-    // Invalidate thumbnail cache
-    await this.cacheManager.del(`statements:thumbnail:${id}`);
+    await this.statementTrash.permanentDelete(id, userId, workspaceId);
   }
 
   async remove(id: string, userId: string, workspaceId: string): Promise<void> {
@@ -1242,49 +1152,7 @@ export class StatementsService {
   }
 
   async restoreFile(id: string, userId: string, workspaceId: string) {
-    const statement = await this.statementRepository.findOne({
-      where: { id, workspaceId },
-      relations: {
-        user: true,
-      },
-    });
-
-    if (!statement) {
-      throw new NotFoundException(appError('STATEMENT_NOT_FOUND'));
-    }
-
-    await this.ensureCanModify(statement, userId, workspaceId);
-
-    // If the file is in trash, restore it from trash
-    if (statement.deletedAt) {
-      statement.deletedAt = null;
-      await this.statementRepository.save(statement);
-
-      // Audit: record permanent removal (used for hard delete flow).
-      await this.auditService.createEvent({
-        workspaceId,
-        actorType: ActorType.USER,
-        actorId: userId,
-        entityType: EntityType.STATEMENT,
-        entityId: statement.id,
-        action: AuditAction.ROLLBACK,
-        diff: { before: null, after: statement },
-        meta: {
-          source: 'trash_restore',
-        },
-        severity: Severity.INFO,
-        isUndoable: false,
-      });
-
-      return { status: 'restored', source: 'trash' };
-    }
-
-    // Otherwise, restore file from database if it's missing from disk
-    const restored = await this.fileStorageService.restoreFile(statement);
-    if (!restored) {
-      throw new NotFoundException(appError('STATEMENT_FILE_RESTORE_UNAVAILABLE'));
-    }
-    return { status: 'restored', source: restored.source };
+    return this.statementTrash.restore(id, userId, workspaceId);
   }
 
   async getThumbnail(id: string, workspaceId: string, requestedWidth?: number): Promise<Buffer> {
