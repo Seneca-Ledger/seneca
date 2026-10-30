@@ -104,7 +104,7 @@ describe('downloadRecoveryCodes', () => {
   it('saves a PDF with the title, details, hint and every code as real text', async () => {
     await downloadRecoveryCodes('pdf', content);
 
-    expect(saved?.fileName).toMatch(/^seneca-recovery-codes-\d{4}-\d{2}-\d{2}\.pdf$/);
+    expect(saved?.fileName).toMatch(/^stoic-budget-recovery-codes-\d{4}-\d{2}-\d{2}\.pdf$/);
     const text = await pdfText(await savedBytes());
     for (const line of [content.title, ...content.details, content.hint, ...content.codes]) {
       expect(text).toContain(line);
@@ -143,7 +143,7 @@ describe('downloadRecoveryCodes', () => {
   it('saves a DOCX with the title, details, hint and every code', async () => {
     await downloadRecoveryCodes('docx', content);
 
-    expect(saved?.fileName).toMatch(/^seneca-recovery-codes-\d{4}-\d{2}-\d{2}\.docx$/);
+    expect(saved?.fileName).toMatch(/^stoic-budget-recovery-codes-\d{4}-\d{2}-\d{2}\.docx$/);
     const xml = docxXml(await savedBytes());
     for (const line of [content.title, ...content.details, content.hint, ...content.codes]) {
       expect(xml).toContain(line);
@@ -163,6 +163,6 @@ describe('downloadRecoveryCodes', () => {
       process.env.TZ = previousTz;
     }
 
-    expect(saved?.fileName).toBe('seneca-recovery-codes-2026-09-26.docx');
+    expect(saved?.fileName).toBe('stoic-budget-recovery-codes-2026-09-26.docx');
   });
 });

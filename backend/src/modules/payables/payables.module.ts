@@ -4,6 +4,7 @@ import { Category } from '../../entities/category.entity';
 import { Payable } from '../../entities/payable.entity';
 import { PayablePayment } from '../../entities/payable-payment.entity';
 import { Statement } from '../../entities/statement.entity';
+import { Tag } from '../../entities/tag.entity';
 import { Transaction } from '../../entities/transaction.entity';
 import { Wallet } from '../../entities/wallet.entity';
 import { Workspace } from '../../entities/workspace.entity';
@@ -28,6 +29,7 @@ import { UnbookedPaymentsService } from './unbooked-payments.service';
       Workspace,
       Wallet,
       Category,
+      Tag,
     ]),
     AuditModule,
     ExchangeRatesModule,

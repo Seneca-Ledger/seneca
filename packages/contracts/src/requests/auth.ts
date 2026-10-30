@@ -39,3 +39,7 @@ export const ResetPasswordBody = Schema.Struct({
   newPassword: Schema.String.check(Schema.isMinLength(8)),
 });
 export type ResetPasswordBody = Wire<typeof ResetPasswordBody>;
+
+/** `POST /auth/sessions/:sessionId/logout`: a session's uuid. */
+export const AuthSessionParams = Schema.Struct({ sessionId: Schema.String.check(Schema.isUUID()) });
+export type AuthSessionParams = Wire<typeof AuthSessionParams>;

@@ -25,13 +25,18 @@ export const FINANCIAL_QUERY_ROOTS = [
   'ledger',
   'tables-report',
   'categories',
+  'tags',
   'payees',
+  // Match counts and the preview of what a rule would file.
+  'categorization-rules',
   'search',
   'tax-return',
   'tax-settings',
   'tax-year',
   'income-tax',
   'datev',
+  // How each bank's statements parsed (the instance admin's parser health page).
+  'parser-health',
 ] as const;
 
 /**

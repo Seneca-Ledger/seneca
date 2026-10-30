@@ -22,6 +22,8 @@ import { InvestmentsModule } from '../investments/investments.module';
 import { BudgetVsActualReport } from './budget-vs-actual.report';
 import { CashFlowMapService } from './cash-flow-map.service';
 import { HoldingsSnapshotReport } from './holdings-snapshot.report';
+import { ReportRetentionService } from './report-retention.service';
+import { ReportSchedulesController } from './report-schedules.controller';
 import { ReportSchedulesScheduler } from './report-schedules.scheduler';
 import { ReportSchedulesService } from './report-schedules.service';
 import { ReportsController } from './reports.controller';
@@ -52,11 +54,12 @@ import { SpendFlowService } from './spend-flow.service';
     ExchangeRatesModule,
     InvestmentsModule,
   ],
-  controllers: [ReportsController],
+  controllers: [ReportsController, ReportSchedulesController],
   providers: [
     ReportsService,
     ReportSchedulesService,
     ReportSchedulesScheduler,
+    ReportRetentionService,
     SpendFlowService,
     CashFlowMapService,
     BudgetVsActualReport,

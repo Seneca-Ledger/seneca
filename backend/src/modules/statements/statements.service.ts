@@ -3,7 +3,6 @@ import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import {
   BadRequestException,
   ConflictException,
-  ForbiddenException,
   Inject,
   Injectable,
   Logger,
@@ -20,18 +19,13 @@ import type { Repository } from 'typeorm';
 import { appError } from '../../common/errors/app-error';
 import { FileStorageService } from '../../common/services/file-storage.service';
 import { currencyCodeOrDefault } from '../../common/utils/currency.util';
-import { ensureCanEdit } from '../../common/utils/ensure-can-edit.util';
 import { calculateFileHash } from '../../common/utils/file-hash.util';
 import { resolveFileType, validateFile } from '../../common/utils/file-validator.util';
 import { normalizeFilename, sanitizeArchiveEntryName } from '../../common/utils/filename.util';
 import { toMinor } from '../../common/utils/money.util';
 import { assertNoTaxLockedTransactions } from '../../common/utils/tax-lock.util';
 import { runExecutable } from '../../common/utils/thumbnail-command.util';
-import {
-  PRIVACY_VIEWER_PARAM,
-  readablePrivateSql,
-} from '../../common/utils/transaction-privacy.util';
-import { resolveUploadsDir } from '../../common/utils/uploads.util';
+import { readUploadedFile, resolveUploadsDir } from '../../common/utils/uploads.util';
 import { assertWorkspaceRefs } from '../../common/utils/workspace-refs.util';
 import type {
   ConvertDroppedSampleBody,
@@ -39,7 +33,7 @@ import type {
   StatementsQuery,
   UpdateStatementBody,
 } from '../../contracts';
-import { Category, Wallet, WorkspaceMember, WorkspaceRole } from '../../entities';
+import { Category, Wallet, WorkspaceMember } from '../../entities';
 import { ActorType, AuditAction, EntityType, Severity } from '../../entities/audit-event.entity';
 import { CategoryType } from '../../entities/category.entity';
 import { BankName, FileType, Statement, StatementStatus } from '../../entities/statement.entity';
@@ -58,11 +52,21 @@ import {
 } from '../notifications/events/notification-events';
 import { StatementParsingQueue } from '../parsing/queue/statement-parsing.queue';
 import { StatementProcessingService } from '../parsing/services/statement-processing.service';
-import { reviewHoldsStatementRows } from '../review-inbox/review-queue.queries';
 import { TaxAssignmentService } from '../tax/tax-assignment.service';
 import { WorkspaceCurrencyService } from '../workspaces/workspace-currency.service';
 import { ReceiptStatementService } from './services/receipt-statement.service';
-import { buildStatementSearchClause } from './statement-search.util';
+import { ensureCanEditStatements, ensureCanModifyStatement } from './statement-access';
+import { removeStatementFile } from './statement-file-removal.util';
+import {
+  applyStatementFilters,
+  applyStatementRowFilters,
+  orderStatementList,
+} from './statement-list-query';
+import {
+  EMPTY_TRANSACTION_SUMMARY,
+  loadTransactionSummaries,
+  type StatementTransactionSummary,
+} from './statement-transaction-summary';
 
 type StatementFileAvailability = Awaited<ReturnType<FileStorageService['getFileAvailability']>>;
 type StatementWithFileAvailability = Statement & {
@@ -73,81 +77,6 @@ type StatementWithFileAvailability = Statement & {
 };
 type StatementRepositoryWithOptionalQueryBuilder = Repository<Statement> & {
   createQueryBuilder?: Repository<Statement>['createQueryBuilder'];
-};
-type StatementTransactionSummary = {
-  description: string | null;
-  exchangeRate: string | null;
-  exchangeRateMixed: boolean;
-  cardLabel: string | null;
-};
-type StatementTransactionSummaryRow = {
-  statementId: string;
-  description: string | null;
-  exchangeRate: string | null;
-  exchangeRateCount: string;
-  cardLabel: string | null;
-};
-
-const APPROVED_STATUSES = [
-  StatementStatus.VALIDATED,
-  StatementStatus.COMPLETED,
-  StatementStatus.PARSED,
-];
-
-const toDateOnlyString = (value: Date) => {
-  const year = value.getFullYear();
-  const month = `${value.getMonth() + 1}`.padStart(2, '0');
-  const day = `${value.getDate()}`.padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
-
-const getDatePresetRange = (preset: 'thisMonth' | 'lastMonth' | 'yearToDate', now: Date) => {
-  const current = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
-  if (preset === 'thisMonth') {
-    return {
-      dateFrom: toDateOnlyString(new Date(current.getFullYear(), current.getMonth(), 1)),
-      dateTo: toDateOnlyString(new Date(current.getFullYear(), current.getMonth() + 1, 0)),
-    };
-  }
-
-  if (preset === 'lastMonth') {
-    return {
-      dateFrom: toDateOnlyString(new Date(current.getFullYear(), current.getMonth() - 1, 1)),
-      dateTo: toDateOnlyString(new Date(current.getFullYear(), current.getMonth(), 0)),
-    };
-  }
-
-  return {
-    dateFrom: toDateOnlyString(new Date(current.getFullYear(), 0, 1)),
-    dateTo: toDateOnlyString(current),
-  };
-};
-
-const splitReferenceTokens = (tokens?: string[]) => {
-  const normalizedTokens = tokens || [];
-  const allowedBankNames = new Set(Object.values(BankName));
-
-  return normalizedTokens.reduce(
-    (acc, token) => {
-      if (token.startsWith('user:')) {
-        const userId = token.replace('user:', '').trim();
-        if (userId) {
-          acc.userIds.push(userId);
-        }
-      }
-
-      if (token.startsWith('bank:')) {
-        const bankName = token.replace('bank:', '').trim().toLowerCase();
-        if (bankName && allowedBankNames.has(bankName as BankName)) {
-          acc.bankNames.push(bankName);
-        }
-      }
-
-      return acc;
-    },
-    { userIds: [] as string[], bankNames: [] as string[] },
-  );
 };
 
 /**
@@ -203,72 +132,8 @@ export class StatementsService {
     return statementWithAvailability;
   }
 
-  private async loadTransactionSummaries(
-    workspaceId: string,
-    statementIds: string[],
-    viewerMemberId: string | null,
-  ): Promise<Map<string, StatementTransactionSummary>> {
-    if (statementIds.length === 0) {
-      return new Map();
-    }
-
-    const queryBuilder = this.transactionRepository.createQueryBuilder('transaction');
-    if (
-      typeof queryBuilder.leftJoin !== 'function' ||
-      typeof queryBuilder.addSelect !== 'function' ||
-      typeof queryBuilder.getRawMany !== 'function'
-    ) {
-      return new Map();
-    }
-
-    const rows = await queryBuilder
-      .leftJoin('transaction.wallet', 'wallet')
-      .select('transaction.statementId', 'statementId')
-      .addSelect(
-        // The first purpose the viewer may read: another member's private row
-        // does not get to describe the whole document.
-        `(ARRAY_REMOVE(ARRAY_AGG(NULLIF(transaction.paymentPurpose, '') ORDER BY transaction.transactionDate ASC, transaction.createdAt ASC) FILTER (WHERE ${readablePrivateSql('transaction')}), NULL))[1]`,
-        'description',
-      )
-      .addSelect(
-        'MIN(transaction.exchangeRate) FILTER (WHERE transaction.exchangeRate IS NOT NULL)',
-        'exchangeRate',
-      )
-      .addSelect(
-        'COUNT(DISTINCT transaction.exchangeRate) FILTER (WHERE transaction.exchangeRate IS NOT NULL)',
-        'exchangeRateCount',
-      )
-      .addSelect(
-        "(ARRAY_REMOVE(ARRAY_AGG(NULLIF(wallet.name, '') ORDER BY transaction.transactionDate ASC, transaction.createdAt ASC), NULL))[1]",
-        'cardLabel',
-      )
-      .where('transaction.workspaceId = :workspaceId', { workspaceId })
-      .andWhere('transaction.statementId IN (:...statementIds)', { statementIds })
-      .groupBy('transaction.statementId')
-      .setParameter(PRIVACY_VIEWER_PARAM, viewerMemberId)
-      .getRawMany<StatementTransactionSummaryRow>();
-
-    return new Map(
-      rows.map(row => [
-        row.statementId,
-        {
-          description: row.description ?? null,
-          exchangeRate: row.exchangeRate ?? null,
-          exchangeRateMixed: Number(row.exchangeRateCount || 0) > 1,
-          cardLabel: row.cardLabel ?? null,
-        },
-      ]),
-    );
-  }
-
   private async ensureCanEditStatements(userId: string, workspaceId: string): Promise<void> {
-    await ensureCanEdit(
-      this.workspaceMemberRepository,
-      workspaceId,
-      userId,
-      'canEditStatements',
-      'STATEMENTS_EDIT_FORBIDDEN',
-    );
+    await ensureCanEditStatements(this.workspaceMemberRepository, userId, workspaceId);
   }
 
   private async ensureCanModify(
@@ -276,22 +141,7 @@ export class StatementsService {
     userId: string,
     workspaceId: string,
   ): Promise<void> {
-    await this.ensureCanEditStatements(userId, workspaceId);
-    if (statement.userId === userId) {
-      return;
-    }
-    if (workspaceId && statement.workspaceId === workspaceId) {
-      const membership = await this.workspaceMemberRepository.findOne({
-        where: { workspaceId, userId },
-        select: {
-          role: true,
-        },
-      });
-      if (membership && [WorkspaceRole.ADMIN, WorkspaceRole.OWNER].includes(membership.role)) {
-        return;
-      }
-    }
-    throw new ForbiddenException(appError('STATEMENT_EDIT_FORBIDDEN'));
+    await ensureCanModifyStatement(this.workspaceMemberRepository, statement, userId, workspaceId);
   }
 
   private escapeCsvValue(value: string): string {
@@ -299,6 +149,27 @@ export class StatementsService {
       return `"${value.replaceAll('"', '""')}"`;
     }
     return value;
+  }
+
+  /**
+   * The account an upload was sent to (SimpleFIN mapping, a webhook default, the
+   * upload form), kept only when it is one of this workspace's: a mapping left
+   * pointing at a deleted account must not fail the upload.
+   */
+  private async accountOfUpload(
+    walletId: string | undefined,
+    workspaceId: string,
+  ): Promise<string | null> {
+    if (!walletId) {
+      return null;
+    }
+    const exists = await this.walletRepository.exists({ where: { id: walletId, workspaceId } });
+    if (!exists) {
+      this.logger.warn(
+        `[Statements] Upload named wallet ${walletId}, not in workspace ${workspaceId}`,
+      );
+    }
+    return exists ? walletId : null;
   }
 
   /** Who owns the wallet, or null when it is shared. */
@@ -358,29 +229,29 @@ export class StatementsService {
         .trim(),
     );
     if (!Number.isFinite(amountValue) || amountValue <= 0) {
-      throw new BadRequestException('Amount must be a positive number');
+      throw new BadRequestException(appError('EXPENSE_AMOUNT_INVALID'));
     }
 
     const merchant = payload.merchant?.trim();
     if (!merchant) {
-      throw new BadRequestException('Merchant is required');
+      throw new BadRequestException(appError('EXPENSE_MERCHANT_REQUIRED'));
     }
 
     const currency = await this.workspaceCurrency.resolveFor(workspaceId, payload.currency);
     if (!currency) {
-      throw new BadRequestException('Currency is required');
+      throw new BadRequestException(appError('EXPENSE_CURRENCY_REQUIRED'));
     }
 
     const parsedDate = new Date(payload.date);
     if (Number.isNaN(parsedDate.getTime())) {
-      throw new BadRequestException('Date is invalid');
+      throw new BadRequestException(appError('EXPENSE_DATE_INVALID'));
     }
 
     const allowDuplicates = payload.allowDuplicates ?? false;
     const description = payload.description?.trim() || '';
     const categoryId = payload.categoryId?.trim();
     if (!categoryId) {
-      throw new BadRequestException('Category is required');
+      throw new BadRequestException(appError('EXPENSE_CATEGORY_REQUIRED'));
     }
 
     const category = await this.categoryRepository.findOne({
@@ -388,15 +259,15 @@ export class StatementsService {
     });
 
     if (!category) {
-      throw new BadRequestException('Category not found');
+      throw new BadRequestException(appError('CATEGORY_NOT_FOUND'));
     }
 
     if (category.isEnabled === false) {
-      throw new BadRequestException('Category is disabled');
+      throw new BadRequestException(appError('EXPENSE_CATEGORY_DISABLED'));
     }
 
     if (category.type !== CategoryType.EXPENSE) {
-      throw new BadRequestException('Category must be an expense category');
+      throw new BadRequestException(appError('EXPENSE_CATEGORY_NOT_EXPENSE'));
     }
 
     const taxRateId = payload.taxRateId?.trim();
@@ -412,7 +283,7 @@ export class StatementsService {
       });
 
       if (!taxRate) {
-        throw new BadRequestException('Tax rate not found');
+        throw new BadRequestException(appError('EXPENSE_TAX_RATE_NOT_FOUND'));
       }
     } else {
       taxRate = await this.taxRateRepository.findOne({
@@ -450,7 +321,7 @@ export class StatementsService {
       fileType = resolveFileType(primaryFile) as FileType;
       fileHash = await calculateFileHash(primaryFile.path);
       fileSize = primaryFile.size;
-      fileData = await fs.promises.readFile(primaryFile.path);
+      fileData = await readUploadedFile(primaryFile.path);
     } else {
       fileName = `manual-expense-${Date.now()}.csv`;
       filePath = path.join(resolveUploadsDir(), `${randomUUID()}.csv`);
@@ -487,6 +358,9 @@ export class StatementsService {
     // Проверка дубликата и обе вставки — в одной транзакции под advisory-lock:
     // иначе double-submit формы проходил check-then-act дважды и создавал два
     // одинаковых расхода (тот же паттерн, что в create() для выписок).
+    const accountId = await this.accountOfUpload(payload.walletId ?? undefined, workspaceId);
+    const accountOwner = accountId ? await this.walletOwnerMemberId(accountId, workspaceId) : null;
+
     let createdTransaction: Transaction | null = null;
     const savedStatement = await this.statementRepository.manager.transaction(async manager => {
       await manager.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [
@@ -529,6 +403,7 @@ export class StatementsService {
         totalCredit: 0,
         currency,
         categoryId: category.id,
+        walletId: accountId,
         parsingDetails: {
           detectedBy: 'manual-expense',
           parserUsed: 'manual-expense',
@@ -577,6 +452,8 @@ export class StatementsService {
         taxNetAmount: taxAssignment.taxNetAmount,
         taxReverseCharge: taxAssignment.taxReverseCharge,
         taxNotionalAmount: taxAssignment.taxNotionalAmount,
+        walletId: accountId,
+        ownerMemberId: accountOwner,
         isVerified: true,
       });
 
@@ -653,19 +530,19 @@ export class StatementsService {
     const sample = sampleIndex >= 0 ? droppedSamples[sampleIndex] : null;
 
     if (!(sample || warning)) {
-      throw new NotFoundException('Dropped sample not found');
+      throw new NotFoundException(appError('STATEMENT_SAMPLE_NOT_FOUND'));
     }
 
     const transactionDate = new Date(payload.transaction.transactionDate);
     if (Number.isNaN(transactionDate.getTime())) {
-      throw new BadRequestException('Transaction date is invalid');
+      throw new BadRequestException(appError('STATEMENT_TRANSACTION_DATE_INVALID'));
     }
 
     const debit = this.normalizePositiveAmount(payload.transaction.debit);
     const credit = this.normalizePositiveAmount(payload.transaction.credit);
 
     if (!(debit || credit)) {
-      throw new BadRequestException('Either debit or credit amount is required');
+      throw new BadRequestException(appError('STATEMENT_AMOUNT_REQUIRED'));
     }
 
     const transactionType = debit ? TransactionType.EXPENSE : TransactionType.INCOME;
@@ -797,7 +674,7 @@ export class StatementsService {
 
     let fileData: Buffer | null = null;
     try {
-      fileData = await fs.promises.readFile(file.path);
+      fileData = await readUploadedFile(file.path);
     } catch (error) {
       this.logger.warn(
         `[Statements] Failed to read uploaded file for DB storage: ${(error as Error)?.message}`,
@@ -811,6 +688,7 @@ export class StatementsService {
     // Parsing replaces it with the currency the file states; until then the
     // statement carries the workspace's own (the column has no default).
     const currency = await this.workspaceCurrency.resolve(workspaceId);
+    const accountId = await this.accountOfUpload(walletId, workspaceId);
 
     const savedStatement = await this.statementRepository.manager.transaction(async manager => {
       const statements = manager.getRepository(Statement);
@@ -856,6 +734,7 @@ export class StatementsService {
         fileHash,
         bankName: BankName.OTHER, // Will be determined during parsing
         currency,
+        walletId: accountId,
         status: StatementStatus.UPLOADED,
         parsingDetails: requireManualCategorySelection
           ? {
@@ -924,10 +803,6 @@ export class StatementsService {
   }> {
     const page = filters.page;
     const limit = filters.limit ?? (page ? 20 : undefined);
-    const statementDateExpression =
-      'DATE(COALESCE(statement.statementDateTo, statement.statementDateFrom, statement.createdAt))';
-    const amountExpression =
-      'GREATEST(COALESCE(statement.totalDebit, 0), COALESCE(statement.totalCredit, 0))';
     const qb = this.statementRepository
       .createQueryBuilder('statement')
       .leftJoinAndSelect('statement.user', 'user')
@@ -943,253 +818,17 @@ export class StatementsService {
       qb.take(limit);
     }
 
-    const search = filters.search ? buildStatementSearchClause(filters.search) : null;
-    if (search) {
-      qb.andWhere(search.clause, search.params);
-    }
-
-    if (filters.type) {
-      qb.andWhere('statement.fileType = :type', {
-        type: filters.type.toLowerCase(),
-      });
-    }
-
-    if (filters.statuses && filters.statuses.length > 0) {
-      // status is a Postgres enum: LOWER() has no enum overload, and comparing the
-      // enum to an unknown value errors, so compare as text.
-      qb.andWhere('CAST(statement.status AS text) IN (:...statuses)', {
-        statuses: filters.statuses.map(status => status.toLowerCase()),
-      });
-    }
-
-    if (typeof filters.approved === 'boolean') {
-      // As the Approved column says it: parsed, and Review holds none of its rows.
-      const review = reviewHoldsStatementRows(this.transactionRepository, workspaceId, 'statement');
-      const approved = `(statement.status IN (:...approvedStatuses) AND NOT ${review.clause})`;
-      qb.andWhere(filters.approved ? approved : `NOT ${approved}`, {
-        approvedStatuses: APPROVED_STATUSES,
-        ...review.params,
-      });
-    }
-
-    if (typeof filters.billable === 'boolean') {
-      if (filters.billable) {
-        qb.andWhere(`${amountExpression} > 0`);
-      } else {
-        qb.andWhere(`${amountExpression} <= 0`);
-      }
-    }
-
-    if (filters.datePreset) {
-      const { dateFrom, dateTo } = getDatePresetRange(filters.datePreset, new Date());
-      qb.andWhere(`${statementDateExpression} BETWEEN :dateFrom AND :dateTo`, {
-        dateFrom,
-        dateTo,
-      });
-    } else if (filters.dateMode && filters.dateFrom) {
-      if (filters.dateMode === 'on') {
-        if (filters.dateTo) {
-          const sortedRange = [filters.dateFrom, filters.dateTo].sort();
-          qb.andWhere(`${statementDateExpression} BETWEEN :dateFrom AND :dateTo`, {
-            dateFrom: sortedRange[0],
-            dateTo: sortedRange[1],
-          });
-        } else {
-          qb.andWhere(`${statementDateExpression} = :dateFrom`, {
-            dateFrom: filters.dateFrom,
-          });
-        }
-      } else if (filters.dateMode === 'after') {
-        qb.andWhere(`${statementDateExpression} > :dateFrom`, {
-          dateFrom: filters.dateFrom,
-        });
-      } else {
-        qb.andWhere(`${statementDateExpression} < :dateTo`, {
-          dateTo: filters.dateTo || filters.dateFrom,
-        });
-      }
-    }
-
-    const fromReferences = splitReferenceTokens(filters.from);
-    if (fromReferences.userIds.length > 0 || fromReferences.bankNames.length > 0) {
-      const conditions: string[] = [];
-      const params: Record<string, string[]> = {};
-
-      if (fromReferences.userIds.length > 0) {
-        conditions.push('statement.userId IN (:...fromUserIds)');
-        params.fromUserIds = fromReferences.userIds;
-      }
-
-      if (fromReferences.bankNames.length > 0) {
-        conditions.push('statement.bankName IN (:...fromBankNames)');
-        params.fromBankNames = fromReferences.bankNames;
-      }
-
-      qb.andWhere(`(${conditions.join(' OR ')})`, params);
-    }
-
-    const toReferences = splitReferenceTokens(filters.to);
-    if (toReferences.userIds.length > 0 || toReferences.bankNames.length > 0) {
-      const conditions: string[] = [];
-      const params: Record<string, string[]> = {};
-
-      if (toReferences.userIds.length > 0) {
-        conditions.push('statement.userId IN (:...toUserIds)');
-        params.toUserIds = toReferences.userIds;
-      }
-
-      if (toReferences.bankNames.length > 0) {
-        conditions.push('statement.bankName IN (:...toBankNames)');
-        params.toBankNames = toReferences.bankNames;
-      }
-
-      qb.andWhere(`(${conditions.join(' OR ')})`, params);
-    }
-
-    if (filters.keywords?.trim()) {
-      qb.andWhere(
-        `(
-          statement.fileName ILIKE :keywords OR
-          CAST(statement.bankName AS text) ILIKE :keywords OR
-          CAST(statement.status AS text) ILIKE :keywords OR
-          COALESCE(user.name, '') ILIKE :keywords OR
-          COALESCE(user.email, '') ILIKE :keywords OR
-          COALESCE(statement.accountNumber, '') ILIKE :keywords
-        )`,
-        {
-          keywords: `%${filters.keywords.trim()}%`,
-        },
-      );
-    }
-
-    if (filters.amountMin !== undefined || filters.amountMax !== undefined) {
-      const amountConditions: string[] = [];
-      const params: Record<string, number> = {};
-
-      if (filters.amountMin !== undefined) {
-        amountConditions.push(`${amountExpression} >= :amountMin`);
-        params.amountMin = filters.amountMin;
-      }
-
-      if (filters.amountMax !== undefined) {
-        amountConditions.push(`${amountExpression} <= :amountMax`);
-        params.amountMax = filters.amountMax;
-      }
-
-      qb.andWhere(amountConditions.join(' AND '), params);
-    }
-
-    if (filters.currencies && filters.currencies.length > 0) {
-      qb.andWhere('LOWER(statement.currency) IN (:...currencies)', {
-        currencies: filters.currencies.map(currency => currency.toLowerCase()),
-      });
-    }
-
-    if (typeof filters.exported === 'boolean') {
-      qb.andWhere(
-        filters.exported ? 'statement.processedAt IS NOT NULL' : 'statement.processedAt IS NULL',
-      );
-    }
-
-    if (typeof filters.paid === 'boolean') {
-      qb.andWhere(
-        filters.paid
-          ? 'statement.statementDateTo IS NOT NULL'
-          : 'statement.statementDateTo IS NULL',
-      );
-    }
-
-    if (filters.has?.includes('errors')) {
-      qb.andWhere(
-        `(
-          statement.status = :errorStatus OR
-          statement.errorMessage IS NOT NULL OR
-          jsonb_array_length(COALESCE(statement.parsingDetails->'errors', '[]'::jsonb)) > 0
-        )`,
-        { errorStatus: StatementStatus.ERROR },
-      );
-    }
-
-    if (filters.has?.includes('processingDetails')) {
-      qb.andWhere(
-        "jsonb_array_length(COALESCE(statement.parsingDetails->'logEntries', '[]'::jsonb)) > 0",
-      );
-    }
-
-    if (filters.has?.includes('transactions')) {
-      qb.andWhere('statement.totalTransactions > 0');
-    }
-
-    if (filters.has?.includes('dateRange')) {
-      qb.andWhere(
-        '(statement.statementDateFrom IS NOT NULL OR statement.statementDateTo IS NOT NULL)',
-      );
-    }
-
-    if (filters.has?.includes('currency')) {
-      qb.andWhere(
-        `(
-          statement.currency IS NOT NULL OR
-          statement.parsingDetails->'metadataExtracted'->>'currency' IS NOT NULL OR
-          statement.parsingDetails->'metadataExtracted'->'headerDisplay'->>'currencyDisplay' IS NOT NULL
-        )`,
-      );
-    }
-
-    if (filters.categoryId || filters.merchant) {
-      // Documents holding a row of this category and/or merchant, dated in the window if given.
-      const rowSubQuery = this.transactionRepository
-        .createQueryBuilder('transaction')
-        .select('DISTINCT transaction.statementId')
-        .where('transaction.workspaceId = :workspaceId', { workspaceId })
-        .andWhere('transaction.statementId IS NOT NULL');
-
-      if (filters.categoryId === 'uncategorized') {
-        rowSubQuery.andWhere('transaction.categoryId IS NULL');
-      } else if (filters.categoryId) {
-        // A parent's figure in the reports includes its subcategories; so does its list.
-        const categoryIds = await this.categoryWithDescendants(workspaceId, filters.categoryId);
-        rowSubQuery.andWhere('transaction.categoryId IN (:...categoryIds)', { categoryIds });
-      }
-      if (filters.merchant) {
-        // The merchant key the analytics charts group by.
-        rowSubQuery.andWhere(
-          'LOWER(TRIM(COALESCE(transaction.vendorNormalized, transaction.counterpartyName))) = :merchant',
-          { merchant: filters.merchant.trim().toLowerCase() },
-        );
-      }
-      if (filters.transactionsFrom) {
-        rowSubQuery.andWhere('transaction.transactionDate >= :transactionsFrom', {
-          transactionsFrom: filters.transactionsFrom,
-        });
-      }
-      if (filters.transactionsTo) {
-        rowSubQuery.andWhere('transaction.transactionDate <= :transactionsTo', {
-          transactionsTo: filters.transactionsTo,
-        });
-      }
-
-      qb.andWhere(`statement.id IN (${rowSubQuery.getQuery()})`).setParameters(
-        rowSubQuery.getParameters(),
-      );
-    }
-
-    if (filters.groupBy === 'date') {
-      qb.orderBy(statementDateExpression, 'ASC');
-    } else if (filters.groupBy === 'status') {
-      qb.orderBy('statement.status', 'ASC');
-    } else if (filters.groupBy === 'type') {
-      qb.orderBy('statement.fileType', 'ASC');
-    } else if (filters.groupBy === 'bank') {
-      qb.orderBy('statement.bankName', 'ASC');
-    } else if (filters.groupBy === 'user') {
-      qb.orderBy(`LOWER(COALESCE(user.name, user.email, ''))`, 'ASC');
-    } else if (filters.groupBy === 'amount') {
-      qb.orderBy(amountExpression, 'ASC');
-    }
+    applyStatementFilters(qb, filters);
+    const categoryIds =
+      filters.categoryId && filters.categoryId !== 'uncategorized'
+        ? await this.categoryWithDescendants(workspaceId, filters.categoryId)
+        : null;
+    applyStatementRowFilters(qb, filters, this.transactionRepository, workspaceId, categoryIds);
+    orderStatementList(qb, filters.groupBy);
 
     const [dataRaw, totalCount] = await qb.getManyAndCount();
-    const transactionSummaries = await this.loadTransactionSummaries(
+    const transactionSummaries = await loadTransactionSummaries(
+      this.transactionRepository,
       workspaceId,
       dataRaw.map(statement => statement.id),
       viewerMemberId,
@@ -1198,12 +837,7 @@ export class StatementsService {
       dataRaw.map(async st => {
         const availability = await this.fileStorageService.getFileAvailability(st);
         const statement = this.attachFileAvailability(st, availability);
-        statement.transactionSummary = transactionSummaries.get(st.id) ?? {
-          description: null,
-          exchangeRate: null,
-          exchangeRateMixed: false,
-          cardLabel: null,
-        };
+        statement.transactionSummary = transactionSummaries.get(st.id) ?? EMPTY_TRANSACTION_SUMMARY;
         return statement;
       }),
     );
@@ -1250,7 +884,7 @@ export class StatementsService {
       });
 
       if (!statement) {
-        throw new NotFoundException('Statement not found');
+        throw new NotFoundException(appError('STATEMENT_NOT_FOUND'));
       }
 
       const availability = await this.fileStorageService.getFileAvailability(statement);
@@ -1269,7 +903,7 @@ export class StatementsService {
     const statement = await qb.getOne();
 
     if (!statement) {
-      throw new NotFoundException('Statement not found');
+      throw new NotFoundException(appError('STATEMENT_NOT_FOUND'));
     }
 
     const availability = await this.fileStorageService.getFileAvailability(statement);
@@ -1358,7 +992,7 @@ export class StatementsService {
     const updatedStatement = await this.statementRepository.save(statement);
 
     try {
-      const fileData = await fs.promises.readFile(file.path);
+      const fileData = await readUploadedFile(file.path);
       await this.statementRepository.update(updatedStatement.id, { fileData });
     } catch (error) {
       this.logger.warn(
@@ -1440,7 +1074,7 @@ export class StatementsService {
     });
 
     if (!statement) {
-      throw new NotFoundException('Statement not found');
+      throw new NotFoundException(appError('STATEMENT_NOT_FOUND'));
     }
     await assertNoTaxLockedTransactions(this.transactionRepository, {
       statementId: statement.id,
@@ -1477,15 +1111,7 @@ export class StatementsService {
     // Delete all related transactions first
     await this.transactionRepository.delete({ statementId: id });
 
-    // Delete file from filesystem
-    if (fs.existsSync(statement.filePath)) {
-      try {
-        fs.unlinkSync(statement.filePath);
-      } catch (error) {
-        this.logger.error(`Failed to delete file ${statement.filePath}:`, error);
-        // Continue with statement deletion even if file deletion fails
-      }
-    }
+    await removeStatementFile(this.statementRepository, statement, this.logger);
 
     // Finally delete the statement
     await this.statementRepository.remove(statement);
@@ -1649,7 +1275,7 @@ export class StatementsService {
     });
 
     if (!statement) {
-      throw new NotFoundException('Statement not found');
+      throw new NotFoundException(appError('STATEMENT_NOT_FOUND'));
     }
 
     await this.ensureCanModify(statement, userId, workspaceId);
@@ -1681,7 +1307,7 @@ export class StatementsService {
     // Otherwise, restore file from database if it's missing from disk
     const restored = await this.fileStorageService.restoreFile(statement);
     if (!restored) {
-      throw new NotFoundException('File data is unavailable for restore');
+      throw new NotFoundException(appError('STATEMENT_FILE_RESTORE_UNAVAILABLE'));
     }
     return { status: 'restored', source: restored.source };
   }
@@ -1703,7 +1329,7 @@ export class StatementsService {
 
     // Check if file is PDF
     if (statement.fileType !== 'pdf' && !statement.fileName.toLowerCase().endsWith('.pdf')) {
-      throw new BadRequestException('Thumbnails are only available for PDF files');
+      throw new BadRequestException(appError('STATEMENT_THUMBNAIL_PDF_ONLY'));
     }
 
     // Determine source file path
@@ -1721,7 +1347,7 @@ export class StatementsService {
     }
 
     if (!pdfPath) {
-      throw new NotFoundException('File data not available');
+      throw new NotFoundException(appError('STATEMENT_FILE_DATA_UNAVAILABLE'));
     }
 
     try {
@@ -1770,7 +1396,7 @@ export class StatementsService {
       }
 
       this.logger.error('Error generating thumbnail:', error);
-      throw new BadRequestException('Failed to generate thumbnail');
+      throw new BadRequestException(appError('STATEMENT_THUMBNAIL_FAILED'));
     }
   }
 

@@ -13,7 +13,6 @@ import { taxLockedConflict } from '../../common/utils/tax-lock.util';
 import {
   applyOwnerFilter,
   assertOwnerMemberInWorkspace,
-  type OwnerFilter,
 } from '../../common/utils/transaction-owner.util';
 import { redactPrivate, redactPrivateRows } from '../../common/utils/transaction-privacy.util';
 import { assertWorkspaceOwned, assertWorkspaceRefs } from '../../common/utils/workspace-refs.util';
@@ -43,6 +42,7 @@ import { ensurePrivateCategory } from '../categories/private-category';
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
 import type { DataDeletedEvent } from '../notifications/events/notification-events';
 import { TaxAssignmentService } from '../tax/tax-assignment.service';
+import { applyListFilters, type TransactionListFilters } from './transaction-list-filters';
 
 export type TransactionWithConversion = Transaction & {
   convertedAmount?: number;
@@ -100,18 +100,7 @@ export class TransactionsService {
 
   async findAll(
     workspaceId: string,
-    filters: {
-      statementId?: string;
-      dateFrom?: Date;
-      dateTo?: Date;
-      type?: string;
-      categoryId?: string;
-      currency?: string;
-      convertTo?: string;
-      owner?: OwnerFilter;
-      page?: number;
-      limit?: number;
-    },
+    filters: TransactionListFilters,
     viewerMemberId: string | null = null,
   ): Promise<{ data: TransactionWithConversion[]; total: number; page: number; limit: number }> {
     const query = this.transactionRepository
@@ -127,41 +116,7 @@ export class TransactionsService {
 
     applyOwnerFilter(query, 'transaction', filters.owner ?? { kind: 'all' });
 
-    if (filters.statementId) {
-      query.andWhere('transaction.statementId = :statementId', {
-        statementId: filters.statementId,
-      });
-    }
-
-    if (filters.dateFrom) {
-      query.andWhere('transaction.transactionDate >= :dateFrom', {
-        dateFrom: filters.dateFrom,
-      });
-    }
-
-    if (filters.dateTo) {
-      query.andWhere('transaction.transactionDate <= :dateTo', {
-        dateTo: filters.dateTo,
-      });
-    }
-
-    if (filters.type === 'transfer') {
-      query.andWhere('transaction.transferPairId IS NOT NULL');
-    } else if (filters.type) {
-      query.andWhere('transaction.transactionType = :type', { type: filters.type });
-    }
-
-    if (filters.categoryId) {
-      query.andWhere('transaction.categoryId = :categoryId', {
-        categoryId: filters.categoryId,
-      });
-    }
-
-    if (filters.currency) {
-      query.andWhere('UPPER(transaction.currency) = :currency', {
-        currency: filters.currency.toUpperCase(),
-      });
-    }
+    applyListFilters(query, filters);
 
     const page = filters.page || 1;
     const limit = filters.limit || 50;
@@ -218,7 +173,7 @@ export class TransactionsService {
     });
 
     if (!transaction) {
-      throw new NotFoundException('Transaction not found');
+      throw new NotFoundException(appError('TRANSACTION_NOT_FOUND'));
     }
 
     return transaction;
@@ -263,7 +218,7 @@ export class TransactionsService {
     const attempted = frozen.filter(field => updateDto[field] !== undefined);
     if (attempted.length > 0) {
       throw new BadRequestException(
-        `Cannot change ${attempted.join(', ')} on a transaction that is part of a filed tax return. Reopen the return first.`,
+        appError('TRANSACTION_TAX_LOCKED_FIELDS', { fields: attempted.join(', ') }),
       );
     }
   }
@@ -526,37 +481,37 @@ export class TransactionsService {
    */
   private assertSplittable(transaction: Transaction, dto: SplitTransactionBody): number {
     if (transaction.splitGroupId) {
-      throw new BadRequestException('Transaction is already part of a split');
+      throw new BadRequestException(appError('TRANSACTION_ALREADY_SPLIT'));
     }
 
     // A duplicate-flagged row is excluded from dashboards and reports. Splitting it
     // would produce siblings that default to isDuplicate=false, so the sibling
     // amounts would reappear in those totals. Refuse instead.
     if (transaction.isDuplicate) {
-      throw new BadRequestException('Cannot split a transaction marked as a duplicate');
+      throw new BadRequestException(appError('TRANSACTION_SPLIT_DUPLICATE'));
     }
 
     // A locked row has already been reported on a filed return. Splitting it
     // re-assesses the tax across the parts, which would change figures that
     // have been submitted to a tax authority.
     if (transaction.taxLocked) {
-      throw new BadRequestException(
-        'Cannot split a transaction that is part of a filed tax return',
-      );
+      throw new BadRequestException(appError('TRANSACTION_SPLIT_TAX_LOCKED'));
     }
 
     const total = Number(
       transaction.amount ?? transaction.debit ?? transaction.credit ?? Number.NaN,
     );
     if (!Number.isFinite(total) || total <= 0) {
-      throw new BadRequestException('Cannot split a transaction without a positive amount');
+      throw new BadRequestException(appError('TRANSACTION_SPLIT_NOT_POSITIVE'));
     }
 
     const partsTotal = this.round2(dto.parts.reduce((sum, part) => sum + Number(part.amount), 0));
     // Round the drift too: |99.99 - 100| is 0.010000000000005 in binary floating
     // point, which would reject the very boundary the tolerance exists to accept.
     if (this.round2(Math.abs(partsTotal - total)) > 0.01) {
-      throw new BadRequestException(`Split parts must sum to ${total}, received ${partsTotal}`);
+      throw new BadRequestException(
+        appError('TRANSACTION_SPLIT_SUM_MISMATCH', { total, received: partsTotal }),
+      );
     }
 
     return total;
@@ -633,7 +588,7 @@ export class TransactionsService {
         lock: { mode: 'pessimistic_write' },
       });
       if (!locked) {
-        throw new NotFoundException('Transaction not found');
+        throw new NotFoundException(appError('TRANSACTION_NOT_FOUND'));
       }
 
       const total = this.assertSplittable(locked, dto);
@@ -758,7 +713,7 @@ export class TransactionsService {
     // transaction and taking row locks. The authoritative read is the locked one.
     const target = await this.findOne(id, workspaceId);
     if (!target.splitGroupId) {
-      throw new BadRequestException('Transaction is not part of a split');
+      throw new BadRequestException(appError('TRANSACTION_NOT_SPLIT'));
     }
     const splitGroupId = target.splitGroupId;
 
@@ -785,15 +740,13 @@ export class TransactionsService {
       // waited for the lock. A single part is a group that lost its siblings some
       // other way; clearing its markers below is the right repair either way.
       if (parts.length === 0) {
-        throw new BadRequestException('Transaction is not part of a split');
+        throw new BadRequestException(appError('TRANSACTION_NOT_SPLIT'));
       }
 
       // Folding the parts back deletes all but one, and a part on a filed
       // return may not disappear from under it.
       if (parts.some(part => part.taxLocked)) {
-        throw new BadRequestException(
-          'Cannot unsplit a transaction whose parts are part of a filed tax return',
-        );
+        throw new BadRequestException(appError('TRANSACTION_UNSPLIT_TAX_LOCKED'));
       }
 
       before = parts.map(part => ({ ...part }));
@@ -808,9 +761,7 @@ export class TransactionsService {
       // sides are distinguishable. Checked on the locked rows: the flag may have
       // landed after the unlocked read.
       if (parts.some(part => part.isDuplicate)) {
-        throw new BadRequestException(
-          'Cannot unsplit a group containing a transaction marked as a duplicate',
-        );
+        throw new BadRequestException(appError('TRANSACTION_UNSPLIT_DUPLICATE'));
       }
 
       const [survivor, ...rest] = parts;

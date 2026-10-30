@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
-import { type EntityManager, IsNull, Repository } from 'typeorm';
+import { type EntityManager, In, IsNull, Repository } from 'typeorm';
 import { toEnum } from '../../common/effect/to-enum';
 import { withoutNulls } from '../../common/effect/without-nulls';
 import { appError } from '../../common/errors/app-error';
@@ -43,6 +43,7 @@ import {
 } from '../../entities/payable.entity';
 import { PayablePayment } from '../../entities/payable-payment.entity';
 import { Statement } from '../../entities/statement.entity';
+import { Tag } from '../../entities/tag.entity';
 import { Transaction, TransactionType } from '../../entities/transaction.entity';
 import { Wallet } from '../../entities/wallet.entity';
 import { Workspace } from '../../entities/workspace.entity';
@@ -55,6 +56,7 @@ import {
 import { NotificationsService } from '../notifications/notifications.service';
 import { WorkspaceCurrencyService } from '../workspaces/workspace-currency.service';
 import { ExportFormat, PayablesSortOption } from './dto/filter-payables.dto';
+import { applyPayableFilters, parsePayableDate } from './payable-query.util';
 import { PayablesExportService } from './payables-export.service';
 import { UnbookedPaymentsService } from './unbooked-payments.service';
 
@@ -102,6 +104,8 @@ export class PayablesService {
     private readonly statementRepository: Repository<Statement>,
     @InjectRepository(Workspace)
     private readonly workspaceRepository: Repository<Workspace>,
+    @InjectRepository(Tag)
+    private readonly tagRepository: Repository<Tag>,
     private readonly exchangeRatesService: ExchangeRatesService,
     private readonly notificationsService: NotificationsService,
     private readonly payablesExportService: PayablesExportService,
@@ -149,6 +153,7 @@ export class PayablesService {
       dto.linkedTransactionId ?? null,
       dto.statementId ?? null,
     );
+    const tags = await this.workspaceTags(workspaceId, dto.tagIds ?? []);
 
     const payable = this.payableRepository.create({
       workspaceId,
@@ -157,7 +162,7 @@ export class PayablesService {
       vendor: dto.vendor,
       amount: dto.amount,
       currency: await this.workspaceCurrency.resolveFor(workspaceId, dto.currency),
-      dueDate: this.parseDate(dto.dueDate),
+      dueDate: parsePayableDate(dto.dueDate),
       status: toEnum(PayableStatus, dto.status) || PayableStatus.TO_PAY,
       linkedTransactionId: dto.linkedTransactionId || null,
       source: toEnum(PayableSource, dto.source) || PayableSource.MANUAL,
@@ -166,6 +171,7 @@ export class PayablesService {
       statementId: dto.statementId || null,
       paidAt: dto.status === PayableStatus.PAID ? new Date() : null,
       dueSoonNotifiedAt: null,
+      tags,
     });
 
     return this.asStored(await this.payableRepository.save(payable));
@@ -184,8 +190,13 @@ export class PayablesService {
         workspaceId,
         data.map(item => item.id),
       )) ?? new Map<string, number>();
+    const tagsByPayable = await this.tagsOf(
+      workspaceId,
+      data.map(item => item.id),
+    );
     for (const item of data) {
       item.unbookedAmount = (unbooked.get(item.id) ?? 0).toFixed(2);
+      item.tags = tagsByPayable.get(item.id) ?? [];
     }
 
     return {
@@ -203,10 +214,11 @@ export class PayablesService {
         id,
         workspaceId,
       },
+      relations: { tags: true },
     });
 
     if (!payable) {
-      throw new NotFoundException('Payable not found');
+      throw new NotFoundException(appError('PAYABLE_NOT_FOUND'));
     }
 
     return payable;
@@ -233,6 +245,10 @@ export class PayablesService {
       dto.statementId === undefined ? undefined : (dto.statementId ?? null),
     );
     Object.assign(payable, this.normalizeUpdateDto(dto, payable));
+    // Left out keeps the tags; a list (empty or not) is the whole new set.
+    if (dto.tagIds !== undefined) {
+      payable.tags = await this.workspaceTags(workspaceId, dto.tagIds ?? []);
+    }
     return this.asStored(await this.payableRepository.save(payable));
   }
 
@@ -697,7 +713,7 @@ export class PayablesService {
       where: { id: transactionId, workspaceId },
     });
     if (!transaction) {
-      throw new NotFoundException('Transaction not found in workspace');
+      throw new NotFoundException(appError('PAYABLE_TRANSACTION_NOT_FOUND'));
     }
 
     const total = this.round2(
@@ -1153,8 +1169,8 @@ export class PayablesService {
       const fullAmount = Number(row.amount || 0);
       // A paid bill is received in full; any other counts what its payments brought in.
       const received = isPaid ? fullAmount : Math.min(Number(row.paidAmount || 0), fullAmount);
-      const dueDate = this.parseDate(row.dueDate);
-      const paidAt = this.parseDate(row.paidAt ?? row.updatedAt);
+      const dueDate = parsePayableDate(row.dueDate);
+      const paidAt = parsePayableDate(row.paidAt ?? row.updatedAt);
 
       // What is still open is what is still owed: a partly paid bill counts its remainder.
       if (isOpen) {
@@ -1325,7 +1341,7 @@ export class PayablesService {
       },
     });
     if (!payable) {
-      throw new NotFoundException('Payable not found');
+      throw new NotFoundException(appError('PAYABLE_NOT_FOUND'));
     }
 
     payable.dueSoonNotifiedAt = new Date();
@@ -1341,63 +1357,20 @@ export class PayablesService {
         direction: filters.direction || PayableDirection.PAYABLE,
       });
 
-    if (!filters.includeArchived) {
-      queryBuilder.andWhere('payable.status != :archivedStatus', {
-        archivedStatus: PayableStatus.ARCHIVED,
-      });
-    }
-
-    if (filters.status) {
-      queryBuilder.andWhere('payable.status = :status', { status: filters.status });
-    }
-
-    if (filters.source) {
-      queryBuilder.andWhere('payable.source = :source', { source: filters.source });
-    }
-
-    if (filters.search) {
-      queryBuilder.andWhere(
-        "(LOWER(payable.vendor) LIKE :search OR LOWER(COALESCE(payable.comment, '')) LIKE :search)",
-        {
-          search: `%${filters.search.toLowerCase()}%`,
-        },
-      );
-    }
-
-    if (filters.minAmount !== undefined) {
-      queryBuilder.andWhere('payable.amount >= :minAmount', { minAmount: filters.minAmount });
-    }
-
-    if (filters.maxAmount !== undefined) {
-      queryBuilder.andWhere('payable.amount <= :maxAmount', { maxAmount: filters.maxAmount });
-    }
-
-    const dueDateFrom = this.parseDate(filters.dueDateFrom);
-    const dueDateTo = this.parseDate(filters.dueDateTo);
-    if (dueDateFrom && dueDateTo) {
-      queryBuilder.andWhere('payable.dueDate BETWEEN :dueDateFrom AND :dueDateTo', {
-        dueDateFrom,
-        dueDateTo,
-      });
-    } else if (dueDateFrom) {
-      queryBuilder.andWhere('payable.dueDate >= :dueDateFrom', { dueDateFrom });
-    } else if (dueDateTo) {
-      queryBuilder.andWhere('payable.dueDate <= :dueDateTo', { dueDateTo });
-    }
-
-    return queryBuilder;
+    return applyPayableFilters(queryBuilder, filters);
   }
 
   private normalizeUpdateDto(dto: UpdatePayableBody, current: Payable): Partial<Payable> {
     const nextStatus = toEnum(PayableStatus, dto.status) ?? current.status;
     const willBePaid = nextStatus === PayableStatus.PAID;
 
+    const { tagIds: _tagIds, ...columns } = dto;
     const patch: Partial<Payable> = {
-      ...withoutNulls(dto),
+      ...withoutNulls(columns),
       direction: toEnum(PayableDirection, dto.direction) ?? undefined,
       status: toEnum(PayableStatus, dto.status) ?? undefined,
       source: toEnum(PayableSource, dto.source) ?? undefined,
-      dueDate: dto.dueDate !== undefined ? this.parseDate(dto.dueDate) : undefined,
+      dueDate: dto.dueDate !== undefined ? parsePayableDate(dto.dueDate) : undefined,
       linkedTransactionId:
         dto.linkedTransactionId === undefined ? undefined : dto.linkedTransactionId,
       comment: dto.comment === undefined ? undefined : dto.comment,
@@ -1409,6 +1382,40 @@ export class PayablesService {
     return Object.fromEntries(
       Object.entries(patch).filter(([, value]) => value !== undefined),
     ) as Partial<Payable>;
+  }
+
+  /**
+   * The workspace's tags with these ids. A bad id and another workspace's tag
+   * are refused alike, never dropped, so the caller never thinks a tag was applied.
+   */
+  private async workspaceTags(workspaceId: string, tagIds: readonly string[]): Promise<Tag[]> {
+    const uniqueIds = [...new Set(tagIds)];
+    if (uniqueIds.length === 0) {
+      return [];
+    }
+    const tags = await this.tagRepository.find({
+      where: { id: In(uniqueIds), workspaceId },
+      order: { name: 'ASC' },
+    });
+    if (tags.length !== uniqueIds.length) {
+      throw new BadRequestException(appError('TRANSACTION_TAGS_NOT_FOUND'));
+    }
+    return tags;
+  }
+
+  /** The tags of a page of bills, by bill id, sorted by name. */
+  private async tagsOf(workspaceId: string, payableIds: string[]): Promise<Map<string, Tag[]>> {
+    if (payableIds.length === 0) {
+      return new Map();
+    }
+    const rows = await this.payableRepository.find({
+      where: { id: In(payableIds), workspaceId },
+      relations: { tags: true },
+      select: { id: true, tags: { id: true, name: true, color: true } },
+    });
+    return new Map(
+      rows.map(row => [row.id, [...(row.tags ?? [])].sort((a, b) => a.name.localeCompare(b.name))]),
+    );
   }
 
   private async assertLinkedEntitiesInWorkspace(
@@ -1441,7 +1448,7 @@ export class PayablesService {
     });
 
     if (!transaction) {
-      throw new BadRequestException('Linked transaction not found in workspace');
+      throw new BadRequestException(appError('PAYABLE_LINKED_TRANSACTION_NOT_FOUND'));
     }
   }
 
@@ -1461,22 +1468,8 @@ export class PayablesService {
     });
 
     if (!statement) {
-      throw new BadRequestException('Statement not found in workspace');
+      throw new BadRequestException(appError('PAYABLE_STATEMENT_NOT_FOUND'));
     }
-  }
-
-  private parseDate(value?: string | Date | null): Date | null {
-    if (!value) {
-      return null;
-    }
-
-    if (value instanceof Date) {
-      return Number.isNaN(value.getTime()) ? null : value;
-    }
-
-    const normalized = value.length <= 10 ? `${value}T00:00:00.000Z` : value;
-    const parsed = new Date(normalized);
-    return Number.isNaN(parsed.getTime()) ? null : parsed;
   }
 
   private startOfDay(date: Date): Date {

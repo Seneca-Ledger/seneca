@@ -560,6 +560,7 @@ describe('BudgetsService', () => {
         categoryId: 'groceries',
         amount: 30,
         currency: 'USD',
+        walletId: 'wallet-1',
       });
 
       expect(budgetRepository.find).toHaveBeenCalledWith(
@@ -572,6 +573,24 @@ describe('BudgetsService', () => {
         expect.objectContaining({ name: 'Cash', balance: 15, balanceAfter: -15, overdraws: true }),
       );
       expect(sums.andWhere).toHaveBeenCalledWith(countedSql('t'));
+      expect(walletRepository.findOne).toHaveBeenCalledWith({
+        where: { id: 'wallet-1', workspaceId: 'workspace-1', isActive: true },
+      });
+    });
+
+    it('touches no account when the expense names none', async () => {
+      categoryRepository.findOne.mockResolvedValueOnce({ id: 'groceries', parentId: null });
+      budgetRepository.find.mockResolvedValue([]);
+      categoryRepository.find.mockResolvedValue([]);
+
+      const impact = await withTree().getImpact('workspace-1', {
+        categoryId: 'groceries',
+        amount: 30,
+        currency: 'USD',
+      });
+
+      expect(impact.account).toBeNull();
+      expect(walletRepository.findOne).not.toHaveBeenCalled();
     });
   });
 

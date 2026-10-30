@@ -1,11 +1,19 @@
-import { Controller, Get, Param, ParseUUIDPipe, Put, Res, UseGuards } from '@nestjs/common';
+import { Controller, Get, Put, Res, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { SkipThrottle } from '@nestjs/throttler';
 import type { Response } from 'express';
 import { SchemaBody } from '../../common/effect/schema-body';
-import { SchemaQuery } from '../../common/effect/schema-query';
+import { SchemaParams, SchemaQuery } from '../../common/effect/schema-query';
+import { SchemaResponse } from '../../common/effect/schema-response';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { SearchBackgroundsQuery, SetWorkspaceBackgroundBody } from '../../contracts';
+import {
+  BackgroundPreviewParams,
+  BackgroundSearchPage,
+  SearchBackgroundsQuery,
+  SetWorkspaceBackgroundBody,
+  WorkspaceBackground,
+  WorkspaceIdParams,
+} from '../../contracts';
 import type { User } from '../../entities';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { WorkspaceBackgroundsService } from './workspace-backgrounds.service';
@@ -26,6 +34,7 @@ export class WorkspaceBackgroundsController {
   @ApiResponse({ status: 200, description: 'A page of results with their credit lines' })
   @ApiResponse({ status: 502, description: 'The image search did not answer' })
   @ApiResponse({ status: 503, description: 'The daily search allowance is used up' })
+  @SchemaResponse(BackgroundSearchPage)
   search(@SchemaQuery(SearchBackgroundsQuery) query: SearchBackgroundsQuery) {
     return this.backgroundsService.search(query.q, query.page ?? 1);
   }
@@ -36,7 +45,10 @@ export class WorkspaceBackgroundsController {
   @ApiOperation({ summary: 'Thumbnail for a background search result' })
   @ApiResponse({ status: 200, description: 'A raster image' })
   @ApiResponse({ status: 404, description: 'No such image upstream' })
-  async preview(@Param('photoId', ParseUUIDPipe) photoId: string, @Res() res: Response) {
+  async preview(
+    @SchemaParams(BackgroundPreviewParams) { photoId }: BackgroundPreviewParams,
+    @Res() res: Response,
+  ) {
     const image = await this.backgroundsService.getThumbnail(photoId);
     // private: the response sits behind the session cookie.
     res.setHeader('Cache-Control', 'private, max-age=604800');
@@ -49,9 +61,10 @@ export class WorkspaceBackgroundsController {
   @ApiOperation({ summary: 'Use a searched photo as the workspace background' })
   @ApiResponse({ status: 200, description: 'The new background with its credit line' })
   @ApiResponse({ status: 403, description: 'Only owners and admins change workspace settings' })
+  @SchemaResponse(WorkspaceBackground)
   setPhoto(
     @CurrentUser() user: User,
-    @Param('id', ParseUUIDPipe) id: string,
+    @SchemaParams(WorkspaceIdParams) { id }: WorkspaceIdParams,
     @SchemaBody(SetWorkspaceBackgroundBody) dto: SetWorkspaceBackgroundBody,
   ) {
     return this.backgroundsService.setPhoto(id, user.id, dto.photoId);

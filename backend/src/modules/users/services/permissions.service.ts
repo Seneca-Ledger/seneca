@@ -2,6 +2,7 @@ import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nest
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
 import { Permission, ROLE_PERMISSIONS } from '../../../common/enums/permissions.enum';
+import { appError } from '../../../common/errors/app-error';
 import { AuditAction, EntityType, Severity } from '../../../entities/audit-event.entity';
 import { User, UserRole } from '../../../entities/user.entity';
 import { WorkspaceMember } from '../../../entities/workspace-member.entity';
@@ -32,7 +33,7 @@ export class PermissionsService {
     });
 
     if (!membership) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException(appError('USER_NOT_FOUND'));
     }
 
     return findUserOrThrow(this.userRepository.findOne({ where: { id: userId } }));
@@ -50,7 +51,7 @@ export class PermissionsService {
 
     if (notHeld.length > 0) {
       throw new ForbiddenException(
-        `Cannot grant permissions you do not hold: ${notHeld.join(', ')}`,
+        appError('USER_PERMISSIONS_NOT_HELD', { permissions: notHeld.join(', ') }),
       );
     }
   }

@@ -10,7 +10,6 @@ encrypted. Env variables with the same purpose are only temporary fallback defau
 
 | Integration | What it does |
 |---|---|
-| Local categorization | Installs a local Transformers.js model on the server — see [Categorization](categorization) |
 | SMTP email | Sends workspace invitations, password reset links and email change confirmations |
 | App URL | The public URL used in invitations and shared links |
 | S3-compatible storage | Syncs statements with a bucket such as MinIO |
@@ -34,15 +33,15 @@ encrypted. Env variables with the same purpose are only temporary fallback defau
 
 ## Bank sync via SimpleFIN
 
-Seneca holds no bank integration of its own. What it offers is a connector for an aggregator
+Stoic Budget holds no bank integration of its own. What it offers is a connector for an aggregator
 account you hold yourself: [SimpleFIN Bridge](https://bridge.simplefin.org) (a paid service from
 SimpleFIN, North America) exposes your bank accounts over the open
-[SimpleFIN protocol](https://www.simplefin.org/protocol.html), and Seneca pulls from it.
+[SimpleFIN protocol](https://www.simplefin.org/protocol.html), and Stoic Budget pulls from it.
 
 1. In SimpleFIN Bridge, connect your bank and create a **new connection**; it shows a *setup token*.
-2. In Seneca, open **Integrations → Bank sync via SimpleFIN**, paste the token and connect. A token
-   works once: Seneca exchanges it for an access credential and stores only that, encrypted.
-3. Choose which accounts to pull and, optionally, which Seneca wallet each one lands in. Accounts the
+2. In Stoic Budget, open **Integrations → Bank sync via SimpleFIN**, paste the token and connect. A token
+   works once: Stoic Budget exchanges it for an access credential and stores only that, encrypted.
+3. Choose which accounts to pull and, optionally, which Stoic Budget wallet each one lands in. Accounts the
    provider adds later start switched off.
 4. **Pull now**, or leave *Pull automatically every 6 hours* on.
 

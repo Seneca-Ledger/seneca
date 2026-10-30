@@ -22,6 +22,7 @@ import { Folder } from './folder.entity';
 import { Tag } from './tag.entity';
 import { Transaction } from './transaction.entity';
 import { User } from './user.entity';
+import { Wallet } from './wallet.entity';
 import { Workspace } from './workspace.entity';
 
 export enum StatementStatus {
@@ -54,6 +55,15 @@ export enum BankName {
   BEREKE_OLD = 'bereke_old',
   KASPI = 'kaspi',
   HAPOALIM = 'hapoalim',
+  ABSA = 'absa',
+  ALLY = 'ally',
+  ANZ = 'anz',
+  ASSOCIATED = 'associated',
+  ATB = 'atb',
+  AXIS = 'axis',
+  BANCO_DO_BRASIL = 'banco_do_brasil',
+  BANK_OF_CHINA = 'bank_of_china',
+  BANK_OF_SCOTLAND = 'bank_of_scotland',
   OTHER = 'other',
 }
 
@@ -207,6 +217,32 @@ export class Statement {
   @Column({ name: 'category_id', type: 'uuid', nullable: true })
   categoryId: string | null;
 
+  /**
+   * The user's account this statement belongs to. Its rows take the account
+   * from here, so a whole file moves between accounts at once.
+   */
+  @ManyToOne(() => Wallet, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'wallet_id' })
+  wallet: Relation<Wallet | null>;
+
+  @Column({ name: 'wallet_id', type: 'uuid', nullable: true })
+  walletId: string | null;
+
+  /**
+   * A file can print several accounts. The upload holds the first; every
+   * other account is a statement of its own on the same file, pointing back at
+   * the upload, with its place among the file's accounts.
+   */
+  @ManyToOne(() => Statement, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'source_statement_id' })
+  sourceStatement: Relation<Statement | null>;
+
+  @Column({ name: 'source_statement_id', type: 'uuid', nullable: true })
+  sourceStatementId: string | null;
+
+  @Column({ name: 'source_account_index', type: 'smallint', nullable: true })
+  sourceAccountIndex: number | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
@@ -243,6 +279,13 @@ export class Statement {
     transactionsFlaggedDuplicate?: number;
     errors?: string[];
     warnings?: string[];
+    /** The accounts after the first in a file that prints several; each is imported on its own. */
+    otherAccounts?: Array<{
+      index: number;
+      accountNumber: string;
+      currency: string;
+      transactions: number;
+    }>;
     metadataExtracted?: {
       accountNumber?: string;
       dateFrom?: string;
@@ -259,12 +302,24 @@ export class Statement {
     validation?: {
       passed: boolean;
       warnings: string[];
+      /** Why it was held for review, one code per warning (statement-validation.helper). */
+      reasonCodes?: string[];
       balanceCheck?: {
         expectedEnd?: number;
         actualEnd?: number;
         difference?: number;
         tolerance?: number;
       };
+    };
+    /** The parser's checks of its own reading (ParseCheck), passed or not. */
+    checks?: Array<{ code: string; passed: boolean; detail?: Record<string, string | number> }>;
+    /** The file's layout as words, with its fingerprint (pdf-layout-fingerprint.helper). */
+    layout?: {
+      fingerprint: string;
+      headings: string[];
+      unknownWords: string[];
+      mentionedBank?: string;
+      taughtTemplate?: string;
     };
     droppedSamples?: Array<{
       reason: string;

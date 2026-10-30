@@ -1,0 +1,12 @@
+{
+  "failedChecks": [
+    "printed_totals"
+  ],
+  "metadata": {
+    "accountNumber": "GB39BOFS40855305320652",
+    "currency": "GBP",
+    "dateFrom": "2025-06-20T00:00:00",
+    "dateTo": "2025-07-20T00:00:00"
+  },
+  "transactions": []
+}

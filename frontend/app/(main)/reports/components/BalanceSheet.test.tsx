@@ -16,6 +16,7 @@ vi.mock('../../../lib/api', () => ({
 
 vi.mock('@/app/i18n', () => ({
   useIntlayer: () => ({
+    loading: { value: 'Loading' },
     labels: {
       assets: { value: 'Actifs' },
       liabilities: { value: 'Passifs' },
@@ -65,6 +66,8 @@ describe('BalanceSheet', () => {
         difference: 0,
         isBalanced: true,
         missingRates: [],
+        personalLayoutAvailable: false,
+        profile: 'business',
       },
     });
 
@@ -88,6 +91,8 @@ describe('BalanceSheet', () => {
         difference: 0,
         isBalanced: true,
         missingRates: [],
+        personalLayoutAvailable: false,
+        profile: 'business',
       },
     });
     apiPost.mockResolvedValueOnce({

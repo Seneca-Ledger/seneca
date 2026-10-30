@@ -25,7 +25,7 @@ const readGettingStarted = (saved: Readonly<Record<string, unknown>>): GettingSt
   gettingStartedCompletedAt: stringOrUndefined(saved.gettingStartedCompletedAt),
 });
 
-type StepId = 'upload' | 'categories' | 'budget' | 'goal' | 'telegram';
+type StepId = 'upload' | 'account' | 'categories' | 'budget' | 'goal' | 'telegram';
 
 const STEPS: ReadonlyArray<{
   id: StepId;
@@ -36,10 +36,11 @@ const STEPS: ReadonlyArray<{
   emoji: string;
 }> = [
   { id: 'upload', doneWhen: 'hasUpload', href: '/statements?openExpenseDrawer=scan', emoji: '📄' },
+  { id: 'account', doneWhen: 'hasWallet', href: '/accounts', emoji: '🏦' },
   {
     id: 'categories',
     doneWhen: 'hasCustomCategories',
-    href: '/workspaces/categories',
+    href: '/categories',
     emoji: '✨',
   },
   { id: 'budget', doneWhen: 'hasBudget', href: '/budgets', emoji: '💰' },
@@ -94,6 +95,7 @@ function StepRow({ step, isNext }: StepRowProps): React.JSX.Element {
   const t = useIntlayer('gettingStartedCard');
   const text: Record<StepId, { title: React.ReactNode; subtitle: React.ReactNode }> = {
     upload: { title: t.uploadTitle, subtitle: t.uploadSubtitle },
+    account: { title: t.accountTitle, subtitle: t.accountSubtitle },
     categories: { title: t.categoriesTitle, subtitle: t.categoriesSubtitle },
     budget: { title: t.budgetTitle, subtitle: t.budgetSubtitle },
     goal: { title: t.goalTitle, subtitle: t.goalSubtitle },

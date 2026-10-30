@@ -42,6 +42,15 @@ const offlineFetch: ReferenceFetch = async (input, init) => {
 };
 
 /**
+ * @nestjs/schedule's module options (its own string token). Cron jobs stay off in
+ * e2e apps: a suite that crosses the hour otherwise has the hourly jobs run in
+ * the middle of it — the scheduled table export rewrote another workspace's
+ * schedule and failed the isolation sweep. Suites call the jobs' methods
+ * themselves when they test them.
+ */
+const SCHEDULE_MODULE_OPTIONS = 'SCHEDULE_MODULE_OPTIONS';
+
+/**
  * Every e2e app also runs the leak guard, outermost: a suite's request fails
  * when its answer hands out an account detail, a credential or a file's path.
  */
@@ -56,7 +65,9 @@ export function e2eTestingModule(metadata: ModuleMetadata): TestingModuleBuilder
     .overrideProvider(ThrottlerStorage)
     .useValue(unlimitedStorage)
     .overrideProvider(REFERENCE_FETCH)
-    .useValue(offlineFetch);
+    .useValue(offlineFetch)
+    .overrideProvider(SCHEDULE_MODULE_OPTIONS)
+    .useValue({ cronJobs: false, intervals: true, timeouts: true });
 }
 
 /** A cookie the response set. Tokens travel only as HttpOnly cookies, never in the body. */

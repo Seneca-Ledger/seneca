@@ -1,7 +1,7 @@
 {
   "name": "parse-ledger",
   "version": "1.0.0",
-  "description": "Seneca - Bank statements processing system",
+  "description": "Stoic Budget - Bank statements processing system",
   "main": "backend/dist/main.js",
   "scripts": {
     "prepare": "husky",
@@ -18,8 +18,10 @@
     "contracts:sync": "node scripts/sync-contracts.mjs",
     "contracts:check": "node scripts/sync-contracts.mjs --check",
     "test:sync-contracts": "node --test scripts/sync-contracts.test.mjs",
-    "graphify:build": "node scripts/graphify-build.mjs",
-    "graphify:validate": "node scripts/graphify-validate.mjs",
+    "test:file-size": "node --test scripts/check-file-size.test.mjs",
+    "licenses:check": "node scripts/check-licenses.mjs",
+    "test:licenses": "node --test scripts/check-licenses.test.mjs",
+    "test:parser-submissions": "node --test infra/parser-submissions/src/*.test.ts backend/scripts/layout-submission-vet.test.mjs",
     "backend:build": "npm --prefix backend run build",
     "backend:start": "npm --prefix backend run start",
     "i18n:check-locales": "node scripts/intlayer-locales-check.mjs",
@@ -31,13 +33,13 @@
     "migration:generate": "npm --prefix backend run migration:generate",
     "create-admin": "npm --prefix backend run create-admin",
     "knip": "knip",
-    "test": "npm --prefix backend run test:unit && npm --prefix frontend run test",
+    "test": "npm run licenses:check && npm --prefix backend run test:unit && npm --prefix frontend run test",
     "test:backend": "npm --prefix backend run test:unit",
     "test:frontend": "npm --prefix frontend run test"
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "devDependencies": {
     "@commitlint/cli": "^21.2.4",
     "@commitlint/config-conventional": "^21.2.4",
@@ -45,6 +47,7 @@
     "concurrently": "^10.0.6",
     "husky": "^9.1.7",
     "knip": "^6.42.1",
+    "license-checker-rseidelsohn": "^4.4.2",
     "typescript": "^7.0.2"
   },
   "overrides": {

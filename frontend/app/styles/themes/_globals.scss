@@ -48,9 +48,12 @@
   --text-primary:       #{$seneca-color-text-primary};
   --text-secondary:     #{$seneca-color-text-secondary};
   --icon-badge-bg:      #{$seneca-color-icon-badge-bg};
+  --skeleton:           #{$seneca-color-skeleton};
   // A soft panel inside a card (Stoic class cards); neutral, unlike MUI's
   // action.hover, which this app tints green.
   --surface-soft:       #{$seneca-color-slot-bg};
+  // Behind modals: a light warm veil, no blur, which read as murk.
+  --modal-backdrop:     rgba(36, 33, 30, 0.2);
   // Money going up or down: deep sage and terracotta, not neon.
   // Grey text that has to be read; --muted-foreground stays for captions.
   --text-muted:         #{$seneca-color-text-muted};
@@ -65,6 +68,21 @@
   --cat-tone-4:         #7c93a8;
   --cat-tone-5:         #a98b76;
   --cat-tone-other:     #a7ada3;
+
+  /* Merchants: one calm tone each, held by the name (merchantTones in chart-theme.ts);
+     neighbours contrast, so one moved a step by a clash still reads apart. */
+  --merchant-tone-1:      #6f8f7b; /* sage */
+  --merchant-tone-2:      #b8665a; /* terracotta */
+  --merchant-tone-3:      #7c93a8; /* dusty blue */
+  --merchant-tone-4:      #c4a57a; /* sand */
+  --merchant-tone-5:      #3f6f60; /* pine */
+  --merchant-tone-6:      #b48886; /* dusty rose */
+  --merchant-tone-7:      #5f7486; /* slate */
+  --merchant-tone-8:      #b39555; /* soft ochre */
+  --merchant-tone-9:      #8fae9e; /* eucalyptus */
+  --merchant-tone-10:     #a98b76; /* clay */
+  --merchant-tone-11:     #8b84a3; /* lavender grey */
+  --merchant-tone-12:     #7f8a52; /* moss */
   --radius:             #{$seneca-radius-md};
   --radius-sm:          #{$seneca-radius-sm};
   --radius-md:          #{$seneca-radius-md};
@@ -147,7 +165,10 @@
   --text-primary:       #{$seneca-color-text-primary-dk};
   --text-secondary:     #{$seneca-color-text-secondary-dk};
   --icon-badge-bg:      #{$seneca-color-ink-100-dk};
+  --skeleton:           #{$seneca-color-skeleton-dk};
   --surface-soft:       #{$seneca-color-ink-100-dk};
+  // Ink at 20% vanishes on a graphite page; dark needs a real shade.
+  --modal-backdrop:     rgba(0, 0, 0, 0.55);
   --text-muted:         #{$seneca-color-ink-500-dk};
   --attention:          #{$seneca-color-warning-dk};
   --money-up:           #{$seneca-color-success-dk};
@@ -159,6 +180,21 @@
   --cat-tone-4:         #93a9bd;
   --cat-tone-5:         #bfa18b;
   --cat-tone-other:     #7d8279;
+
+  /* Merchants: one calm tone each, held by the name (merchantTones in chart-theme.ts);
+     neighbours contrast, so one moved a step by a clash still reads apart. */
+  --merchant-tone-1:      #8fb39f; /* sage */
+  --merchant-tone-2:      #d9806f; /* terracotta */
+  --merchant-tone-3:      #93a9bd; /* dusty blue */
+  --merchant-tone-4:      #dcc39e; /* sand */
+  --merchant-tone-5:      #6fa392; /* pine */
+  --merchant-tone-6:      #cfa3a1; /* dusty rose */
+  --merchant-tone-7:      #8aa0b3; /* slate */
+  --merchant-tone-8:      #d1b576; /* soft ochre */
+  --merchant-tone-9:      #a9c7b8; /* eucalyptus */
+  --merchant-tone-10:     #bfa18b; /* clay */
+  --merchant-tone-11:     #a9a2c1; /* lavender grey */
+  --merchant-tone-12:     #a3ad74; /* moss */
   --radius:             #{$seneca-radius-md};
   --radius-sm:          #{$seneca-radius-sm};
   --radius-md:          #{$seneca-radius-md};

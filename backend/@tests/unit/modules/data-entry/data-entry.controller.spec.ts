@@ -21,12 +21,7 @@ describe('DataEntryController', () => {
     const result = await controller.list(
       { id: 'u1' } as any,
       workspaceId,
-      DataEntryType.CREDIT,
-      undefined,
-      9999,
-      -10,
-      'q',
-      '2025-01-01',
+      { type: 'credit', limit: 9999, page: -10, q: 'q', date: '2025-01-01' },
     );
 
     expect(result).toEqual({
@@ -61,12 +56,12 @@ describe('DataEntryController', () => {
     const workspaceId = 'ws-1';
 
     await controller.create(user, workspaceId, { type: DataEntryType.CASH } as any);
-    await controller.remove(user, workspaceId, 'e1');
+    await controller.remove(user, workspaceId, { id: 'e1' });
     await controller.listCustomFields(user, workspaceId);
-    await controller.removeBaseTab(user, workspaceId, DataEntryType.CASH);
+    await controller.removeBaseTab(user, workspaceId, { type: 'cash' });
     await controller.createCustomField(user, workspaceId, { name: 'Field' } as any);
-    await controller.updateCustomField(user, workspaceId, 'f1', { name: 'Renamed' } as any);
-    await controller.removeCustomField(user, workspaceId, 'f1');
+    await controller.updateCustomField(user, workspaceId, { id: 'f1' }, { name: 'Renamed' } as any);
+    await controller.removeCustomField(user, workspaceId, { id: 'f1' });
 
     expect(dataEntryService.create).toHaveBeenCalledWith(workspaceId, user.id, {
       type: DataEntryType.CASH,

@@ -2,3 +2,13 @@
 # test now builds it with btoa(), these fingerprints only cover the old commit.
 b9fc1bb9699a37b821cf019f359674f54aa6775f:frontend/app/integrations/bank-sync/BankSyncPanel.test.tsx:generic-api-key:80
 b9fc1bb9699a37b821cf019f359674f54aa6775f:frontend/app/integrations/bank-sync/BankSyncPanel.test.tsx:generic-api-key:92
+
+# The PEM header "-----BEGIN PRIVATE KEY-----" as the placeholder of the Enable Banking
+# private-key field (bank-sync panel dictionary); no key, only the header text.
+acf6672641026017513a4a7778520f8b3f0741f0:frontend/app/integrations/bank-sync/BankSyncPanel.content.ts:private-key:1158
+acf6672641026017513a4a7778520f8b3f0741f0:frontend/app/integrations/bank-sync/BankSyncPanel.content.ts:private-key:1161
+acf6672641026017513a4a7778520f8b3f0741f0:frontend/app/integrations/bank-sync/BankSyncPanel.content.ts:private-key:1164
+acf6672641026017513a4a7778520f8b3f0741f0:frontend/app/integrations/bank-sync/BankSyncPanel.content.ts:private-key:1167
+acf6672641026017513a4a7778520f8b3f0741f0:frontend/app/integrations/bank-sync/BankSyncPanel.content.ts:private-key:1170
+acf6672641026017513a4a7778520f8b3f0741f0:frontend/app/integrations/bank-sync/BankSyncPanel.content.ts:private-key:1173
+acf6672641026017513a4a7778520f8b3f0741f0:frontend/app/integrations/bank-sync/BankSyncPanel.content.ts:private-key:1176

@@ -1,65 +1,43 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
+import apiClient from '@/app/lib/api';
+import { invalidateFinancialData } from '@/app/lib/invalidate-document-lists';
+import { checkContract } from '@/app/lib/query-fn-schema';
+import { queryKeys } from '@/app/lib/query-keys';
 
-import type { AuditEvent } from '@/lib/api/audit';
-import { fetchEntityHistory } from '@/lib/api/audit';
-
-export interface UseTransactionHistoryResult {
-  historyEvents: AuditEvent[];
-  historyLoading: boolean;
-  historyDrawerOpen: boolean;
-  selectedHistoryEvent: AuditEvent | null;
-  openEventDrawer: (event: AuditEvent) => void;
-  closeEventDrawer: () => void;
+/**
+ * A row's history in words. Under the transactions root, so any edit that
+ * refreshes the figures refreshes the history too.
+ */
+export function useTransactionHistory(transactionId: string | undefined, enabled: boolean) {
+  const workspaceId = useWorkspaceId();
+  return useQuery({
+    queryKey: queryKeys.transactions({ workspaceId, params: { view: 'history', transactionId } }),
+    queryFn: ({ signal }) =>
+      apiClient
+        .get(`/transactions/${transactionId}/history`, { signal })
+        .then(response =>
+          checkContract('TransactionHistory', response.data, '/transactions/:id/history'),
+        ),
+    enabled: enabled && Boolean(workspaceId && transactionId),
+  });
 }
 
-export function useTransactionHistory(
-  open: boolean,
-  transactionId: string | undefined,
-): UseTransactionHistoryResult {
-  const [historyEvents, setHistoryEvents] = useState<AuditEvent[]>([]);
-  const [historyLoading, setHistoryLoading] = useState(false);
-  const [historyDrawerOpen, setHistoryDrawerOpen] = useState(false);
-  const [selectedHistoryEvent, setSelectedHistoryEvent] = useState<AuditEvent | null>(null);
-
-  useEffect(() => {
-    if (!(open && transactionId)) return;
-    let cancelled = false;
-    setHistoryLoading(true);
-    fetchEntityHistory('transaction', transactionId)
-      .then(events => {
-        if (cancelled) return;
-        setHistoryEvents(events || []);
-      })
-      .catch(error => {
-        if (cancelled) return;
-        console.error('Failed to load history:', error);
-        setHistoryEvents([]);
-      })
-      .finally(() => {
-        if (!cancelled) setHistoryLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [open, transactionId]);
-
-  const openEventDrawer = useCallback((event: AuditEvent) => {
-    setSelectedHistoryEvent(event);
-    setHistoryDrawerOpen(true);
-  }, []);
-
-  const closeEventDrawer = useCallback(() => {
-    setHistoryDrawerOpen(false);
-  }, []);
-
-  return {
-    historyEvents,
-    historyLoading,
-    historyDrawerOpen,
-    selectedHistoryEvent,
-    openEventDrawer,
-    closeEventDrawer,
-  };
+/** Puts back the fields of one change; it is an edit like any other, so every figure refreshes. */
+export function useUndoHistoryChange(transactionId: string) {
+  return useMutation({
+    mutationFn: (eventId: string) =>
+      apiClient
+        .post(`/transactions/${transactionId}/history/${eventId}/undo`)
+        .then(response =>
+          checkContract(
+            'TransactionHistory',
+            response.data,
+            '/transactions/:id/history/:eventId/undo',
+          ),
+        ),
+    onSuccess: () => invalidateFinancialData(),
+  });
 }

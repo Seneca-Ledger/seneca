@@ -49,6 +49,19 @@ describe('JwtAuthGuard', () => {
   });
 
   describe('canActivate', () => {
+    it('lets a WebSocket message through: its gateway authenticated the socket on connect', async () => {
+      const switchToHttp = vi.fn();
+      const context = {
+        getType: () => 'ws',
+        switchToHttp,
+        getHandler: () => ({}),
+        getClass: () => ({}),
+      } as unknown as ExecutionContext;
+
+      await expect(guard.canActivate(context)).resolves.toBe(true);
+      expect(switchToHttp).not.toHaveBeenCalled();
+    });
+
     it('should allow access for public routes', async () => {
       const context = createMockExecutionContext();
       vi.spyOn(reflector, 'getAllAndOverride').mockReturnValue(true);
@@ -255,6 +268,7 @@ function createMockExecutionContext(request = {}): ExecutionContext {
     ...request,
   };
   return {
+    getType: () => 'http',
     switchToHttp: () => ({
       getRequest: () => resolvedRequest,
     }),

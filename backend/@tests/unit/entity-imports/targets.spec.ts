@@ -53,6 +53,8 @@ const buildContext = (
   currency: 'USD',
   fileName: 'sheet.xlsx',
   categorize: false,
+  walletId: null,
+  headers: [],
   cell: (row, field) => (Number.isInteger(mapping[field]) ? String(row[mapping[field]] ?? '') : ''),
   category: vi.fn(async (name: string) => `cat-${name.toLowerCase()}`),
   created: [],
@@ -172,5 +174,92 @@ describe('TransactionsTarget', () => {
     expect(saved[0].debit).toBe(4.5);
     expect(ctx.created[0]).toEqual({ kind: 'statement', id: 'id-1' });
     expect(statements.update).toHaveBeenCalledWith('id-1', expect.objectContaining({ fileData: expect.any(Buffer) }));
+  });
+
+  it('reads separate money-out and money-in columns, and rows with both or neither are errors', async () => {
+    const transactions = repoMock();
+    const ctx = buildContext({ date: 0, merchant: 1, amount: 2, credit: 3 }, { Transaction: transactions });
+    const rows = [
+      ['2026-09-01', 'ACME Store - Wireless Buds', '19.99', ''],
+      ['2026-09-02', 'Employer One', '', '1500'],
+      ['2026-09-03', 'Both Sides', '5', '5'],
+      ['2026-09-04', 'Neither', '', ''],
+    ];
+    const results = await new TransactionsTarget().run(rows, ctx, true);
+    expect(results.map(r => r.status)).toEqual(['created', 'created', 'error', 'error']);
+    expect(results[2].reason).toBe('amount');
+    expect(results[3].reason).toBe('amount');
+  });
+
+  it('books money in from a credit column as income even when no row spends', async () => {
+    const transactions = repoMock();
+    const statements = repoMock();
+    const ctx = buildContext(
+      { date: 0, merchant: 1, amount: 2, credit: 3 },
+      { Transaction: transactions, Statement: statements },
+    );
+    vi.spyOn(nodeFs.promises, 'writeFile').mockResolvedValue(undefined);
+    await new TransactionsTarget().run([['2026-09-02', 'Employer One', '', '1500']], ctx, false);
+    const [saved] = transactions.save.mock.calls[0][0] as Array<{ transactionType: TransactionType; credit: number | null }>;
+    expect(saved.transactionType).toBe(TransactionType.INCOME);
+    expect(saved.credit).toBe(1500);
+  });
+
+  it('books the rows and their statement to the account chosen for the sheet', async () => {
+    const accountId = '33333333-3333-4333-8333-333333333333';
+    const ownerId = '44444444-4444-4444-8444-444444444444';
+    const transactions = repoMock();
+    const statements = repoMock();
+    const wallets = {
+      ...repoMock(),
+      findOne: vi.fn().mockResolvedValue({ id: accountId, ownerMemberId: ownerId, currency: 'usd' }),
+    };
+    const ctx = {
+      ...buildContext({ date: 0, merchant: 1, amount: 2 }, { Transaction: transactions, Statement: statements, Wallet: wallets }),
+      walletId: accountId,
+      headers: ['Date', ' Merchant ', 'Amount'],
+    };
+    vi.spyOn(nodeFs.promises, 'writeFile').mockResolvedValue(undefined);
+    await new TransactionsTarget().run([['2026-09-01', 'Corner Cafe', '-4.50']], ctx, false);
+
+    expect(wallets.findOne).toHaveBeenCalledWith({ where: { id: accountId, workspaceId: WORKSPACE_ID } });
+    const statement = statements.save.mock.calls[0][0] as { walletId: string; parsingDetails: Record<string, any> };
+    expect(statement.walletId).toBe(accountId);
+    expect(statement.parsingDetails.metadataExtracted).toEqual({ normalizedHeader: 'date merchant amount' });
+    const [row] = transactions.save.mock.calls[0][0] as Array<{ walletId: string; ownerMemberId: string }>;
+    expect(row).toEqual(expect.objectContaining({ walletId: accountId, ownerMemberId: ownerId }));
+  });
+
+  it('refuses an account in another currency than the sheet', async () => {
+    const wallets = {
+      ...repoMock(),
+      findOne: vi.fn().mockResolvedValue({ id: 'w1', ownerMemberId: null, currency: 'EUR' }),
+    };
+    const statements = repoMock();
+    const ctx = {
+      ...buildContext({ date: 0, merchant: 1, amount: 2 }, { Transaction: repoMock(), Statement: statements, Wallet: wallets }),
+      walletId: 'w1',
+    };
+    await expect(
+      new TransactionsTarget().run([['2026-09-01', 'Corner Cafe', '-4.50']], ctx, false),
+    ).rejects.toThrow();
+    expect(statements.save).not.toHaveBeenCalled();
+  });
+
+  it('reads a month-first date column month-first once one date settles the order', async () => {
+    const transactions = repoMock();
+    const statements = repoMock();
+    const ctx = buildContext({ date: 0, merchant: 1, amount: 2 }, { Transaction: transactions, Statement: statements });
+    vi.spyOn(nodeFs.promises, 'writeFile').mockResolvedValue(undefined);
+    await new TransactionsTarget().run(
+      [
+        ['01/02/2026', 'Corner Cafe', '-4.50'],
+        ['12/31/2026', 'Corner Cafe', '-5.00'],
+      ],
+      ctx,
+      false,
+    );
+    const saved = transactions.save.mock.calls[0][0] as Array<{ transactionDate: Date }>;
+    expect(saved.map(tx => tx.transactionDate.toISOString().slice(0, 10))).toEqual(['2026-01-02', '2026-12-31']);
   });
 });

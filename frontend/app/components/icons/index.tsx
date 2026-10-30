@@ -26,6 +26,7 @@ import BlockIcon from '@mui/icons-material/Block';
 import BoltOutlinedIcon from '@mui/icons-material/BoltOutlined';
 import BookIcon from '@mui/icons-material/Book';
 import BookmarkIcon from '@mui/icons-material/Bookmark';
+import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder';
 import BugReportOutlinedIcon from '@mui/icons-material/BugReportOutlined';
 import BuildOutlinedIcon from '@mui/icons-material/BuildOutlined';
 import BusinessIcon from '@mui/icons-material/Business';
@@ -179,49 +180,9 @@ import WestIcon from '@mui/icons-material/West';
 import WorkOutlineIcon from '@mui/icons-material/WorkOutlineOutlined';
 import ZoomInIcon from '@mui/icons-material/ZoomIn';
 import ZoomOutIcon from '@mui/icons-material/ZoomOut';
-import type { SvgIconProps } from '@mui/material';
-import React from 'react';
+import { wrap } from './wrap';
 
-// ---------------------------------------------------------------------------
-// Compat prop types (mirror Lucide's API)
-// ---------------------------------------------------------------------------
-
-export interface LucideProps extends Omit<SvgIconProps, 'color' | 'fontSize'> {
-  /** Lucide size → MUI sx.fontSize */
-  size?: number | string;
-  /** Supports hex colors in addition to MUI theme tokens */
-  color?: string;
-  /** Lucide stroke weight – no-op for MUI filled icons */
-  strokeWidth?: number;
-}
-
-export type LucideIcon = React.FC<LucideProps>;
-
-// ---------------------------------------------------------------------------
-// Wrapper factory
-// ---------------------------------------------------------------------------
-
-function wrap(MuiIcon: React.ComponentType<SvgIconProps>): LucideIcon {
-  return function LucideCompatIcon({
-    size,
-    color,
-    strokeWidth: StrokeWidth,
-    sx,
-    ...rest
-  }: LucideProps) {
-    const combinedSx = {
-      ...(size != null ? { fontSize: size } : {}),
-      ...(color != null ? { color } : {}),
-      ...(sx as object | undefined),
-    };
-    return (
-      <MuiIcon
-        {...(rest as SvgIconProps)}
-        sx={Object.keys(combinedSx).length > 0 ? combinedSx : undefined}
-      />
-    );
-  };
-}
+export type { LucideIcon, LucideProps } from './wrap';
 
 // ---------------------------------------------------------------------------
 // Lucide name → MUI icon mapping
@@ -241,6 +202,7 @@ export const BarChart2 = wrap(BarChartIcon);
 export const BarChart3 = wrap(BarChartIcon);
 export const Bell = wrap(NotificationsNoneIcon);
 export const Bookmark = wrap(BookmarkIcon);
+export const BookmarkOutline = wrap(BookmarkBorderIcon);
 export const BookOpen = wrap(BookIcon);
 export const Bot = wrap(SmartToyIcon);
 export const Bug = wrap(BugReportOutlinedIcon);

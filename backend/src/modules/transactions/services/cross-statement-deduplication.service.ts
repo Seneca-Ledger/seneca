@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Between, type FindOptionsWhere, In, Repository } from 'typeorm';
+import { appError } from '../../../common/errors/app-error';
 import { taxLockedConflict } from '../../../common/utils/tax-lock.util';
 import { redactPrivateRows } from '../../../common/utils/transaction-privacy.util';
 import { Statement } from '../../../entities/statement.entity';
@@ -178,7 +179,7 @@ export class CrossStatementDeduplicationService {
    */
   async mergeDuplicates(transactionIds: string[], workspaceId: string): Promise<Transaction> {
     if (transactionIds.length < 2) {
-      throw new BadRequestException('At least 2 transactions required for merge');
+      throw new BadRequestException(appError('TRANSACTION_MERGE_TOO_FEW'));
     }
 
     const transactions = await this.transactionRepository.findBy({
@@ -187,7 +188,7 @@ export class CrossStatementDeduplicationService {
     });
 
     if (transactions.length !== transactionIds.length) {
-      throw new NotFoundException('One or more transactions not found');
+      throw new NotFoundException(appError('TRANSACTION_SOME_NOT_FOUND'));
     }
 
     const master = transactions.find(row => row.id === transactionIds[0]) ?? transactions[0];
@@ -217,7 +218,7 @@ export class CrossStatementDeduplicationService {
   async unmarkDuplicate(transactionId: string, workspaceId: string): Promise<Transaction> {
     const existing = await this.transactionRepository.findOneBy({ id: transactionId, workspaceId });
     if (!existing) {
-      throw new NotFoundException('Transaction not found');
+      throw new NotFoundException(appError('TRANSACTION_NOT_FOUND'));
     }
 
     await this.transactionRepository.update(transactionId, {
@@ -229,7 +230,7 @@ export class CrossStatementDeduplicationService {
 
     const transaction = await this.transactionRepository.findOneBy({ id: transactionId });
     if (!transaction) {
-      throw new NotFoundException('Transaction not found');
+      throw new NotFoundException(appError('TRANSACTION_NOT_FOUND'));
     }
 
     return transaction;

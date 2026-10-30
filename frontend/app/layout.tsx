@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { cookies } from 'next/headers';
 import Script from 'next/script';
 import './globals.scss';
@@ -9,7 +9,6 @@ import AppChrome from './components/AppChrome';
 import DynamicPageTitle from './components/DynamicPageTitle';
 import MobileBottomBar from './components/mobile/MobileBottomBar';
 import { AppPanels } from './components/panels/AppPanels';
-import { ReactScan } from './components/ReactScan';
 import { ReceiptPlaceFollowupHost } from './components/receipts/place-followup/ReceiptPlaceFollowupHost';
 import { SidePanelProvider } from './components/side-panel/SidePanelContext';
 import { WelcomeTutorialHost } from './components/welcome-tutorial/WelcomeTutorialHost';
@@ -37,10 +36,22 @@ export async function generateMetadata(): Promise<Metadata> {
     title: t.title.value,
     description: t.description.value,
     icons: {
-      icon: '/images/favicon-new.png',
+      // The SVG follows the browser's light or dark scheme; the PNG is for browsers without SVG icons.
+      icon: [
+        { url: '/images/favicon.svg', type: 'image/svg+xml' },
+        { url: '/images/favicon-new.png', type: 'image/png' },
+      ],
     },
   };
 }
+
+// Browser and installed-app chrome in the page background of each scheme.
+export const viewport: Viewport = {
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#ebe7df' },
+    { media: '(prefers-color-scheme: dark)', color: '#1b1a18' },
+  ],
+};
 
 export default async function RootLayout({
   children,
@@ -69,7 +80,6 @@ export default async function RootLayout({
           crossOrigin=""
         />
       </head>
-      {process.env.NODE_ENV === 'development' ? <ReactScan /> : null}
       <body style={BODY_STYLE} suppressHydrationWarning>
         {/* First Tab stop: jumps past the sidebar; shown only while focused. */}
         <a href="#main-content" className="seneca-skip-link">

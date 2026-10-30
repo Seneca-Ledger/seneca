@@ -40,8 +40,8 @@ import {
   filterByApproved,
   isReceiptDerivedStatement,
   paginateStatements,
-  resolveStatementSortDate,
 } from '../StatementsListView.utils';
+import { resolveStatementAddedTime, resolveStatementSortDate } from '../statement-dates';
 import type { StatementUploadLabels } from '../statement-upload';
 import {
   STATEMENTS_PAGE_SIZE as PAGE_SIZE,
@@ -147,22 +147,22 @@ function buildDocumentStatements({
     q.length > 0 ? receiptStatements.filter(s => matchesSearch(s, q)) : receiptStatements;
 
   return [...receiptFiltered, ...baseStatements].sort(
-    (a, b) => resolveStatementSortDate(b) - resolveStatementSortDate(a),
+    (a, b) => resolveStatementAddedTime(b) - resolveStatementAddedTime(a),
   );
 }
 
 function sortStatements(statements: Statement[], direction: 'asc' | 'desc'): Statement[] {
   const factor = direction === 'asc' ? 1 : -1;
   return [...statements].sort((l, r) => {
-    const diff = resolveStatementSortDate(l) - resolveStatementSortDate(r);
+    const diff = resolveStatementAddedTime(l) - resolveStatementAddedTime(r);
     if (diff !== 0) {
       return diff * factor;
     }
-    // One period from two accounts: the statement added later counts as the newer one, so
-    // the order does not hang on the ids, which are random.
-    const added = Date.parse(l.createdAt ?? '') - Date.parse(r.createdAt ?? '');
-    if (added) {
-      return added * factor;
+    // Added together (the accounts of one file): the later period counts as the newer one,
+    // so the order does not hang on the ids, which are random.
+    const period = resolveStatementSortDate(l) - resolveStatementSortDate(r);
+    if (period !== 0) {
+      return period * factor;
     }
     return l.id.localeCompare(r.id) * factor;
   });

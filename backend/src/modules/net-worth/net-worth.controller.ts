@@ -25,10 +25,9 @@ export class NetWorthController {
   ) {
     return this.netWorthService.getNetWorth(
       workspaceId,
-      query.range ?? '90d',
+      query,
       user.locale,
       toEnum(InvestmentMetal, query.denominate),
-      query.to,
     );
   }
 }

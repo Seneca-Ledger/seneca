@@ -37,12 +37,19 @@ import {
 } from '../../src/entities';
 import { AuditService } from '../../src/modules/audit/audit.service';
 import { BalanceService } from '../../src/modules/balance/balance.service';
+import { BudgetWithinLimitService } from '../../src/modules/budgets/budget-within-limit.service';
+import { BudgetsService } from '../../src/modules/budgets/budgets.service';
+import {
+  isUncategorizedName,
+  UNCATEGORIZED_CATEGORY_NAME,
+} from '../../src/modules/categories/uncategorized-category';
 import { DashboardService } from '../../src/modules/dashboard/dashboard.service';
 import { ExchangeRatesService } from '../../src/modules/exchange-rates/exchange-rates.service';
 import { GoalsService } from '../../src/modules/goals/goals.service';
 import { NotificationsService } from '../../src/modules/notifications/notifications.service';
 import { ReviewInboxKind } from '../../src/modules/review-inbox/dto/review-inbox.dto';
 import { ReviewInboxService } from '../../src/modules/review-inbox/review-inbox.service';
+import { loadTransactionSummaries } from '../../src/modules/statements/statement-transaction-summary';
 import { SubscriptionsService } from '../../src/modules/subscriptions/subscriptions.service';
 import { TaxReserveService } from '../../src/modules/tax/tax-reserve.service';
 import { CrossStatementDeduplicationService } from '../../src/modules/transactions/services/cross-statement-deduplication.service';
@@ -97,6 +104,7 @@ describe('month close counts are what Review lists (real Postgres)', () => {
   let workspaceId: string;
   let userId: string;
   let groceriesId: string;
+  let bankId: string;
   let dashboard: DashboardService;
   let review: ReviewInboxService;
 
@@ -181,6 +189,8 @@ describe('month close counts are what Review lists (real Postgres)', () => {
     const moduleRef = await Test.createTestingModule({
       providers: [
         DashboardService,
+        BudgetsService,
+        BudgetWithinLimitService,
         ReviewInboxService,
         WorkspaceCurrencyService,
         { provide: ExchangeRatesService, useValue: rates },
@@ -230,6 +240,7 @@ describe('month close counts are what Review lists (real Postgres)', () => {
     ).id;
 
     const bank = await statement();
+    bankId = bank;
     const trashed = await statement({ deletedAt: new Date() });
 
     // To review: two unconfirmed rows and a suspected duplicate.
@@ -249,6 +260,18 @@ describe('month close counts are what Review lists (real Postgres)', () => {
     // Confirmed but never categorised: Review has to list them too.
     await row({ categoryId: null }); // a manual row, no statement
     await row({ statementId: bank, categoryId: null });
+    // In the fallback statement processing gives a row it cannot place: as
+    // uncategorised as a row with no category at all.
+    const fallbackId = (
+      await dataSource.getRepository(Category).save({
+        workspaceId,
+        userId,
+        name: UNCATEGORIZED_CATEGORY_NAME,
+        type: CategoryType.EXPENSE,
+      })
+    ).id;
+    await row({ statementId: bank, categoryId: fallbackId });
+    await row({ categoryId: fallbackId, transferPairId: randomUUID() }); // a transfer needs none
 
     // A receipt Review still asks about: dated in the month by its email,
     // imported (created) today, in another month.
@@ -292,9 +315,26 @@ describe('month close counts are what Review lists (real Postgres)', () => {
   it('"without a category" is the rows Review lists with that filter, each once', async () => {
     const page = await listed(ReviewInboxKind.TRANSACTION, { uncategorized: true });
 
-    expect(page.total).toBe(4);
-    expect(page.items.every(item => item.kind === 'transaction' && !item.categoryId)).toBe(true);
+    expect(page.total).toBe(5);
+    expect(
+      page.items.every(
+        item =>
+          item.kind === 'transaction' &&
+          (!item.categoryId || isUncategorizedName(item.categoryName)),
+      ),
+    ).toBe(true);
     expect((await health()).uncategorizedTransactions).toBe(page.total);
+  });
+
+  it("the documents list counts a statement's uncategorised rows as Review lists them", async () => {
+    const page = await listed(ReviewInboxKind.TRANSACTION, { uncategorized: true });
+    const summaries = await loadTransactionSummaries(txRepo, workspaceId, [bankId], null);
+
+    const listedForBank = page.items.filter(
+      item => item.kind === 'transaction' && item.statementId === bankId,
+    );
+    expect(listedForBank).toHaveLength(3);
+    expect(summaries.get(bankId)?.uncategorizedCount).toBe(listedForBank.length);
   });
 
   it('"receipts" is the receipts Review lists, dated like the dashboard dates them', async () => {

@@ -1459,3 +1459,12 @@
     color: var(--text-muted);
   }
 }
+
+// DashboardContent's SnapshotSkeleton wrapper: keeps the page's flex column,
+// so the content still fills the height below the header.
+.seneca-dashboard__content {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}

@@ -1,0 +1,43 @@
+// seneca-snapshot-skeleton — placeholder shapes while a block loads
+// (app/components/ui/snapshot-skeleton). The boxes are placed inline from the
+// remembered layout; only their look lives here.
+@use '../abstracts' as *;
+
+.seneca-snapshot-skeleton {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+
+  &__box {
+    position: absolute;
+    display: block;
+    box-sizing: border-box;
+    background-color: var(--skeleton);
+    animation: seneca-snapshot-skeleton-pulse 1.6s ease-in-out infinite;
+
+    @media (prefers-reduced-motion: reduce) {
+      animation: none;
+    }
+  }
+
+  &__box--text {
+    border-radius: $seneca-radius-full;
+  }
+
+  &__box--circle {
+    border-radius: 50%;
+  }
+
+  // A card: its outline only, so the shapes inside it stay visible.
+  &__box--frame {
+    background-color: transparent;
+    border: 1px solid var(--border);
+    animation: none;
+  }
+}
+
+@keyframes seneca-snapshot-skeleton-pulse {
+  50% {
+    opacity: 0.5;
+  }
+}

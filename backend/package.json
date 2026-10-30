@@ -1,7 +1,7 @@
 {
   "name": "backend",
   "version": "1.0.0",
-  "description": "Seneca Backend - Bank statements processing system",
+  "description": "Stoic Budget Backend - Bank statements processing system",
   "main": "dist/main.js",
   "scripts": {
     "build": "nest build",
@@ -21,7 +21,8 @@
     "golden:record": "ts-node -r tsconfig-paths/register scripts/record-golden.ts",
     "test:parsing": "vitest run --project 'unit*' @tests/unit/test/parsing-regression.spec.ts",
     "test:e2e": "vitest run --project e2e",
-    "test:ci": "vitest run --project 'unit*' --no-file-parallelism --coverage && npm run test:e2e",
+    "test:ci": "npm run test:ci:unit && npm run test:e2e",
+    "test:ci:unit": "vitest run --project 'unit*' --no-file-parallelism --coverage",
     "test:watch": "vitest --project 'unit*'",
     "test:cov": "vitest run --project 'unit*' --coverage",
     "typeorm": "typeorm-ts-node-commonjs -d src/data-source.ts",
@@ -43,11 +44,10 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "type": "commonjs",
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1038.0",
-    "@huggingface/transformers": "^4.2.0",
     "@modelcontextprotocol/sdk": "^1.32.1",
     "@nestjs/bullmq": "^12.0.0",
     "@nestjs/cache-manager": "^12.0.1",
@@ -136,6 +136,7 @@
     "@types/react-dom": "^19.0.0",
     "@types/supertest": "^7.2.1",
     "@vitest/coverage-v8": "^5.0.5",
+    "fast-check": "^4.10.2",
     "nodemon": "^3.1.11",
     "supertest": "^7.2.2",
     "ts-node": "^10.9.2",
@@ -168,8 +169,6 @@
   "trustedDependencies": [
     "@swc/core",
     "bcrypt",
-    "msgpackr-extract",
-    "onnxruntime-node",
-    "protobufjs"
+    "msgpackr-extract"
   ]
 }

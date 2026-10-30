@@ -3,9 +3,9 @@
 # Variables
 DOCKER_COMPOSE = docker compose
 DOCKER_COMPOSE_DEV = docker compose -f docker-compose.yml -f docker-compose.dev.yml
-DOCKER_EXEC_BACKEND = docker exec finflow-backend
-DOCKER_EXEC_FRONTEND = docker exec -it finflow-frontend
-DOCKER_EXEC_DB = docker exec -it finflow-postgres
+DOCKER_EXEC_BACKEND = docker exec seneca-backend
+DOCKER_EXEC_FRONTEND = docker exec -it seneca-frontend
+DOCKER_EXEC_DB = docker exec -it seneca-postgres
 
 define wait_for_backend
 	@echo "⏳ Waiting for backend to become ready..."
@@ -21,7 +21,7 @@ endef
 define wait_for_users_table
 	@echo "⏳ Waiting for database schema..."
 	@for i in $$(seq 1 60); do \
-		if docker exec finflow-postgres psql -U finflow -d finflow -tAc "select 1 from information_schema.tables where table_schema='public' and table_name='users'" 2>/dev/null | grep -q 1; then \
+		if docker exec seneca-postgres psql -U finflow -d finflow -tAc "select 1 from information_schema.tables where table_schema='public' and table_name='users'" 2>/dev/null | grep -q 1; then \
 			break; \
 		fi; \
 		sleep 2; \
@@ -36,7 +36,7 @@ help: ## Display this help message
 ##@ Setup
 
 setup: ## Initial setup - copy env files and generate secrets
-	@echo "🚀 Setting up Seneca..."
+	@echo "🚀 Setting up Stoic Budget..."
 	@npm run setup:env
 	@echo "✅ Setup complete!"
 
@@ -49,11 +49,11 @@ install: ## Install dependencies (local development)
 ##@ Docker Operations
 
 start: ## Start all services in production mode
-	@echo "🐳 Starting Seneca (production mode)..."
+	@echo "🐳 Starting Stoic Budget (production mode)..."
 	@touch .env
 	@$(DOCKER_COMPOSE) up -d --build
 	$(call wait_for_backend)
-	@echo "✅ Seneca is running!"
+	@echo "✅ Stoic Budget is running!"
 	@echo "Frontend: http://localhost:3000"
 	@echo "Backend:  http://localhost:3001/api/v1"
 	@echo "Swagger:  http://localhost:3001/api/docs"
@@ -62,36 +62,36 @@ upgrade: ## Pull release images from GHCR and restart (pin a version: make upgra
 	@touch .env
 	@$(MAKE) --no-print-directory db-backup
 	@tag=$${VERSION:-$$(grep -E '^IMAGE_TAG=' .env 2>/dev/null | cut -d= -f2)}; tag=$${tag:-latest}; \
-	echo "⬇️  Pulling Seneca $$tag..."; \
+	echo "⬇️  Pulling Stoic Budget $$tag..."; \
 	IMAGE_TAG=$$tag $(DOCKER_COMPOSE) pull backend frontend && \
 	IMAGE_TAG=$$tag $(DOCKER_COMPOSE) up -d --no-build --remove-orphans
 	@echo "⏳ Waiting for backend (migrations run on start)..."
 	@port=$$(grep -E '^BACKEND_PORT=' .env 2>/dev/null | cut -d= -f2); port=$${port:-3001}; \
 	for i in $$(seq 1 300); do \
-		curl -sf "http://localhost:$$port/api/v1/health/ready" >/dev/null 2>&1 && { echo "✅ Seneca upgraded"; exit 0; }; \
+		curl -sf "http://localhost:$$port/api/v1/health/ready" >/dev/null 2>&1 && { echo "✅ Stoic Budget upgraded"; exit 0; }; \
 		sleep 1; \
 	done; \
-	echo "❌ Backend not ready after 5 min: docker logs finflow-backend"; exit 1
+	echo "❌ Backend not ready after 5 min: docker logs seneca-backend"; exit 1
 	@docker image prune -f >/dev/null
 
 dev: ## Start all services in development mode (with hot reload)
-	@echo "🐳 Starting Seneca (development mode)..."
+	@echo "🐳 Starting Stoic Budget (development mode)..."
 	@touch .env
 	@$(DOCKER_COMPOSE_DEV) up -d --build
 	$(call wait_for_backend)
-	@echo "✅ Seneca is running in development mode!"
+	@echo "✅ Stoic Budget is running in development mode!"
 	@echo "Frontend: http://localhost:3000"
 	@echo "Backend:  http://localhost:3001/api/v1"
 	@echo "Swagger:  http://localhost:3001/api/docs"
 	@echo "Run 'make seed-demo' to create demo@seneca.dev / demo123"
 
 stop: ## Stop all services
-	@echo "🛑 Stopping Seneca..."
+	@echo "🛑 Stopping Stoic Budget..."
 	@$(DOCKER_COMPOSE) down
 	@echo "✅ Services stopped!"
 
 restart: ## Restart all services
-	@echo "🔄 Restarting Seneca..."
+	@echo "🔄 Restarting Stoic Budget..."
 	@$(DOCKER_COMPOSE) restart
 	@echo "✅ Services restarted!"
 
@@ -100,7 +100,7 @@ clean-build-cache: ## Remove unused Docker build cache (safe; next build re-crea
 	@echo "✅ Build cache pruned!"
 
 clean: ## Stop services and remove volumes (also resets the dev node_modules volumes)
-	@echo "🧹 Cleaning up Seneca..."
+	@echo "🧹 Cleaning up Stoic Budget..."
 	@$(DOCKER_COMPOSE_DEV) down -v --remove-orphans
 	@$(DOCKER_COMPOSE) down -v --remove-orphans
 	@echo "✅ Cleanup complete!"
@@ -164,8 +164,10 @@ db-shell: ## Open PostgreSQL shell
 
 db-backup: ## Backup database
 	@echo "💾 Creating database backup..."
+	@# By service, not container name: containers were renamed finflow-* -> seneca-*,
+	@# and the first upgrade after that still finds the old one running.
 	@file=backup_$$(date +%Y%m%d_%H%M%S).sql; \
-	docker exec finflow-postgres sh -c 'pg_dump -U "$$POSTGRES_USER" "$$POSTGRES_DB"' > $$file || { rm -f $$file; exit 1; }; \
+	$(DOCKER_COMPOSE) exec -T postgres sh -c 'pg_dump -U "$$POSTGRES_USER" "$$POSTGRES_DB"' > $$file || { rm -f $$file; exit 1; }; \
 	echo "✅ Backup created: $$file"
 
 db-restore: ## Restore database (usage: make db-restore file=backup.sql)
@@ -174,7 +176,7 @@ db-restore: ## Restore database (usage: make db-restore file=backup.sql)
 		exit 1; \
 	fi
 	@echo "📥 Restoring database from $(file)..."
-	@cat $(file) | docker exec -i finflow-postgres sh -c 'psql -U "$$POSTGRES_USER" "$$POSTGRES_DB"'
+	@cat $(file) | $(DOCKER_COMPOSE) exec -T postgres sh -c 'psql -U "$$POSTGRES_USER" "$$POSTGRES_DB"'
 	@echo "✅ Database restored!"
 
 ##@ User Management
@@ -187,13 +189,13 @@ admin: ## Create admin user (usage: make admin email=admin@example.com password=
 	fi
 	@echo "👤 Creating admin user..."
 	$(call wait_for_users_table)
-	@if docker inspect -f '{{.State.Running}}' finflow-backend >/dev/null 2>&1; then \
-		if [ "$$(docker exec finflow-backend printenv NODE_ENV 2>/dev/null)" = "development" ]; then \
-			docker exec finflow-backend sh -lc 'NODE_OPTIONS=--max-old-space-size=2048 npm run create-admin:dev -- $(email) $(password) "$(name)"'; \
-		elif docker exec finflow-backend sh -lc 'test -f dist/scripts/create-admin.js'; then \
-			docker exec finflow-backend node dist/scripts/create-admin.js $(email) $(password) "$(name)"; \
+	@if docker inspect -f '{{.State.Running}}' seneca-backend >/dev/null 2>&1; then \
+		if [ "$$(docker exec seneca-backend printenv NODE_ENV 2>/dev/null)" = "development" ]; then \
+			docker exec seneca-backend sh -lc 'NODE_OPTIONS=--max-old-space-size=2048 npm run create-admin:dev -- $(email) $(password) "$(name)"'; \
+		elif docker exec seneca-backend sh -lc 'test -f dist/scripts/create-admin.js'; then \
+			docker exec seneca-backend node dist/scripts/create-admin.js $(email) $(password) "$(name)"; \
 		else \
-			echo "❌ No create-admin entrypoint available in finflow-backend"; \
+			echo "❌ No create-admin entrypoint available in seneca-backend"; \
 			exit 1; \
 		fi; \
 	else \
@@ -204,13 +206,13 @@ admin: ## Create admin user (usage: make admin email=admin@example.com password=
 seed-demo: ## Create demo user (demo@seneca.dev / demo123)
 	@echo "👤 Creating demo user..."
 	$(call wait_for_users_table)
-	@if docker inspect -f '{{.State.Running}}' finflow-backend >/dev/null 2>&1; then \
-		if [ "$$(docker exec finflow-backend printenv NODE_ENV 2>/dev/null)" = "development" ]; then \
-			docker exec finflow-backend sh -lc 'NODE_OPTIONS=--max-old-space-size=2048 npm run seed:demo:dev'; \
-		elif docker exec finflow-backend sh -lc 'test -f dist/scripts/seed-demo.js'; then \
-			docker exec finflow-backend node dist/scripts/seed-demo.js; \
+	@if docker inspect -f '{{.State.Running}}' seneca-backend >/dev/null 2>&1; then \
+		if [ "$$(docker exec seneca-backend printenv NODE_ENV 2>/dev/null)" = "development" ]; then \
+			docker exec seneca-backend sh -lc 'NODE_OPTIONS=--max-old-space-size=2048 npm run seed:demo:dev'; \
+		elif docker exec seneca-backend sh -lc 'test -f dist/scripts/seed-demo.js'; then \
+			docker exec seneca-backend node dist/scripts/seed-demo.js; \
 		else \
-			echo "❌ No seed-demo entrypoint available in finflow-backend"; \
+			echo "❌ No seed-demo entrypoint available in seneca-backend"; \
 			exit 1; \
 		fi; \
 	else \
@@ -276,7 +278,7 @@ type-check: ## Run TypeScript type checking
 ##@ Build
 
 build: ## Build for production
-	@echo "🏗️  Building Seneca..."
+	@echo "🏗️  Building Stoic Budget..."
 	@cd backend && npm run build
 	@cd frontend && npm run build
 	@echo "✅ Build complete!"
@@ -306,14 +308,14 @@ health: ## Check health of all services
 	@echo "\n🐘 PostgreSQL:"
 	@$(DOCKER_EXEC_DB) pg_isready -U finflow || echo "❌ PostgreSQL not ready"
 	@echo "\n🔴 Redis:"
-	@docker exec finflow-redis redis-cli ping || echo "❌ Redis not responding"
+	@docker exec seneca-redis redis-cli ping || echo "❌ Redis not responding"
 	@echo ""
 
 ps: ## Show running containers
 	@$(DOCKER_COMPOSE) ps
 
 stats: ## Show container resource usage
-	@docker stats --no-stream finflow-backend finflow-frontend finflow-postgres finflow-redis
+	@docker stats --no-stream seneca-backend seneca-frontend seneca-postgres seneca-redis
 
 ##@ Documentation
 
@@ -343,4 +345,4 @@ update: ## Update dependencies
 	@echo "✅ Dependencies updated!"
 
 reset: clean setup start ## Complete reset - clean, setup, and start
-	@echo "✅ Seneca has been reset!"
+	@echo "✅ Stoic Budget has been reset!"

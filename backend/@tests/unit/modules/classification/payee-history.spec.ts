@@ -34,13 +34,18 @@ const CATEGORIES = [
  */
 class FakeTransactionQuery {
   readonly conditions: string[] = [];
+  /** The payees asked about: the rows given belong to the first. */
+  private payeeIds: string[] = [];
   constructor(private readonly rows: Array<Partial<Transaction>>) {}
   where(condition: string): this {
     this.conditions.push(condition);
     return this;
   }
-  andWhere(condition: string): this {
+  andWhere(condition: string, params?: { ids?: string[] }): this {
     this.conditions.push(condition);
+    if (params?.ids) {
+      this.payeeIds = params.ids;
+    }
     return this;
   }
   orderBy(): this {
@@ -59,7 +64,7 @@ class FakeTransactionQuery {
     return this;
   }
   async getMany(): Promise<Array<Partial<Transaction>>> {
-    return this.rows;
+    return this.rows.map(row => ({ payeeId: this.payeeIds[0], ...row }));
   }
 }
 
@@ -94,6 +99,11 @@ describe('categorising from what this payee was filed as before', () => {
             }
           : null,
       ),
+      find: vi.fn(async ({ where }: { where: { id: { value: string[] } } }) =>
+        (await Promise.all(where.id.value.map(id => payees.findOne({ where: { id } })))).filter(
+          Boolean,
+        ),
+      ),
     };
 
     testingModule = await Test.createTestingModule({
@@ -122,7 +132,10 @@ describe('categorising from what this payee was filed as before', () => {
             manager: { getRepository: () => ({ countBy: async ({ id }: any) => id.value.length }) },
           },
         },
-        { provide: getRepositoryToken(CategorizationRule), useValue: { find: async () => [] } },
+        {
+          provide: getRepositoryToken(CategorizationRule),
+          useValue: { find: async () => [], update: async () => undefined },
+        },
         { provide: getRepositoryToken(Workspace), useValue: { findOne: async () => null } },
         {
           provide: CACHE_MANAGER,
@@ -218,7 +231,7 @@ describe('categorising from what this payee was filed as before', () => {
 
     const where = query.conditions.join(' ');
     // The payee's rows, whatever descriptor each came in with: merging payees merges history.
-    expect(where).toContain('transaction.payeeId = :payeeId');
+    expect(where).toContain('transaction.payeeId IN (:...ids)');
     // Approved in Review, or a category picked by hand on a row still waiting.
     expect(where).toContain("(transaction.isVerified = true OR transaction.categorySource = 'manual')");
     // The importer's fallback and "Uncategorized" are not a decision about the payee.

@@ -69,7 +69,7 @@ const OTHER_PAGES = ['review', 'forecast'];
 
 // Dev-only overlays, toasts and the text caret never belong in a screenshot.
 const HIDE_CSS = `
-nextjs-portal, #react-scan-root, [data-react-scan], [data-rht-toaster] { display: none !important; }
+nextjs-portal, [data-rht-toaster] { display: none !important; }
 * { caret-color: transparent !important; scrollbar-width: none !important; }
 `;
 

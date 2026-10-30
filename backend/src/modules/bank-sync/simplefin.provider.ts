@@ -8,14 +8,17 @@ import {
   HttpClientResponse,
 } from 'effect/http';
 import { EffectRuntime } from '../../common/effect/effect-runtime';
+import { appError } from '../../common/errors/app-error';
 import {
   BANK_SYNC_FETCH,
   type BankSyncAccount,
   BankSyncAuthError,
+  type BankSyncContext,
   type BankSyncFetch,
   type BankSyncFetchOptions,
-  type BankSyncProvider,
+  BankSyncTemporaryError,
   type BankSyncTransaction,
+  type TokenBankSyncProvider,
 } from './bank-sync-provider.interface';
 
 /** SimpleFIN answers a claim with an access URL that carries the credentials: `https://user:pass@host/simplefin`. */
@@ -71,38 +74,39 @@ const decodeTransaction = Schema.decodeUnknownOption(SimpleFinTransaction);
  * access URL are user-controlled destinations like any other integration host.
  */
 @Injectable()
-export class SimpleFinProvider implements BankSyncProvider {
+export class SimpleFinProvider implements TokenBankSyncProvider {
   readonly key = 'simplefin';
+  readonly linkStyle = 'token' as const;
 
   constructor(
     @Inject(BANK_SYNC_FETCH) private readonly fetchUrl: BankSyncFetch,
     private readonly effects: EffectRuntime,
   ) {}
 
-  async claim(setupToken: string): Promise<string> {
+  async claim(setupToken: string): Promise<Record<string, string>> {
     const claimUrl = decodeSetupToken(setupToken);
     const response = await this.fetchUrl(claimUrl, {
       method: 'POST',
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
     if (response.status === 403 || response.status === 404) {
-      throw new BadRequestException(
-        'SimpleFIN did not accept the setup token: it may have been used already (a token works once)',
-      );
+      throw new BadRequestException(appError('BANK_SYNC_SIMPLEFIN_TOKEN_REJECTED'));
     }
     if (!response.ok) {
-      throw new BadRequestException(`SimpleFIN claim failed with HTTP ${response.status}`);
+      throw new BadRequestException(
+        appError('BANK_SYNC_SIMPLEFIN_CLAIM_FAILED', { status: response.status }),
+      );
     }
     const accessUrl = (await response.text()).trim();
     parseAccessUrl(accessUrl);
-    return accessUrl;
+    return { accessUrl };
   }
 
   async fetchAccounts(
-    credential: string,
+    context: BankSyncContext,
     options: BankSyncFetchOptions = {},
   ): Promise<BankSyncAccount[]> {
-    const { url, authorization } = parseAccessUrl(credential);
+    const { url, authorization } = parseAccessUrl(context.secrets.accessUrl ?? '');
     const target = new URL(`${url.pathname.replace(/\/$/, '')}/accounts`, url);
     if (options.since) {
       target.searchParams.set('start-date', String(Math.floor(options.since.getTime() / 1000)));
@@ -139,8 +143,16 @@ export class SimpleFinProvider implements BankSyncProvider {
 
     const body = await this.effects.run(listing);
     const accounts = body.accounts ?? [];
-    if (accounts.length === 0 && body.errors?.length) {
-      throw new BadRequestException(`SimpleFIN: ${body.errors.join('; ')}`);
+    const errors = body.errors ?? [];
+    if (accounts.length === 0 && errors.length > 0) {
+      // "We are upgrading this connection" can sit here for weeks. It is not an
+      // auth problem, so it must not read as one.
+      if (errors.some(isTemporaryError)) {
+        throw new BankSyncTemporaryError(`SimpleFIN: ${errors.join('; ')}`);
+      }
+      throw new BadRequestException(
+        appError('BANK_SYNC_SIMPLEFIN_ERRORS', { errors: errors.join('; ') }),
+      );
     }
     return accounts.map(mapAccount).filter((account): account is BankSyncAccount => !!account);
   }
@@ -156,35 +168,45 @@ function toListingException(
 ): Error {
   switch (error._tag) {
     case 'SimpleFinRefused':
-      return error.status === 401 || error.status === 403
-        ? new BankSyncAuthError()
-        : new BadRequestException(`SimpleFIN answered HTTP ${error.status}`);
+      if (error.status === 401 || error.status === 403) return new BankSyncAuthError();
+      // Still refused after the retries: the bridge's own rate limit or outage, not the credential.
+      if (error.status === 429 || error.status >= 500) {
+        return new BankSyncTemporaryError(`SimpleFIN answered HTTP ${error.status}`);
+      }
+      return new BadRequestException(
+        appError('BANK_SYNC_SIMPLEFIN_HTTP_ERROR', { status: error.status }),
+      );
     case 'TimeoutError':
-      return new BadGatewayException('SimpleFIN did not answer in time');
+      return new BadGatewayException(appError('BANK_SYNC_SIMPLEFIN_TIMEOUT'));
     case 'SchemaError':
-      return new BadGatewayException('SimpleFIN sent an unreadable answer');
+      return new BadGatewayException(appError('BANK_SYNC_SIMPLEFIN_UNREADABLE'));
     case 'HttpClientError':
       return new BadGatewayException(
         error.reason._tag === 'DecodeError'
-          ? 'SimpleFIN sent an unreadable answer'
-          : 'SimpleFIN could not be reached',
+          ? appError('BANK_SYNC_SIMPLEFIN_UNREADABLE')
+          : appError('BANK_SYNC_SIMPLEFIN_UNREACHABLE'),
       );
   }
+}
+
+/** Errors SimpleFIN clears by itself; re-linking would be the wrong advice. */
+function isTemporaryError(message: string): boolean {
+  return /upgrad|try again|temporar|in progress|please wait/i.test(message);
 }
 
 /** A setup token is the base64 of the claim URL; anything else is a paste error, not a bug. */
 export function decodeSetupToken(setupToken: string): string {
   const compact = setupToken.replace(/\s+/g, '');
-  if (!compact) throw new BadRequestException('Setup token is empty');
+  if (!compact) throw new BadRequestException(appError('BANK_SYNC_SETUP_TOKEN_EMPTY'));
   const decoded = Buffer.from(compact, 'base64').toString('utf8');
   let url: URL;
   try {
     url = new URL(decoded);
   } catch {
-    throw new BadRequestException('Setup token is not a SimpleFIN token');
+    throw new BadRequestException(appError('BANK_SYNC_SETUP_TOKEN_INVALID'));
   }
   if (url.protocol !== 'https:') {
-    throw new BadRequestException('SimpleFIN claim URL must use https');
+    throw new BadRequestException(appError('BANK_SYNC_SIMPLEFIN_CLAIM_URL_INSECURE'));
   }
   return url.toString();
 }
@@ -195,10 +217,10 @@ export function parseAccessUrl(accessUrl: string): { url: URL; authorization: st
   try {
     url = new URL(accessUrl);
   } catch {
-    throw new BadRequestException('SimpleFIN returned an access URL that is not a URL');
+    throw new BadRequestException(appError('BANK_SYNC_SIMPLEFIN_ACCESS_URL_INVALID'));
   }
   if (url.protocol !== 'https:' || !url.username) {
-    throw new BadRequestException('SimpleFIN access URL must be https with credentials');
+    throw new BadRequestException(appError('BANK_SYNC_SIMPLEFIN_ACCESS_URL_INSECURE'));
   }
   const user = decodeURIComponent(url.username);
   const pass = decodeURIComponent(url.password);

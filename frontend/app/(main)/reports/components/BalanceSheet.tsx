@@ -3,14 +3,16 @@
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import CircularProgress from '@mui/material/CircularProgress';
+import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import CustomDatePicker from '@/app/components/CustomDatePicker';
-import { ChevronDown, ChevronRight } from '@/app/components/icons';
+import { ChevronDown, ChevronRight, Clock3 } from '@/app/components/icons';
 import { PRIVATE_CLASS, PrivateAmount } from '@/app/components/ui/private-amount';
 import { Select } from '@/app/components/ui/select';
+import { SnapshotSkeleton } from '@/app/components/ui/snapshot-skeleton/SnapshotSkeleton';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { getApiErrorMessage } from '@/app/lib/api-error';
@@ -23,64 +25,20 @@ import { queryKeys } from '@/app/lib/query-keys';
 import { tokens } from '@/lib/theme-tokens';
 import apiClient from '../../../lib/api';
 import { blobOf } from '../../../lib/blob-of';
+import { BalanceHistoryDialog } from './BalanceHistoryDialog';
+import {
+  collectEditableValues,
+  collectExpandableDefaults,
+  parseContentDispositionFileName,
+  toDateInputValue,
+} from './balance-sheet-tree';
+import { PersonalLayoutNotice } from './PersonalLayoutNotice';
 
 type BalanceExportFormat = 'excel' | 'pdf';
 
 /** Reports are written in Russian, English or Kazakh; any other interface language gets English. */
 const reportLocaleOf = (locale: string): 'ru' | 'en' | 'kk' =>
   locale === 'ru' || locale === 'kk' ? locale : 'en';
-
-const toDateInputValue = (date: Date): string => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
-
-const collectEditableValues = (
-  accounts: BalanceAccountNode[],
-  result: Record<string, string>,
-): void => {
-  for (const account of accounts) {
-    if (account.isEditable) {
-      result[account.id] = account.amount.toFixed(2);
-    }
-    if (account.children.length > 0) {
-      collectEditableValues(account.children, result);
-    }
-  }
-};
-
-const collectExpandableDefaults = (
-  accounts: BalanceAccountNode[],
-  result: Record<string, boolean>,
-): void => {
-  for (const account of accounts) {
-    // A group with nothing in it starts collapsed; the user's own choice wins on refresh.
-    if (account.isExpandable || account.children.length > 0) {
-      result[account.id] = account.amount !== 0;
-    }
-    if (account.children.length > 0) {
-      collectExpandableDefaults(account.children, result);
-    }
-  }
-};
-
-const parseContentDispositionFileName = (contentDisposition?: string): string | null => {
-  if (!contentDisposition) return null;
-
-  const utfMatch = /filename\*=UTF-8''([^;]+)/i.exec(contentDisposition);
-  if (utfMatch?.[1]) {
-    return decodeURIComponent(utfMatch[1]);
-  }
-
-  const asciiMatch = /filename="?([^";]+)"?/i.exec(contentDisposition);
-  if (asciiMatch?.[1]) {
-    return asciiMatch[1];
-  }
-
-  return null;
-};
 
 // Banner-free notice: a soft strip with an ochre dot, no frame and no icon.
 function WarningNote({ children }: { children: React.ReactNode }): React.JSX.Element {
@@ -219,6 +177,8 @@ function BalanceSheet(): React.JSX.Element {
       value === 0 ? '—' : formatCurrency(value, fractionDigits),
     [formatCurrency],
   );
+
+  const [historyAccount, setHistoryAccount] = useState<{ id: string; name: string } | null>(null);
 
   const saveSnapshot = useCallback(
     async (accountId: string): Promise<void> => {
@@ -440,6 +400,13 @@ function BalanceSheet(): React.JSX.Element {
                 {savingAccountId === account.id && (
                   <CircularProgress size={16} sx={{ color: 'var(--primary)' }} />
                 )}
+                <IconButton
+                  size="small"
+                  aria-label={`${text('snapshotHistoryTitle', 'Value history')} — ${account.name}`}
+                  onClick={() => setHistoryAccount({ id: account.id, name: account.name })}
+                >
+                  <Clock3 size={16} />
+                </IconButton>
               </Box>
             ) : (
               <span
@@ -469,7 +436,9 @@ function BalanceSheet(): React.JSX.Element {
   }
 
   const balanceWarning = useMemo(() => {
-    if (!sheet || sheet.isBalanced) return null;
+    // A household keeps no equity side, so assets minus debts is its net
+    // worth, not a book that fails to balance.
+    if (!sheet || sheet.isBalanced || sheet.profile === 'home') return null;
     return (
       <>
         {text('balanceDifference', 'Balance difference')}:{' '}
@@ -591,6 +560,8 @@ function BalanceSheet(): React.JSX.Element {
         </Alert>
       )}
 
+      {sheet?.personalLayoutAvailable && <PersonalLayoutNotice onError={setError} />}
+
       {balanceWarning && <WarningNote>{balanceWarning}</WarningNote>}
 
       {sheet?.missingRates && sheet.missingRates.length > 0 && (
@@ -600,85 +571,77 @@ function BalanceSheet(): React.JSX.Element {
       )}
 
       {sheetQuery.isPending ? (
-        <Box
-          sx={{
-            border: '1px solid var(--border)',
-            bgcolor: 'var(--card)',
-            px: 2,
-            py: 5,
-            display: 'flex',
-            borderRadius: tokens.radius.lg,
-            justifyContent: 'center',
-          }}
-        >
-          <CircularProgress size={24} />
-        </Box>
+        <SnapshotSkeleton id="reports-balance-sheet" loading fallback="cards" />
       ) : sheet ? (
-        <Box
-          sx={{
-            display: 'grid',
-            gridTemplateColumns: { xs: '1fr', xl: 'repeat(2, 1fr)' },
-            gap: 2,
-            // Сохранение баланса и смена даты перезагружают отчёт в фоне.
-            opacity: sheetQuery.isFetching ? 0.6 : 1,
-            transition: 'opacity 150ms ease',
-          }}
-        >
-          {(
-            [
-              {
-                key: 'assets',
-                title: text('assets', 'Assets'),
-                side: sheet.assets,
-              },
-              {
-                key: 'liabilities',
-                title: text('liabilities', 'Liabilities'),
-                side: sheet.liabilities,
-              },
-            ] as const
-          ).map(({ key, title, side }) => (
-            <Box
-              key={key}
-              sx={{
-                display: 'flex',
-                flexDirection: 'column',
-                border: '1px solid var(--border)',
-                borderRadius: tokens.radius.lg,
-                bgcolor: 'var(--card)',
-                p: 2,
-              }}
-            >
-              <Typography sx={{ mb: 1, fontSize: 15, fontWeight: 500, color: 'var(--foreground)' }}>
-                {title}
-              </Typography>
-              <Box sx={{ flexGrow: 1 }}>
-                {side.sections
-                  .sort((a, b) => a.position - b.position)
-                  .map(section => renderAccount(section))}
-              </Box>
-              {/* Both columns end on a total line, so the two sides can be read against each other. */}
+        <SnapshotSkeleton id="reports-balance-sheet" loading={false}>
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', xl: 'repeat(2, 1fr)' },
+              gap: 2,
+              // Сохранение баланса и смена даты перезагружают отчёт в фоне.
+              opacity: sheetQuery.isFetching ? 0.6 : 1,
+              transition: 'opacity 150ms ease',
+            }}
+          >
+            {(
+              [
+                {
+                  key: 'assets',
+                  title: text('assets', 'Assets'),
+                  side: sheet.assets,
+                },
+                {
+                  key: 'liabilities',
+                  title: text('liabilities', 'Liabilities'),
+                  side: sheet.liabilities,
+                },
+              ] as const
+            ).map(({ key, title, side }) => (
               <Box
+                key={key}
                 sx={{
-                  mt: 1,
-                  pt: 1.5,
                   display: 'flex',
-                  justifyContent: 'flex-end',
-                  borderTop: '1px solid var(--border)',
-                  fontSize: 15,
-                  fontWeight: 600,
-                  color: 'var(--foreground)',
+                  flexDirection: 'column',
+                  border: '1px solid var(--border)',
+                  borderRadius: tokens.radius.lg,
+                  bgcolor: 'var(--card)',
+                  p: 2,
                 }}
               >
-                <PrivateAmount>
-                  <span style={{ fontVariantNumeric: 'tabular-nums' }}>
-                    {formatCurrency(side.total, 0)}
-                  </span>
-                </PrivateAmount>
+                <Typography
+                  sx={{ mb: 1, fontSize: 15, fontWeight: 500, color: 'var(--foreground)' }}
+                >
+                  {title}
+                </Typography>
+                <Box sx={{ flexGrow: 1 }}>
+                  {side.sections
+                    .sort((a, b) => a.position - b.position)
+                    .map(section => renderAccount(section))}
+                </Box>
+                {/* Both columns end on a total line, so the two sides can be read against each other. */}
+                <Box
+                  sx={{
+                    mt: 1,
+                    pt: 1.5,
+                    display: 'flex',
+                    justifyContent: 'flex-end',
+                    borderTop: '1px solid var(--border)',
+                    fontSize: 15,
+                    fontWeight: 600,
+                    color: 'var(--foreground)',
+                  }}
+                >
+                  <PrivateAmount>
+                    <span style={{ fontVariantNumeric: 'tabular-nums' }}>
+                      {formatCurrency(side.total, 0)}
+                    </span>
+                  </PrivateAmount>
+                </Box>
               </Box>
-            </Box>
-          ))}
-        </Box>
+            ))}
+          </Box>
+        </SnapshotSkeleton>
       ) : (
         <Box
           sx={{
@@ -694,6 +657,15 @@ function BalanceSheet(): React.JSX.Element {
             {text('noData', 'No data')}
           </Typography>
         </Box>
+      )}
+
+      {historyAccount && (
+        <BalanceHistoryDialog
+          accountId={historyAccount.id}
+          accountName={historyAccount.name}
+          isOpen
+          onClose={() => setHistoryAccount(null)}
+        />
       )}
     </Box>
   );

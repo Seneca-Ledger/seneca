@@ -20,6 +20,7 @@ export interface ReceiptDocument {
   };
   /** Resolved by the API from `parsedData.categoryId`; absent when none is picked. */
   category?: { id: string; name: string; color: string | null; icon: string | null } | null;
+  tags?: Array<{ id: string; name: string; color: string | null }>;
 }
 
 interface ReceiptMappedParsedData {
@@ -58,6 +59,7 @@ export interface ReceiptMappedStatement {
   receivedAt: string;
   parsedData?: ReceiptMappedParsedData;
   category?: { id: string; name: string; color: string | null; icon: string | null } | null;
+  tags?: Array<{ id: string; name: string; color: string | null }>;
 }
 
 const VENDOR_BANK_PATTERNS: { pattern: RegExp; bankName: string }[] = [
@@ -137,6 +139,7 @@ export const mapReceiptToStatement = (receipt: ReceiptDocument): ReceiptMappedSt
     errorMessage: receipt.status === 'failed' ? 'Failed to parse' : null,
     receivedAt: receipt.receivedAt,
     category: receipt.category,
+    tags: receipt.tags,
     parsedData: {
       amount: amount ?? undefined,
       currency: receipt.parsedData?.currency,

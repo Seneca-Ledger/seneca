@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { type EntityManager, IsNull, Not, type Repository } from 'typeorm';
+import { appError } from '../../common/errors/app-error';
 import { toMinor } from '../../common/utils/money.util';
 import {
   CryptoWallet,
@@ -297,7 +298,7 @@ export class LedgerPostingService {
       });
     }
     if (grossMinor === 0) {
-      throw new BadRequestException('Cannot post a zero-amount invoice to the ledger');
+      throw new BadRequestException(appError('LEDGER_INVOICE_ZERO_AMOUNT'));
     }
     legs.push({ accountId: receivablesAccountId, side: 'debit', amountMinor: grossMinor });
 
@@ -365,7 +366,7 @@ export class LedgerPostingService {
       });
     }
     if (grossMinor === 0) {
-      throw new BadRequestException('Cannot post a zero-amount credit note to the ledger');
+      throw new BadRequestException(appError('LEDGER_CREDIT_NOTE_ZERO_AMOUNT'));
     }
     legs.push({ accountId: receivablesAccountId, side: 'credit', amountMinor: grossMinor });
 
@@ -405,7 +406,7 @@ export class LedgerPostingService {
         lock: { mode: 'pessimistic_write' },
       });
       if (!entry) {
-        throw new NotFoundException('Journal entry not found');
+        throw new NotFoundException(appError('LEDGER_ENTRY_NOT_FOUND'));
       }
       if (entry.status !== JournalEntryStatus.POSTED) {
         throw new LedgerPostingError('NOT_REVERSIBLE', 'Only a posted entry can be reversed');

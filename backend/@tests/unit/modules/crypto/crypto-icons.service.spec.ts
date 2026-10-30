@@ -90,9 +90,9 @@ describe('CryptoIconsService', () => {
     const result = await service.fetchIcon('BTC');
 
     expect(result.status).toBe('missing');
-    expect(fetchMock.mock.calls.some(call => String(call[0]).includes('evil.example.com'))).toBe(
-      false,
-    );
+    expect(
+      fetchMock.mock.calls.some(call => new URL(String(call[0])).hostname === 'evil.example.com'),
+    ).toBe(false);
   });
 
   it('rejects anything that is not a raster image', async () => {

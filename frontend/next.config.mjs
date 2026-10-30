@@ -28,15 +28,8 @@ const apiOrigin = (() => {
 // product feature, not a convenience: omitting them does not harden anything,
 // it just breaks the feature silently at the CSP layer. A deployment that does
 // not use these integrations can drop the corresponding entry.
-// Bank logos (brand-logo.ts) and the default identicon the backend assigns to
-// users without an uploaded avatar (jwt.strategy.ts).
-const REMOTE_IMAGE_HOSTS = 'https://logo.clearbit.com https://api.dicebear.com';
-
-// react-scan (components/ReactScan.tsx) is mounted only when NODE_ENV is
-// development and checks its own version over the network. Allowing it keeps
-// the dev console free of a violation that says nothing about the app — and it
-// stays out of the production policy, where the profiler is never mounted.
-const DEV_PROFILER_HOST = 'https://www.react-grab.com';
+// Bank logos (brand-logo.ts).
+const REMOTE_IMAGE_HOSTS = 'https://logo.clearbit.com';
 
 const buildCsp = isDev =>
   [
@@ -58,9 +51,7 @@ const buildCsp = isDev =>
     // ws:/wss: are listed in every environment: Socket.IO powers notifications and
     // import progress, and browsers have not been consistent about whether 'self'
     // covers the WebSocket schemes for the same origin.
-    `connect-src 'self' blob: ws: wss:${apiOrigin ? ` ${apiOrigin}` : ''}${
-      isDev ? ` ${DEV_PROFILER_HOST}` : ''
-    }`,
+    `connect-src 'self' blob: ws: wss:${apiOrigin ? ` ${apiOrigin}` : ''}`,
     // Declaring frame-src at all removes the default-src fallback, so the app's
     // own embeds have to be listed explicitly: statement and receipt previews are
     // iframed from a blob: URL.
@@ -89,7 +80,7 @@ const securityHeaders = isDev => [
 ];
 
 /**
- * Read by vinext (the Vite build of the App Router): only headers, rewrites and
+ * Read by vinext (the Vite build of the App Router): only headers, redirects, rewrites and
  * the standalone output are used. The phase tells the dev server from the build.
  *
  * @type {(phase: string) => import('next').NextConfig}
@@ -104,6 +95,17 @@ const nextConfig = phase => {
         {
           source: '/:path*',
           headers: securityHeaders(isDev),
+        },
+      ];
+    },
+
+    async redirects() {
+      return [
+        {
+          // Categories moved out of the workspace tabs into a page of their own.
+          source: '/workspaces/categories',
+          destination: '/categories',
+          permanent: true,
         },
       ];
     },

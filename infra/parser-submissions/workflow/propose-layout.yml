@@ -1,0 +1,151 @@
+# Goes in the parser-submissions repository as .github/workflows/propose-layout.yml
+# (see ../README.md). For each new layout issue: vets the submission, writes
+# its golden case and registry entry in the project, checks the golden set
+# reads it, and opens a pull request there for the maintainer to merge.
+# Nothing merges by itself. Repeats of a layout are comments on its issue and
+# do not run this.
+#
+# Secrets: MAIN_REPO_TOKEN, a fine-grained token for stoic-budget/stoic-budget
+# with Contents and Pull requests read and write.
+#
+# The issue is untrusted input: it is read through files and environment
+# variables, never pasted into a command with ${{ }}.
+name: Propose layout
+
+on:
+  issues:
+    types: [opened]
+  workflow_dispatch:
+    inputs:
+      issue:
+        description: Issue number to propose (again)
+        required: true
+
+permissions:
+  issues: write
+  contents: read
+
+concurrency:
+  group: propose-layout
+  cancel-in-progress: false
+
+jobs:
+  propose:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.issue.labels.*.name, 'layout')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      ISSUE: ${{ github.event.issue.number || inputs.issue }}
+      MAIN_REPO: stoic-budget/stoic-budget
+    steps:
+      - name: Checkout the project
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: stoic-budget/stoic-budget
+          token: ${{ secrets.MAIN_REPO_TOKEN }}
+          path: main
+
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: "24"
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: "1.4.4"
+
+      - name: Install backend deps
+        working-directory: main/backend
+        run: bun install --frozen-lockfile --network-concurrency=16
+
+      - name: Install pdfplumber
+        run: |
+          python3 -m venv main/backend/.venv
+          main/backend/.venv/bin/pip install --quiet --require-hashes -r main/backend/requirements.txt
+
+      - name: Read the submission
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue view "$ISSUE" --repo "$GITHUB_REPOSITORY" --json body --jq .body > body.md
+          node -e '
+            const fs = require("fs");
+            const block = /```json\n([\s\S]*?)\n```/.exec(fs.readFileSync("body.md", "utf8"));
+            if (!block) { console.error("No layout JSON in the issue"); process.exit(3); }
+            fs.writeFileSync("submission.json", block[1]);
+          '
+
+      - name: Vet and apply
+        id: apply
+        working-directory: main/backend
+        run: |
+          set +e
+          node scripts/layout-to-golden.mjs ../../submission.json --apply --report ../../report.md
+          code=$?
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          # 0: applied, 2: refused (the report says why); anything else is a failure.
+          [ "$code" -eq 0 ] || [ "$code" -eq 2 ]
+
+      - name: Golden statements
+        if: steps.apply.outputs.code == '0'
+        working-directory: main/backend
+        env:
+          GOLDEN_ENABLED: "1"
+        run: npx vitest run --project golden
+
+      - name: Open the pull request
+        id: pr
+        if: steps.apply.outputs.code == '0'
+        working-directory: main
+        env:
+          GH_TOKEN: ${{ secrets.MAIN_REPO_TOKEN }}
+        run: |
+          bank=$(node -p 'require("../submission.json").institution')
+          slug=$(node --input-type=module -e '
+            import { readFileSync } from "fs";
+            import { caseNameOf } from "./backend/scripts/layout-submission-vet.mjs";
+            console.log(caseNameOf(JSON.parse(readFileSync("../submission.json", "utf8"))));
+          ')
+          branch="layout/${slug}-${ISSUE}"
+          git config user.name "parser-submissions"
+          git config user.email "parser-submissions@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add backend/golden "backend/src/modules/parsing/helpers/contributed-layouts.data.ts"
+          git commit -m "feat(parsing): read ${bank} statements (contributed layout)"
+          git push origin "$branch"
+          {
+            cat ../report.md
+            echo
+            echo "From parser-submissions#${ISSUE} (private). The golden case is an invented"
+            echo "statement printed the way the bank prints; the headings apply only to files"
+            echo "that name the bank. Merge if the layout looks right."
+          } > ../pr-body.md
+          url=$(gh pr create --repo "$MAIN_REPO" --head "$branch" --base main \
+            --title "Read ${bank} statements (contributed layout)" --body-file ../pr-body.md)
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+
+      - name: Answer on the issue
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CODE: ${{ steps.apply.outputs.code }}
+          PR_URL: ${{ steps.pr.outputs.url }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          {
+            if [ -n "$PR_URL" ]; then
+              echo "Proposed: $PR_URL"
+              label=proposed
+            elif [ "$CODE" = "2" ]; then
+              label=not-proposed
+            else
+              echo "The proposal failed: $RUN_URL"
+              label=proposal-failed
+            fi
+            echo
+            if [ -f report.md ]; then cat report.md; fi
+          } > answer.md
+          gh label create "$label" --repo "$GITHUB_REPOSITORY" --force >/dev/null
+          gh issue comment "$ISSUE" --repo "$GITHUB_REPOSITORY" --body-file answer.md
+          gh issue edit "$ISSUE" --repo "$GITHUB_REPOSITORY" --add-label "$label"

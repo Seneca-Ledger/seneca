@@ -17,25 +17,27 @@ export const ReportHistoryList = Schema.Array(
 );
 export type ReportHistoryList = Wire<typeof ReportHistoryList>;
 
+/** One row of `GET /reports/schedules`, and the answer of creating or pausing one. */
+export const ReportScheduleItem = Schema.Struct({
+  id: Schema.String,
+  templateId: Schema.String,
+  format: Schema.String,
+  cadence: Schema.Literals(['daily', 'weekly', 'monthly']),
+  recipients: Schema.Array(Schema.String),
+  walletIds: Schema.Array(Schema.String),
+  categoryIds: Schema.Array(Schema.String),
+  groupBy: Schema.NullOr(Schema.String),
+  locale: Schema.NullOr(Schema.String),
+  isActive: Schema.Boolean,
+  lastRunAt: Schema.NullOr(Timestamp),
+  nextRunAt: Timestamp,
+  lastError: Schema.NullOr(Schema.String),
+  createdAt: Timestamp,
+});
+export type ReportScheduleItem = Wire<typeof ReportScheduleItem>;
+
 /** `GET /reports/schedules`. */
-export const ReportScheduleList = Schema.Array(
-  Schema.Struct({
-    id: Schema.String,
-    templateId: Schema.String,
-    format: Schema.String,
-    cadence: Schema.Literals(['daily', 'weekly', 'monthly']),
-    recipients: Schema.Array(Schema.String),
-    walletIds: Schema.Array(Schema.String),
-    categoryIds: Schema.Array(Schema.String),
-    groupBy: Schema.NullOr(Schema.String),
-    locale: Schema.NullOr(Schema.String),
-    isActive: Schema.Boolean,
-    lastRunAt: Schema.NullOr(Timestamp),
-    nextRunAt: Timestamp,
-    lastError: Schema.NullOr(Schema.String),
-    createdAt: Timestamp,
-  }),
-);
+export const ReportScheduleList = Schema.Array(ReportScheduleItem);
 export type ReportScheduleList = Wire<typeof ReportScheduleList>;
 
 const FlowLink = Schema.Struct({
@@ -52,6 +54,9 @@ export const CashFlowMap = Schema.Struct({
   period: Period,
   previousPeriod: Schema.NullOr(Period),
   includeTransfers: Schema.Boolean,
+  netRefunds: Schema.Boolean,
+  /** Currencies left out of every figure for want of an exchange rate on their day. */
+  missingRates: Schema.Array(Schema.String),
   availableCategories: Schema.Array(
     Schema.Struct({
       id: Schema.String,
@@ -132,12 +137,12 @@ export const SpendFlow = Schema.Struct({
   nodes: Schema.Array(
     Schema.Struct({
       id: Schema.String,
-      kind: Schema.Literals(['total', 'category', 'subcategory', 'merchant', 'other']),
+      kind: Schema.Literals(['total', 'category', 'subcategory', 'merchant', 'tag', 'other']),
       name: Schema.NullOr(Schema.String),
       amount: Schema.Number,
       share: Schema.Number,
       color: Schema.NullOr(Schema.String),
-      /** How many small merchants an `other` node stands for. */
+      /** How many small merchants (or tags) an `other` node stands for. */
       mergedCount: Schema.optional(Schema.Number),
     }),
   ),

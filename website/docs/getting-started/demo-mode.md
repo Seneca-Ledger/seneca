@@ -1,9 +1,9 @@
 ---
 title: Demo Mode
-description: Explore Seneca with a demo account
+description: Explore Stoic Budget with a demo account
 ---
 
-Seneca ships a demo account so you can log in and explore right away.
+Stoic Budget ships a demo account so you can log in and explore right away.
 
 ## Create the demo account
 

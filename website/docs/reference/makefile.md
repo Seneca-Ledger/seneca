@@ -43,7 +43,7 @@ release with `IMAGE_TAG`.
 
 ## Database
 
-These run inside the running `finflow-backend` container. The production backend image ships without npm, so use
+These run inside the running `seneca-backend` container. The production backend image ships without npm, so use
 `migrate*` against the dev stack; in production, migrations run automatically on start.
 
 - `make migrate` - Run database migrations

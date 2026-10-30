@@ -7,7 +7,7 @@ type BodySchema<S extends Schema.Top> = S & Schema.Codec<S['Type'], S['Encoded']
 
 /**
  * What a `@SchemaBody` route makes of a request body: the decoded value, or
- * the `path: message` lines of the 400 it answers with.
+ * the `path: message` issues of the 400 it answers with.
  */
 export function decodeBody<S extends Schema.Top>(
   schema: BodySchema<S>,
@@ -17,8 +17,8 @@ export function decodeBody<S extends Schema.Top>(
     return { value: new EffectSchemaPipe(schema).transform(input), errors: [] };
   } catch (error) {
     if (error instanceof BadRequestException) {
-      const body = error.getResponse() as { message: string[] };
-      return { value: undefined, errors: body.message };
+      const body = error.getResponse() as { issues: string[] };
+      return { value: undefined, errors: body.issues };
     }
     throw error;
   }
@@ -39,8 +39,8 @@ export function decodeQuery<S extends Schema.Top>(
     return { value: new EffectSchemaQueryPipe(schema, 'query').transform(input), errors: [] };
   } catch (error) {
     if (error instanceof BadRequestException) {
-      const body = error.getResponse() as { message: string[] };
-      return { value: undefined, errors: body.message };
+      const body = error.getResponse() as { issues: string[] };
+      return { value: undefined, errors: body.issues };
     }
     throw error;
   }

@@ -38,3 +38,13 @@ export function resolveInUploadsDir(
     ? resolved
     : null;
 }
+
+/** Reads a file the server wrote under the uploads directory; refuses any other path. */
+export function readUploadedFile(filePath: string): Promise<Buffer> {
+  const uploadsRoot = path.resolve(resolveUploadsDir());
+  const resolved = path.resolve(filePath);
+  if (!resolved.startsWith(`${uploadsRoot}${path.sep}`)) {
+    return Promise.reject(new Error('File is outside the uploads directory'));
+  }
+  return fs.promises.readFile(resolved);
+}

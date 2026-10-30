@@ -2,17 +2,14 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { CategorizationRule } from '../../../../src/entities/categorization-rule.entity';
-import { Transaction } from '../../../../src/entities/transaction.entity';
 import { WorkspaceMember } from '@/entities/workspace-member.entity';
 import { AuditService } from '../../../../src/modules/audit/audit.service';
 import { CategorizationRulesController } from '../../../../src/modules/classification/categorization-rules.controller';
-import { ClassificationService } from '../../../../src/modules/classification/services/classification.service';
+import { RuleApplicationService } from '../../../../src/modules/classification/services/rule-application.service';
 
 describe('CategorizationRulesController', () => {
   let controller: CategorizationRulesController;
   let ruleRepository: Repository<CategorizationRule>;
-  let transactionRepository: Repository<Transaction>;
-  let classificationService: ClassificationService;
 
   const mockRuleRepository = {
     find: vi.fn(),
@@ -24,12 +21,9 @@ describe('CategorizationRulesController', () => {
     manager: { getRepository: () => ({ countBy: async ({ id }: any) => id.value.length }) },
   };
 
-  const mockTransactionRepository = {
-    findBy: vi.fn(),
-  };
-
-  const mockClassificationService = {
-    matchesRule: vi.fn(),
+  const mockRuleApplicationService = {
+    previewRule: vi.fn(),
+    applyRuleToExisting: vi.fn(),
   };
   const mockAuditService = {
     createEvent: vi.fn(),
@@ -51,16 +45,12 @@ describe('CategorizationRulesController', () => {
           useValue: mockRuleRepository,
         },
         {
-          provide: getRepositoryToken(Transaction),
-          useValue: mockTransactionRepository,
-        },
-        {
           provide: getRepositoryToken(WorkspaceMember),
           useValue: { exists: vi.fn(async () => true) },
         },
         {
-          provide: ClassificationService,
-          useValue: mockClassificationService,
+          provide: RuleApplicationService,
+          useValue: mockRuleApplicationService,
         },
         {
           provide: AuditService,
@@ -77,8 +67,6 @@ describe('CategorizationRulesController', () => {
     ruleRepository = module.get<Repository<CategorizationRule>>(
       getRepositoryToken(CategorizationRule),
     );
-    transactionRepository = module.get<Repository<Transaction>>(getRepositoryToken(Transaction));
-    classificationService = module.get<ClassificationService>(ClassificationService);
   });
 
   afterEach(() => {
@@ -86,7 +74,7 @@ describe('CategorizationRulesController', () => {
   });
 
   describe('findAll', () => {
-    it('should return all categorization rules for user and workspace', async () => {
+    it("should return every member's rules of the workspace", async () => {
       const mockRules = [
         {
           id: 'rule1',
@@ -112,15 +100,13 @@ describe('CategorizationRulesController', () => {
 
       mockRuleRepository.find.mockResolvedValue(mockRules);
 
-      const result = await controller.findAll(mockUser as any, mockWorkspaceId);
+      const result = await controller.findAll(mockWorkspaceId);
 
       expect(result.data).toEqual(mockRules);
       expect(result.total).toBe(2);
+      // Every member's rules: they all shape the workspace's categories.
       expect(mockRuleRepository.find).toHaveBeenCalledWith({
-        where: {
-          userId: mockUser.id,
-          workspaceId: mockWorkspaceId,
-        },
+        where: { workspaceId: mockWorkspaceId },
         order: {
           priority: 'DESC',
           createdAt: 'DESC',
@@ -236,7 +222,7 @@ describe('CategorizationRulesController', () => {
       mockRuleRepository.findOne.mockResolvedValue(existingRule);
       mockRuleRepository.save.mockResolvedValue({ ...existingRule, ...updateDto });
 
-      const result = await controller.update('rule-1', updateDto, mockUser as any, mockWorkspaceId);
+      const result = await controller.update({ id: 'rule-1' }, updateDto, mockUser as any, mockWorkspaceId);
 
       expect(result.name).toBe('New Name');
       expect(result.priority).toBe(100);
@@ -253,7 +239,7 @@ describe('CategorizationRulesController', () => {
       mockRuleRepository.findOne.mockResolvedValue(null);
 
       await expect(
-        controller.update('nonexistent', {}, mockUser as any, mockWorkspaceId),
+        controller.update({ id: 'nonexistent' }, {}, mockUser as any, mockWorkspaceId),
       ).rejects.toThrow('Categorization rule not found');
     });
   });
@@ -269,9 +255,13 @@ describe('CategorizationRulesController', () => {
       };
 
       mockRuleRepository.findOne.mockResolvedValue(rule);
-      mockRuleRepository.remove.mockResolvedValue(rule);
+      // Like TypeORM: the removed entity comes back without its id.
+      mockRuleRepository.remove.mockImplementation(async (removed: { id?: string }) => {
+        removed.id = undefined;
+        return removed;
+      });
 
-      await controller.remove('rule-1', mockUser as any, mockWorkspaceId);
+      await controller.remove({ id: 'rule-1' }, mockUser as any, mockWorkspaceId);
 
       expect(mockRuleRepository.remove).toHaveBeenCalledWith(rule);
       expect(mockAuditService.createEvent).toHaveBeenCalledWith(
@@ -287,95 +277,109 @@ describe('CategorizationRulesController', () => {
       mockRuleRepository.findOne.mockResolvedValue(null);
 
       await expect(
-        controller.remove('nonexistent', mockUser as any, mockWorkspaceId),
+        controller.remove({ id: 'nonexistent' }, mockUser as any, mockWorkspaceId),
       ).rejects.toThrow('Categorization rule not found');
     });
   });
 
   describe('testRule', () => {
-    it('should test rule against transactions and return matches', async () => {
+    it("hands the preview to the service with the caller's workspace and member", async () => {
+      const preview = {
+        totalTransactions: 3,
+        matchedTransactions: 2,
+        overridable: 1,
+        truncated: false,
+        matches: [],
+      };
+      mockRuleApplicationService.previewRule.mockResolvedValue(preview);
       const dto = {
         conditions: [
           { field: 'payment_purpose' as const, operator: 'contains' as const, value: 'salary' },
         ],
-        transactionIds: ['tx1', 'tx2', 'tx3'],
       };
 
-      const transactions = [
-        {
-          id: 'tx1',
-          paymentPurpose: 'Monthly salary payment',
-          counterpartyName: 'Company A',
-          transactionDate: new Date('2024-01-15'),
-          debit: 50000,
-        },
-        {
-          id: 'tx2',
-          paymentPurpose: 'Office rent',
-          counterpartyName: 'Landlord B',
-          transactionDate: new Date('2024-01-10'),
-          debit: 20000,
-        },
-        {
-          id: 'tx3',
-          paymentPurpose: 'Salary advance',
-          counterpartyName: 'Company A',
-          transactionDate: new Date('2024-01-05'),
-          debit: 15000,
-        },
-      ];
-
-      mockTransactionRepository.findBy.mockResolvedValue(transactions);
-
-      // Mock the private matchesRule method
-      (classificationService as any).matchesRule = vi.fn((transaction, conditions) => {
-        return transaction.paymentPurpose.toLowerCase().includes('salary');
-      });
-
-      const result = await controller.testRule(dto, mockUser as any, mockWorkspaceId);
-
-      expect(result.totalTransactions).toBe(3);
-      expect(result.matchedTransactions).toBe(2);
-      expect(result.matches).toHaveLength(2);
-      expect(result.matches[0].id).toBe('tx1');
-      expect(result.matches[1].id).toBe('tx3');
-      // Only the caller's workspace: an id of another one is simply not found.
-      expect(mockTransactionRepository.findBy).toHaveBeenCalledWith({
-        id: expect.anything(),
+      await expect(controller.testRule(dto, mockWorkspaceId, 'member-1')).resolves.toBe(preview);
+      expect(mockRuleApplicationService.previewRule).toHaveBeenCalledWith({
         workspaceId: mockWorkspaceId,
+        viewerMemberId: 'member-1',
+        conditions: dto.conditions,
+        transactionIds: undefined,
       });
     });
 
-    it('should handle no matches', async () => {
+    it('answers 400 for a pattern that does not compile', async () => {
       const dto = {
-        conditions: [
-          {
-            field: 'payment_purpose' as const,
-            operator: 'contains' as const,
-            value: 'nonexistent',
-          },
-        ],
-        transactionIds: ['tx1'],
+        conditions: [{ field: 'counterparty_name' as const, operator: 'regex' as const, value: '(' }],
       };
 
-      const transactions = [
-        {
-          id: 'tx1',
-          paymentPurpose: 'Some payment',
-          counterpartyName: 'Company',
-          transactionDate: new Date(),
-          debit: 1000,
-        },
-      ];
+      await expect(controller.testRule(dto, mockWorkspaceId, null)).rejects.toThrow(
+        'Invalid pattern',
+      );
+      expect(mockRuleApplicationService.previewRule).not.toHaveBeenCalled();
+    });
+  });
 
-      mockTransactionRepository.findBy.mockResolvedValue(transactions);
-      (classificationService as any).matchesRule = vi.fn(() => false);
+  describe('create with a broken pattern', () => {
+    it('refuses to save it', async () => {
+      const dto = {
+        name: 'Broken',
+        conditions: [{ field: 'counterparty_name' as const, operator: 'regex' as const, value: '[a-' }],
+        result: { categoryId: 'cat-123' },
+      };
 
-      const result = await controller.testRule(dto, mockUser as any, mockWorkspaceId);
+      await expect(controller.create(dto, mockUser as any, mockWorkspaceId)).rejects.toThrow(
+        'Invalid pattern',
+      );
+      expect(mockRuleRepository.save).not.toHaveBeenCalled();
+    });
+  });
 
-      expect(result.totalTransactions).toBe(1);
-      expect(result.matchedTransactions).toBe(0);
-      expect(result.matches).toHaveLength(0);
+  describe('applyRule', () => {
+    it("applies a rule another member wrote, found in the caller's workspace only", async () => {
+      const rule = {
+        id: 'rule-1',
+        userId: 'someone-else',
+        workspaceId: mockWorkspaceId,
+        result: { categoryId: 'cat-1' },
+      };
+      mockRuleRepository.findOne.mockResolvedValue(rule);
+      mockRuleApplicationService.applyRuleToExisting.mockResolvedValue({
+        applied: 4,
+        skippedManual: 1,
+      });
+
+      await expect(
+        controller.applyRule({ id: 'rule-1' }, mockUser as any, mockWorkspaceId, 'member-1'),
+      ).resolves.toEqual({ applied: 4, skippedManual: 1 });
+      expect(mockRuleRepository.findOne).toHaveBeenCalledWith({
+        where: { id: 'rule-1', workspaceId: mockWorkspaceId },
+      });
+      expect(mockRuleApplicationService.applyRuleToExisting).toHaveBeenCalledWith({
+        rule,
+        userId: mockUser.id,
+        viewerMemberId: 'member-1',
+      });
+    });
+
+    it('refuses a rule that sets no category', async () => {
+      mockRuleRepository.findOne.mockResolvedValue({
+        id: 'rule-1',
+        workspaceId: mockWorkspaceId,
+        result: { walletId: 'wallet-1' },
+      });
+
+      await expect(
+        controller.applyRule({ id: 'rule-1' }, mockUser as any, mockWorkspaceId, null),
+      ).rejects.toThrow('sets no category');
+      expect(mockRuleApplicationService.applyRuleToExisting).not.toHaveBeenCalled();
+    });
+
+    it('is not found for a rule outside the workspace', async () => {
+      mockRuleRepository.findOne.mockResolvedValue(null);
+
+      await expect(
+        controller.applyRule({ id: 'rule-1' }, mockUser as any, mockWorkspaceId, null),
+      ).rejects.toThrow('Categorization rule not found');
     });
   });
 });

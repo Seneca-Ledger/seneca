@@ -35,6 +35,9 @@ const pension: InvestmentAccount = {
   currency: 'USD',
   value: 1205,
   contributed: 1000,
+  withdrawn: 0,
+  income: 0,
+  netInvested: 1000,
   gain: 205,
   holdings: [
     {

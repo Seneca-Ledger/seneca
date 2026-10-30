@@ -9,8 +9,12 @@ import { Workspace } from '../../entities/workspace.entity';
 import { WorkspaceMember } from '../../entities/workspace-member.entity';
 import { WorkspaceServiceSettings } from '../../entities/workspace-service-settings.entity';
 import { BalanceModule } from '../balance/balance.module';
+import { CryptoModule } from '../crypto/crypto.module';
 import { ExchangeRatesModule } from '../exchange-rates/exchange-rates.module';
+import { InvestmentFlowsService } from './investment-flows.service';
+import { InvestmentReturnsService } from './investment-returns.service';
 import { InvestmentsController } from './investments.controller';
+import { InvestmentsScheduler } from './investments.scheduler';
 import { InvestmentsService } from './investments.service';
 import { MetalsController } from './metals.controller';
 import { MetalsService } from './metals.service';
@@ -29,10 +33,18 @@ import { StockPriceService } from './stock-price.service';
       WorkspaceServiceSettings,
     ]),
     BalanceModule,
+    CryptoModule,
     ExchangeRatesModule,
   ],
   controllers: [InvestmentsController, MetalsController],
-  providers: [InvestmentsService, MetalsService, StockPriceService],
-  exports: [InvestmentsService, MetalsService],
+  providers: [
+    InvestmentFlowsService,
+    InvestmentReturnsService,
+    InvestmentsService,
+    InvestmentsScheduler,
+    MetalsService,
+    StockPriceService,
+  ],
+  exports: [InvestmentFlowsService, InvestmentsService, MetalsService],
 })
 export class InvestmentsModule {}

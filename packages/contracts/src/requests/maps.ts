@@ -1,0 +1,14 @@
+import * as Schema from 'effect/Schema';
+import type { Wire } from '../common/wire';
+
+/**
+ * `GET /maps/tiles/:styleId/:z/:x/:y`. The service checks the style and the
+ * zoom grid and answers its own MAPS_TILE_UNKNOWN, so these stay strings.
+ */
+export const MapTileParams = Schema.Struct({
+  styleId: Schema.String,
+  z: Schema.String,
+  x: Schema.String,
+  y: Schema.String,
+});
+export type MapTileParams = Wire<typeof MapTileParams>;

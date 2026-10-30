@@ -25,6 +25,10 @@ export const queryKeys = {
   payees: (o: { workspaceId: string | null; params: Record<string, unknown> }) =>
     ['payees', o.workspaceId, o.params] as const,
   payee: (workspaceId: string | null, id: string) => ['payees', workspaceId, 'one', id] as const,
+  categorizationRules: (workspaceId: string | null) =>
+    ['categorization-rules', workspaceId] as const,
+  categorizationRulePreview: (workspaceId: string | null, conditions: unknown) =>
+    ['categorization-rules', workspaceId, 'preview', conditions] as const,
   reviewInbox: (o: { workspaceId: string | null; params: Record<string, unknown> }) =>
     ['review-inbox', o.workspaceId, o.params] as const,
   reviewInboxCounts: (workspaceId: string | null, reviewer?: string) =>
@@ -32,6 +36,10 @@ export const queryKeys = {
   reviewInboxByStatement: (workspaceId: string | null) =>
     ['review-inbox', workspaceId, 'statements'] as const,
   wallets: (workspaceId: string | null) => ['wallets', workspaceId] as const,
+  // Under the list prefix, so a change to any account refreshes all of these.
+  walletsSummary: (workspaceId: string | null) => ['wallets', workspaceId, 'summary'] as const,
+  walletsUnlinked: (workspaceId: string | null) => ['wallets', workspaceId, 'unlinked'] as const,
+  wallet: (workspaceId: string | null, id: string) => ['wallets', workspaceId, 'one', id] as const,
   payablePaymentCandidates: (o: { workspaceId: string | null; payableId: string }) =>
     ['payables', o.workspaceId, o.payableId, 'payment-candidates'] as const,
   payablePayments: (o: { workspaceId: string | null; payableId: string }) =>
@@ -39,6 +47,15 @@ export const queryKeys = {
   // Tile-server configuration is the same in every workspace, hence no workspace segment.
   mapStyles: () => ['map-styles'] as const,
   categoryUsage: (workspaceId: string | null) => ['categories', workspaceId, 'usage'] as const,
+  // The Tags page list with usage counts; the tag pickers read it too.
+  tags: (workspaceId: string | null) => ['tags', workspaceId] as const,
+  receiptTags: (workspaceId: string | null, receiptId: string) =>
+    ['tags', workspaceId, 'receipt', receiptId] as const,
+  statementTags: (workspaceId: string | null, statementId: string) =>
+    ['tags', workspaceId, 'statement', statementId] as const,
+  // Under the tags prefix: a tag saved anywhere refreshes the By tag figures too.
+  transactionTagLinks: (workspaceId: string | null) =>
+    ['tags', workspaceId, 'transaction-links'] as const,
   goalsList: (workspaceId: string | null) => ['goals', 'list', workspaceId] as const,
   // Sits under the plain list prefix, so a contribution invalidates both.
   goalsMonth: (o: { workspaceId: string | null; month: string }) =>
@@ -79,6 +96,9 @@ export const queryKeys = {
   stoicBalance: (workspaceId: string | null) => ['budgets', workspaceId, 'stoic-balance'] as const,
   balanceSheet: (o: { workspaceId: string | null; date: string | null; locale: string }) =>
     ['balance-sheet', o.workspaceId, o.date, o.locale] as const,
+  // Under the balance-sheet prefix: editing a day refreshes the sheet with it.
+  balanceAccountHistory: (o: { workspaceId: string | null; accountId: string }) =>
+    ['balance-sheet', o.workspaceId, 'history', o.accountId] as const,
   tablesReport: (o: { workspaceId: string | null; params: Record<string, unknown> }) =>
     ['tables-report', o.workspaceId, o.params] as const,
   storageFiles: (o: { workspaceId: string | null; listMode: 'active' | 'trash' }) =>
@@ -146,6 +166,9 @@ export const queryKeys = {
   forecast: (o: { workspaceId: string | null; days: number; scenario: string }) =>
     ['forecast', o.workspaceId, o.days, o.scenario] as const,
   investments: (workspaceId: string | null) => ['investments', workspaceId] as const,
+  // Under investments, so a holding or contribution change refreshes the returns page too.
+  investmentReturns: (o: { workspaceId: string | null; range: string }) =>
+    ['investments', o.workspaceId, 'returns', o.range] as const,
   metals: (workspaceId: string | null) => ['metals', workspaceId] as const,
   reconciliation: (workspaceId: string | null) => ['reconciliation', workspaceId] as const,
   cashFlowMap: (o: { workspaceId: string | null; params: string }) =>
@@ -215,5 +238,7 @@ export const queryKeys = {
     ['transactions', 'receipt-tax', o.workspaceId, o.receiptId] as const,
   /** Instance-wide (the running containers), so the one key without a workspace. */
   systemUpdate: () => ['system-update'] as const,
+  /** Instance-wide too: every workspace's statements, as counts per bank and layout. */
+  parserHealth: () => ['parser-health'] as const,
   workspaceVersions: (workspaceId: string | null) => ['workspace-versions', workspaceId] as const,
 } as const;

@@ -40,30 +40,6 @@ export type NotificationPreferences = Wire<typeof NotificationPreferences>;
 
 const SettingsSource = Schema.Literals(['workspace', 'instance', 'env', 'disabled']);
 
-/** `GET /settings/local-categorization`. */
-export const LocalCategorizationStatus = Schema.Struct({
-  connected: Schema.Boolean,
-  status: Schema.String,
-  source: SettingsSource,
-  settings: Schema.Struct({
-    enabled: Schema.Boolean,
-    modelId: Schema.String,
-    threshold: Schema.Number,
-    localModelPath: Schema.NullOr(Schema.String),
-    modelInstalled: Schema.Boolean,
-  }),
-});
-export type LocalCategorizationStatus = Wire<typeof LocalCategorizationStatus>;
-
-/** `POST /settings/local-categorization/test`: what the local model makes of one merchant. */
-export const LocalCategorizationTestResult = Schema.Struct({
-  ready: Schema.Boolean,
-  merchantName: Schema.String,
-  category: Schema.NullOr(Schema.String),
-  modelLoadError: Schema.NullOr(Schema.String),
-});
-export type LocalCategorizationTestResult = Wire<typeof LocalCategorizationTestResult>;
-
 /** `GET /settings/notifications/telegram`: never the token itself. */
 export const TelegramBotStatus = Schema.Struct({
   connected: Schema.Boolean,
@@ -105,6 +81,13 @@ export const TelegramReportPage = Schema.Struct({
 });
 export type TelegramReportPage = Wire<typeof TelegramReportPage>;
 
+/** `POST /telegram/send-report`: the report row, sent now or already sent for that day. */
+export const TelegramReportSent = Schema.Struct({
+  status: Schema.Literals(['sent', 'already_sent']),
+  report: TelegramReport,
+});
+export type TelegramReportSent = Wire<typeof TelegramReportSent>;
+
 /**
  * `POST /telegram/link`: a t.me link that opens the bot with a one-time code.
  * Pressing Start in Telegram sends the code back and connects the chat.
@@ -129,6 +112,43 @@ export const PushPublicKey = Schema.Struct({
 });
 export type PushPublicKey = Wire<typeof PushPublicKey>;
 
+/** `GET /push/subscriptions`: the browsers the person receives pushes on. */
+export const PushSubscriptionList = Schema.Array(
+  Schema.Struct({
+    id: Schema.String,
+    endpoint: Schema.String,
+    userAgent: Schema.NullOr(Schema.String),
+    createdAt: Timestamp,
+    lastUsedAt: Schema.NullOr(Timestamp),
+  }),
+);
+export type PushSubscriptionList = Wire<typeof PushSubscriptionList>;
+
+/** `POST /push/subscriptions`. */
+export const PushSubscriptionCreated = Schema.Struct({
+  id: Schema.String,
+  endpoint: Schema.String,
+});
+export type PushSubscriptionCreated = Wire<typeof PushSubscriptionCreated>;
+
+/** `POST /exchange-rates/manual`: the rate stored for that day. */
+export const ManualExchangeRate = Schema.Struct({
+  from: Schema.String,
+  to: Schema.String,
+  rate: Schema.Number,
+  rateDate: DateOnly,
+});
+export type ManualExchangeRate = Wire<typeof ManualExchangeRate>;
+
+/** `POST /exchange-rates/convert`: one result per item, in order. */
+export const BulkConversion = Schema.Struct({
+  targetCurrency: Schema.String,
+  results: Schema.Array(
+    Schema.Struct({ converted: Schema.Number, rate: Schema.Number, source: Schema.String }),
+  ),
+});
+export type BulkConversion = Wire<typeof BulkConversion>;
+
 /** `GET /exchange-rates`: one rate for a date, and whether it is stale or missing. */
 export const ExchangeRateQuote = Schema.Struct({
   from: Schema.String,
@@ -140,48 +160,3 @@ export const ExchangeRateQuote = Schema.Struct({
   missing: Schema.Boolean,
 });
 export type ExchangeRateQuote = Wire<typeof ExchangeRateQuote>;
-
-/** `GET /integrations/simplefin/status`: the bank feed and its accounts. Never the access URL. */
-export const BankSyncStatus = Schema.Struct({
-  connected: Schema.Boolean,
-  status: Schema.Literals(['connected', 'disconnected', 'needs_reauth']),
-  settings: Schema.NullOr(
-    Schema.Struct({
-      provider: Schema.String,
-      autoSync: Schema.Boolean,
-      accounts: Schema.Array(
-        Schema.Struct({
-          id: Schema.String,
-          name: Schema.String,
-          org: Schema.String,
-          currency: Schema.String,
-          enabled: Schema.Boolean,
-          walletId: Schema.NullOr(Schema.String),
-          lastSyncAt: Schema.NullOr(Schema.String),
-          balance: Schema.NullOr(Schema.Number),
-          balanceDate: Schema.NullOr(Schema.String),
-        }),
-      ),
-      lastSyncAt: Schema.NullOr(Schema.String),
-      lastError: Schema.NullOr(Schema.String),
-    }),
-  ),
-});
-export type BankSyncStatus = Wire<typeof BankSyncStatus>;
-
-/** `POST /integrations/simplefin/sync`: rows and statements made, per account. */
-export const BankSyncResult = Schema.Struct({
-  ok: Schema.Boolean,
-  imported: Schema.Number,
-  statements: Schema.Number,
-  accounts: Schema.Array(
-    Schema.Struct({
-      id: Schema.String,
-      imported: Schema.Number,
-      statementId: Schema.NullOr(Schema.String),
-      /** Why this account could not be read; the others still are. */
-      error: Schema.optional(Schema.String),
-    }),
-  ),
-});
-export type BankSyncResult = Wire<typeof BankSyncResult>;

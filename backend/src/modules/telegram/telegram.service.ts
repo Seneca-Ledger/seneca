@@ -8,6 +8,7 @@ import type { Repository } from 'typeorm';
 import { hasPermissions } from '../../common/authz/request-permissions';
 import { attemptWithRetry } from '../../common/effect/attempt-with-retry';
 import { Permission } from '../../common/enums/permissions.enum';
+import { appError } from '../../common/errors/app-error';
 import { formatMoney } from '../../common/utils/format-money.util';
 import { STANDARD_WORKSPACE } from '../../common/workspaces/version-workspaces';
 import type { SendTelegramReportBody, TelegramConnection } from '../../contracts';
@@ -208,17 +209,15 @@ export class TelegramService {
   async sendReport(user: User, dto: SendTelegramReportBody, workspaceId: string) {
     // Reports go to the caller's own connected chat, never to one they name.
     if (dto.chatId && dto.chatId !== user.telegramChatId) {
-      throw new BadRequestException('chatId must be your connected Telegram chat');
+      throw new BadRequestException(appError('TELEGRAM_CHAT_NOT_OWN'));
     }
     const chatId = dto.chatId || user.telegramChatId;
     if (!chatId) {
-      throw new BadRequestException(
-        'Telegram chat is not connected. Provide chatId or connect Telegram first.',
-      );
+      throw new BadRequestException(appError('TELEGRAM_CHAT_NOT_CONNECTED'));
     }
 
     if (!(await this.isEnabled(user))) {
-      throw new BadRequestException('Telegram bot is not configured on the server');
+      throw new BadRequestException(appError('TELEGRAM_BOT_NOT_CONFIGURED_ON_SERVER'));
     }
 
     switch (dto.reportType) {
@@ -233,7 +232,7 @@ export class TelegramService {
         return this.handleMonthlyReport(user, workspaceId, chatId, year, month);
       }
       default:
-        throw new BadRequestException('Unsupported report type for Telegram');
+        throw new BadRequestException(appError('TELEGRAM_REPORT_TYPE_UNSUPPORTED'));
     }
   }
 
@@ -350,8 +349,8 @@ export class TelegramService {
       savedRecord.sentAt = new Date();
       savedRecord.messageId = result.messageId;
       await this.telegramReportRepository.save(savedRecord);
-
-      return { status: 'sent', report: savedRecord };
+      const report = { ...savedRecord, reportDate: this.formatDateOnly(reportDate) };
+      return { status: 'sent', report };
     } catch (error) {
       savedRecord.status = ReportStatus.FAILED;
       await this.telegramReportRepository.save(savedRecord);
@@ -402,7 +401,7 @@ export class TelegramService {
     const bot = await this.resolveBot(user);
     const apiBase = bot.botToken ? `https://api.telegram.org/bot${bot.botToken}` : undefined;
     if (!apiBase) {
-      throw new BadRequestException('Telegram bot is not configured');
+      throw new BadRequestException(appError('TELEGRAM_BOT_NOT_CONFIGURED'));
     }
 
     const timeoutMsRaw =
@@ -449,7 +448,7 @@ export class TelegramService {
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      throw new BadRequestException(`Telegram API error: ${message}`);
+      throw new BadRequestException(appError('TELEGRAM_API_ERROR', { reason: message }));
     }
   }
 
@@ -1070,7 +1069,7 @@ export class TelegramService {
     const { user, workspaceId } = sender;
 
     const locale = user.locale || 'en';
-    const netWorth = await this.netWorthService.getNetWorth(workspaceId, '30d', locale);
+    const netWorth = await this.netWorthService.getNetWorth(workspaceId, { range: '30d' }, locale);
 
     const lines = [
       renderTelegramMessage(locale, 'networth_header', {
@@ -1237,7 +1236,7 @@ export class TelegramService {
   ): Promise<Express.Multer.File> {
     const { botToken } = await this.resolveBot();
     if (!botToken) {
-      throw new BadRequestException('Telegram bot is not configured');
+      throw new BadRequestException(appError('TELEGRAM_BOT_NOT_CONFIGURED'));
     }
 
     const filePath = await this.getTelegramFilePath(botToken, fileId);
@@ -1248,7 +1247,7 @@ export class TelegramService {
       async signal => {
         const response = await fetch(downloadUrl, { signal });
         if (!response.ok) {
-          throw new BadRequestException('Failed to download the file from Telegram');
+          throw new BadRequestException(appError('TELEGRAM_FILE_DOWNLOAD_FAILED'));
         }
         return Buffer.from(await response.arrayBuffer());
       },
@@ -1314,7 +1313,7 @@ export class TelegramService {
     if (!payload.ok) {
       const description = payload?.description || 'Unknown error';
       this.logger.error(`Failed to get Telegram file info: ${description}`);
-      throw new BadRequestException(`Telegram API error: ${description}`);
+      throw new BadRequestException(appError('TELEGRAM_API_ERROR', { reason: description }));
     }
 
     return payload.result?.file_path || '';

@@ -14,7 +14,6 @@ import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { getApiErrorStatus } from '@/app/lib/api-error';
-import type { StatementParsingDetails } from '@/app/lib/contracts';
 import type { DeviceLocation } from '@/app/lib/device-location';
 import { invalidateFinancialData } from '@/app/lib/invalidate-document-lists';
 import { type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
@@ -24,6 +23,7 @@ import type {
   TaxRateOption,
 } from '@/app/lib/statement-expense-drawer';
 import { useDocumentSelectionCommands } from './hooks/useDocumentSelectionCommands';
+import { type PreviewableStatement, previewOf } from './hooks/useStatementPreview';
 import type { MergeDuplicatesPlan } from './hooks/useStatementSelection';
 import { useStatementsView } from './hooks/useStatementsView';
 import {
@@ -35,6 +35,7 @@ import { StatementsListHeader } from './StatementsListHeader';
 import { StatementsListTable } from './StatementsListTable';
 import { resolveStatementViewAction } from './StatementsListView.utils';
 import { StatementsTableToolbar } from './StatementsTableToolbar';
+import { buildTableLabels } from './statement-table-labels';
 import { uploadScanDrawerFiles as runUploadScanDrawerFiles } from './statement-upload';
 
 // A created row normally replaces its placeholder within one refetch. The
@@ -62,11 +63,10 @@ function buildManualExpenseFormData(
   formData.append('description', payload.draft.description.trim());
   formData.append('categoryId', payload.draft.categoryId);
   if (resolvedTaxRateId) formData.append('taxRateId', resolvedTaxRateId);
+  if (payload.draft.walletId) formData.append('walletId', payload.draft.walletId);
   formData.append('date', payload.date);
   formData.append('allowDuplicates', payload.allowDuplicates ? 'true' : 'false');
-  payload.files.forEach(file => {
-    formData.append('files', file);
-  });
+  for (const file of payload.files) formData.append('files', file);
   return formData;
 }
 
@@ -290,31 +290,8 @@ export default function StatementsListView(): React.JSX.Element {
     router.push(resolveStatementViewAction(statement).href);
   };
 
-  const handleIconClick = (statement: {
-    id: string;
-    source?: string;
-    fileName: string;
-    parsingDetails?: StatementParsingDetails | null;
-  }): void => {
-    const isReceipt = statement.source === 'scan';
-    if (isReceipt) {
-      v.openPreview({
-        fileId: statement.id,
-        fileName: statement.fileName || 'receipt.pdf',
-        source: 'receipt',
-        allowAttachFile: false,
-      });
-      return;
-    }
-    const isManual = statement.fileName.toLowerCase().startsWith('manual-expense-');
-    const attachCount = Number(statement.parsingDetails?.importPreview?.attachments ?? 0);
-    v.openPreview({
-      fileId: statement.id,
-      fileName: statement.fileName,
-      source: 'statement',
-      allowAttachFile: isManual && attachCount === 0,
-    });
-  };
+  const handleIconClick = (statement: PreviewableStatement, mode?: 'teach'): void =>
+    v.openPreview(previewOf(statement, mode));
 
   const reviewDuplicateLabel = v.t.actions.reviewDuplicate.value;
   const markDuplicateLabel = v.t.actions.markDuplicate.value;
@@ -439,6 +416,7 @@ export default function StatementsListView(): React.JSX.Element {
             selectedCount={v.selectedCount}
             selectedStatementIds={v.selectedStatementIds}
             dateSortDirection={v.dateSortDirection}
+            amountView={filterState.appliedFilters.amountView}
             page={v.page}
             totalPagesCount={v.totalPagesCount}
             rangeStart={v.rangeStart}
@@ -451,18 +429,7 @@ export default function StatementsListView(): React.JSX.Element {
             workspaceCurrency={v.currentWorkspace?.currency}
             viewLabel={viewLabel}
             reviewDuplicateLabel={reviewDuplicateLabel}
-            labels={{
-              merchant: listHeaderLabels.merchant,
-              date: listHeaderLabels.date,
-              amount: listHeaderLabels.amount,
-              action: listHeaderLabels.action,
-              receipt: listHeaderLabels.receipt,
-              scanning: listHeaderLabels.scanning,
-              emptyTitle: t.empty.title.value,
-              emptyDescription: t.empty.description.value,
-              paginationShown: paginationLabels.shown,
-              paginationPageOf: paginationLabels.pageOf,
-            }}
+            labels={buildTableLabels(listHeaderLabels, t.empty, paginationLabels)}
             onToggleSelectAll={v.handleToggleSelectAll}
             onToggleSortDirection={() =>
               v.setDateSortDirection(v.dateSortDirection === 'desc' ? 'asc' : 'desc')
@@ -484,6 +451,7 @@ export default function StatementsListView(): React.JSX.Element {
           allowAttachFile={v.preview.allowAttachFile}
           onFileAttached={refreshAfterAttach}
           onParsingStarted={refreshAfterAttach}
+          teach={v.preview.teach}
         />
       )}
       <CreateExpenseDrawer

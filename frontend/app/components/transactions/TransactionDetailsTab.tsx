@@ -1,11 +1,13 @@
 'use client';
 
+import NextLink from 'next/link';
 import { useCallback, useState } from 'react';
 import toast from 'react-hot-toast';
 import { CategoryPickerField } from '@/app/components/categories/CategoryPickerField';
-import { ChevronRight } from '@/app/components/icons';
 import { TransactionPayeeSection } from '@/app/components/payees/TransactionPayeeSection';
 import { useOfferPayeeQueue } from '@/app/components/payees/useOfferPayeeQueue';
+import { RuleFromRowAction } from '@/app/components/rules/RuleFromRowAction';
+import { fill } from '@/app/components/rules/rule-text';
 import { PrivateAmount } from '@/app/components/ui/private-amount';
 import { Select } from '@/app/components/ui/select';
 import { useIntlayer, useLocale } from '@/app/i18n';
@@ -18,8 +20,15 @@ import { useContributionLink } from './hooks/useContributionLink';
 import { useTransactionSplit } from './hooks/useTransactionSplit';
 import { useTransferLink } from './hooks/useTransferLink';
 import { useWorkspaceMembers } from './hooks/useWorkspaceMembers';
+import {
+  InvestmentAccountPicker,
+  InvestmentLinkActions,
+  isInvestmentIncome as linkedAsIncome,
+} from './InvestmentLinkActions';
 import { OWNER_SHARED, ownerValueToMemberId } from './OwnerFilterDropdown';
+import { OwnTransferActions } from './OwnTransferActions';
 import { SplitTransactionDialog } from './SplitTransactionDialog';
+import { ActionRow } from './TransactionActionRow';
 import type { Category, Transaction } from './types';
 
 interface TransactionDetailsTabProps {
@@ -29,27 +38,6 @@ interface TransactionDetailsTabProps {
   onMarkIgnored?: (txId: string) => Promise<void>;
   /** Refreshes the transaction list (and closes the drawer) after a split/unsplit. */
   onSplitDone?: () => void | Promise<void>;
-}
-
-interface ActionRowProps {
-  label: React.ReactNode;
-  /** One line on what the action means, for the ones whose name alone does not say. */
-  hint?: React.ReactNode;
-  onClick: () => void;
-  disabled?: boolean;
-}
-
-/** One action of the list: what it does, a line on what it means, an arrow. */
-function ActionRow({ label, hint, onClick, disabled }: ActionRowProps): React.JSX.Element {
-  return (
-    <button type="button" onClick={onClick} disabled={disabled} className="seneca-tx-action">
-      <span className="seneca-tx-action__text">
-        <span className="seneca-tx-action__label">{label}</span>
-        {hint && <span className="seneca-tx-action__hint">{hint}</span>}
-      </span>
-      <ChevronRight size={16} className="seneca-tx-action__arrow" aria-hidden />
-    </button>
-  );
 }
 
 export function TransactionDetailsTab({
@@ -69,6 +57,7 @@ export function TransactionDetailsTab({
   const [updating, setUpdating] = useState(false);
   const [splitOpen, setSplitOpen] = useState(false);
   const offerPayeeQueue = useOfferPayeeQueue();
+  const tRules = useIntlayer('categorizationRules');
 
   // The list refresh (and drawer close) is owned by the container — a split turns
   // one row into several, so the drawer must not keep showing the stale original.
@@ -92,6 +81,8 @@ export function TransactionDetailsTab({
   } = useTransferLink(handleSplitDone);
   const isReimbursementPair = transaction.transferPairKind === 'reimbursement';
   const isInvestmentPair = transaction.transferPairKind === 'investment';
+  const isInvestmentIncome = linkedAsIncome(transaction);
+  const isIncome = transaction.transactionType === 'income';
   const contribution = useContributionLink(handleSplitDone);
 
   // The pre-split total the backend validates against: the positive side of the
@@ -180,10 +171,17 @@ export function TransactionDetailsTab({
       {transaction.transferPairId && (
         <div className="seneca-tx-detail__cat-badge" data-testid="transfer-badge">
           {isInvestmentPair
-            ? t.investment.badge.value
+            ? isIncome
+              ? t.investment.withdrawalBadge.value
+              : t.investment.badge.value
             : isReimbursementPair
               ? t.reimbursement.badge.value
               : t.transfer.badge.value}
+        </div>
+      )}
+      {isInvestmentIncome && (
+        <div className="seneca-tx-detail__cat-badge" data-testid="investment-income-badge">
+          {t.investment.incomeBadge.value}
         </div>
       )}
       {transaction.reimbursementOf && (
@@ -218,6 +216,11 @@ export function TransactionDetailsTab({
                 sx={{ flex: 1 }}
               />
             </div>
+            {transaction.categorySource === 'rule' && transaction.categoryReason && (
+              <NextLink href="/rules" className="seneca-tx-detail__rule-link">
+                {fill(tRules.drawer.fromRule.value, { name: transaction.categoryReason })}
+              </NextLink>
+            )}
           </div>
         )}
 
@@ -297,7 +300,8 @@ export function TransactionDetailsTab({
 
           {/* Reimbursement of an expense (incoming rows only) */}
           {onSplitDone &&
-            transaction.transactionType === 'income' &&
+            isIncome &&
+            !isInvestmentIncome &&
             (transaction.reimbursementOfId ? (
               <ActionRow
                 label={t.reimbursement.unlink.value}
@@ -309,43 +313,22 @@ export function TransactionDetailsTab({
                 <ActionRow
                   label={t.reimbursement.link.value}
                   hint={t.sheet.reimbursementHint}
-                  onClick={() => {
-                    void loadTransferCandidates(transaction.id, 'reimbursement');
-                  }}
+                  onClick={() => void loadTransferCandidates(transaction.id, 'reimbursement')}
                   disabled={transferSaving || transferLoading || Boolean(transaction.splitGroupId)}
                 />
               )
             ))}
 
-          {/* Money moved into an investment account (outgoing rows only) */}
-          {onSplitDone &&
-            transaction.transactionType === 'expense' &&
-            !transaction.reimbursementOfId &&
-            (isInvestmentPair ? (
-              <ActionRow
-                label={t.investment.unlink.value}
-                onClick={() => contribution.unlink(transaction.id)}
-                disabled={contribution.saving}
-              />
-            ) : (
-              !transaction.transferPairId && (
-                <ActionRow
-                  label={t.investment.link.value}
-                  hint={t.sheet.contributionHint}
-                  onClick={() => {
-                    void contribution.loadAccounts();
-                  }}
-                  disabled={
-                    contribution.saving || contribution.loading || Boolean(transaction.splitGroupId)
-                  }
-                />
-              )
-            ))}
+          {/* Money moved into or out of an investment account, or what it paid */}
+          {onSplitDone && (
+            <InvestmentLinkActions transaction={transaction} contribution={contribution} />
+          )}
 
           {/* Transfer between own accounts */}
           {onSplitDone &&
             !isReimbursementPair &&
             !isInvestmentPair &&
+            !isInvestmentIncome &&
             !transaction.reimbursementOfId &&
             (transaction.transferPairId ? (
               <ActionRow
@@ -354,13 +337,11 @@ export function TransactionDetailsTab({
                 disabled={transferSaving}
               />
             ) : (
-              <ActionRow
-                label={t.transfer.link.value}
-                hint={t.sheet.transferHint}
-                onClick={() => {
-                  void loadTransferCandidates(transaction.id);
-                }}
-                disabled={transferSaving || transferLoading || Boolean(transaction.splitGroupId)}
+              <OwnTransferActions
+                transaction={transaction}
+                onLink={() => void loadTransferCandidates(transaction.id)}
+                linkDisabled={transferSaving || transferLoading}
+                onDone={handleSplitDone}
               />
             ))}
 
@@ -368,38 +349,13 @@ export function TransactionDetailsTab({
           {onMarkIgnored && (
             <ActionRow label={t.markIgnored.value} onClick={() => void handleMarkIgnored()} />
           )}
+
+          {/* A rule from this row: the payee as the bank wrote it, the row's category */}
+          <RuleFromRowAction transaction={transaction} categoryId={currentCategoryId} />
         </div>
       </div>
 
-      {contribution.accounts && (
-        <div className="seneca-tx-detail__section" data-testid="contribution-accounts">
-          <div className="seneca-tx-detail__label">{t.investment.pick.value}</div>
-          {contribution.accounts.length === 0 ? (
-            <div className="seneca-tx-detail__label">{t.investment.none.value}</div>
-          ) : (
-            <div className="seneca-tx-detail__actions">
-              {contribution.accounts.map(account => (
-                <button
-                  key={account.id}
-                  type="button"
-                  onClick={() => contribution.link(transaction.id, account.id)}
-                  disabled={contribution.saving}
-                  className="seneca-tx-detail__ignore-btn"
-                >
-                  {account.name}
-                </button>
-              ))}
-            </div>
-          )}
-          <button
-            type="button"
-            onClick={contribution.clearAccounts}
-            className="seneca-tx-detail__ignore-btn"
-          >
-            {t.transfer.cancel.value}
-          </button>
-        </div>
-      )}
+      <InvestmentAccountPicker transaction={transaction} contribution={contribution} />
 
       {transferCandidates && (
         <div className="seneca-tx-detail__section" data-testid="transfer-candidates">

@@ -3,7 +3,7 @@ title: Coding Standards
 description: TypeScript conventions and formatting
 ---
 
-Seneca uses Biome for linting and formatting in both apps; frontend SCSS is checked with stylelint. Follow the conventions of the surrounding code.
+Stoic Budget uses Biome for linting and formatting in both apps; frontend SCSS is checked with stylelint. Follow the conventions of the surrounding code.
 
 ## Language and formatting
 

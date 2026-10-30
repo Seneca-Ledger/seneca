@@ -25,29 +25,35 @@ function guessFileType(filePath: string): FileType {
   return FileType.PDF;
 }
 
-function loadExpected(filePath: string): ParsedStatement {
-  const raw = fs.readFileSync(filePath, 'utf8');
-  const parsed = JSON.parse(raw);
-  const tx = Array.isArray(parsed.transactions)
-    ? (parsed.transactions as ExpectedTransactionInput[])
-    : [];
-  const metadata = parsed.metadata || {};
-  return {
-    metadata: {
-      accountNumber: metadata.accountNumber || '',
-      currency: metadata.currency || 'KZT',
-      dateFrom: new Date(metadata.dateFrom || metadata.date_from || Date.now()),
-      dateTo: new Date(metadata.dateTo || metadata.date_to || metadata.dateFrom || Date.now()),
-      balanceStart: metadata.balanceStart ?? metadata.balance_start,
-      balanceEnd: metadata.balanceEnd ?? metadata.balance_end,
-    },
-    transactions: tx.map(t => ({
-      ...t,
-      transactionDate: new Date(t.transactionDate || t.date || Number.NaN),
-      counterpartyName: typeof t.counterpartyName === 'string' ? t.counterpartyName : '',
-      paymentPurpose: typeof t.paymentPurpose === 'string' ? t.paymentPurpose : '',
-    })),
-  };
+/**
+ * One statement per account. A fixture for a file that prints several accounts
+ * lists them under `accounts`; otherwise the fixture itself is the one account.
+ */
+function loadExpected(filePath: string): ParsedStatement[] {
+  const parsed = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+  const accounts: (typeof parsed)[] = Array.isArray(parsed.accounts) ? parsed.accounts : [parsed];
+  return accounts.map(account => {
+    const tx = Array.isArray(account.transactions)
+      ? (account.transactions as ExpectedTransactionInput[])
+      : [];
+    const metadata = account.metadata || {};
+    return {
+      metadata: {
+        accountNumber: metadata.accountNumber || '',
+        currency: metadata.currency || 'KZT',
+        dateFrom: new Date(metadata.dateFrom || metadata.date_from || Date.now()),
+        dateTo: new Date(metadata.dateTo || metadata.date_to || metadata.dateFrom || Date.now()),
+        balanceStart: metadata.balanceStart ?? metadata.balance_start,
+        balanceEnd: metadata.balanceEnd ?? metadata.balance_end,
+      },
+      transactions: tx.map(t => ({
+        ...t,
+        transactionDate: new Date(t.transactionDate || t.date || Number.NaN),
+        counterpartyName: typeof t.counterpartyName === 'string' ? t.counterpartyName : '',
+        paymentPurpose: typeof t.paymentPurpose === 'string' ? t.paymentPurpose : '',
+      })),
+    };
+  });
 }
 
 const sum = (list: ParsedStatement['transactions'], key: 'debit' | 'credit') =>
@@ -147,60 +153,90 @@ describe('golden parsing (optional)', () => {
       }
 
       const actual = await parser.parse(input);
-      const expectedData = loadExpected(expected);
+      const expectedAccounts = loadExpected(expected);
 
       // Guard against the fixture itself being a recording of broken output.
       // Comparing a parse only against its own past result is tautological: it
       // passes just as happily when the parser drops or invents rows. A fixture
       // carrying both balances must reconcile before it is worth comparing to.
-      const { balanceStart, balanceEnd } = expectedData.metadata;
-      if (balanceStart !== null && balanceStart !== undefined && balanceEnd != null) {
-        const debits = sum(expectedData.transactions, 'debit');
-        const credits = sum(expectedData.transactions, 'credit');
-        expect({
-          fixture: caseName,
-          reconciled: Number((balanceStart + credits - debits).toFixed(2)),
-        }).toEqual({ fixture: caseName, reconciled: Number(balanceEnd.toFixed(2)) });
-      }
-
-      expect(actual.metadata.currency).toBe(expectedData.metadata.currency);
-      expect(actual.transactions.length).toBe(expectedData.transactions.length);
-
-      expect(sum(actual.transactions, 'debit')).toBeCloseTo(
-        sum(expectedData.transactions, 'debit'),
-        2,
-      );
-      expect(sum(actual.transactions, 'credit')).toBeCloseTo(
-        sum(expectedData.transactions, 'credit'),
-        2,
-      );
-
-      // Matching totals are not enough: a parser can drop one row and misread
-      // another by the same amount. Compare row by row.
-      expect(actual.transactions.map(projectTransaction)).toEqual(
-        expectedData.transactions.map(projectTransaction),
-      );
-
-      if (expectedData.metadata.accountNumber) {
-        expect(actual.metadata.accountNumber).toBe(expectedData.metadata.accountNumber);
-      }
-
-      // Balances are what the statement reconciles against, so a drift here is
-      // exactly the failure the runtime balance check is meant to catch.
-      (['balanceStart', 'balanceEnd'] as const).forEach(key => {
-        const expectedBalance = expectedData.metadata[key];
-        if (expectedBalance === null || expectedBalance === undefined) {
-          return;
+      expectedAccounts.forEach(account => {
+        const { balanceStart, balanceEnd } = account.metadata;
+        if (balanceStart !== null && balanceStart !== undefined && balanceEnd != null) {
+          const debits = sum(account.transactions, 'debit');
+          const credits = sum(account.transactions, 'credit');
+          expect({
+            fixture: caseName,
+            account: account.metadata.accountNumber,
+            reconciled: Number((balanceStart + credits - debits).toFixed(2)),
+          }).toEqual({
+            fixture: caseName,
+            account: account.metadata.accountNumber,
+            reconciled: Number(balanceEnd.toFixed(2)),
+          });
         }
-        expect(actual.metadata[key]).toBeCloseTo(expectedBalance, 2);
       });
 
-      if (hasRealDate(expectedData.metadata.dateFrom)) {
-        expect(toDateOnly(actual.metadata.dateFrom)).toBe(
-          toDateOnly(expectedData.metadata.dateFrom),
+      // A file printing several accounts yields one statement per account,
+      // the first in place and the rest under `otherAccounts`.
+      const actualAccounts = [actual, ...(actual.otherAccounts ?? [])];
+      expect(actualAccounts.map(account => account.metadata.accountNumber)).toHaveLength(
+        expectedAccounts.length,
+      );
+
+      // A known format must pass every check of its own reading: a check that
+      // fails here would hold good statements for review. A fixture of an
+      // incomplete file names the checks it is expected to fail.
+      const expectedFailures: string[] = JSON.parse(fs.readFileSync(expected, 'utf8')).failedChecks ?? [];
+      actualAccounts.forEach((account, index) => {
+        const failed = (account.checks ?? []).filter(check => !check.passed);
+        expect({ account: index, failed: failed.map(check => check.code) }).toEqual({
+          account: index,
+          failed: index === 0 ? expectedFailures : [],
+        });
+      });
+
+      expectedAccounts.forEach((expected, index) => {
+        const actualAccount = actualAccounts[index];
+        expect(actualAccount.metadata.currency).toBe(expected.metadata.currency);
+        expect(actualAccount.transactions.length).toBe(expected.transactions.length);
+
+        expect(sum(actualAccount.transactions, 'debit')).toBeCloseTo(
+          sum(expected.transactions, 'debit'),
+          2,
         );
-        expect(toDateOnly(actual.metadata.dateTo)).toBe(toDateOnly(expectedData.metadata.dateTo));
-      }
-    });
+        expect(sum(actualAccount.transactions, 'credit')).toBeCloseTo(
+          sum(expected.transactions, 'credit'),
+          2,
+        );
+
+        // Matching totals are not enough: a parser can drop one row and misread
+        // another by the same amount. Compare row by row.
+        expect(actualAccount.transactions.map(projectTransaction)).toEqual(
+          expected.transactions.map(projectTransaction),
+        );
+
+        if (expected.metadata.accountNumber) {
+          expect(actualAccount.metadata.accountNumber).toBe(expected.metadata.accountNumber);
+        }
+
+        // Balances are what the statement reconciles against, so a drift here is
+        // exactly the failure the runtime balance check is meant to catch.
+        (['balanceStart', 'balanceEnd'] as const).forEach(key => {
+          const expectedBalance = expected.metadata[key];
+          if (expectedBalance === null || expectedBalance === undefined) {
+            return;
+          }
+          expect(actualAccount.metadata[key]).toBeCloseTo(expectedBalance, 2);
+        });
+
+        if (hasRealDate(expected.metadata.dateFrom)) {
+          expect(toDateOnly(actualAccount.metadata.dateFrom)).toBe(
+            toDateOnly(expected.metadata.dateFrom),
+          );
+          expect(toDateOnly(actualAccount.metadata.dateTo)).toBe(toDateOnly(expected.metadata.dateTo));
+        }
+      });
+      // A scanned statement is read by OCR, a few seconds a page.
+    }, 120_000);
   });
 });

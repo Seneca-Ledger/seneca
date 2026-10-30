@@ -55,10 +55,8 @@ export function moneyTools(deps: {
       run: (ctx, args) =>
         deps.netWorth.getNetWorth(
           ctx.workspaceId,
-          args.range ?? '90d',
+          { range: args.range ?? '90d', to: args.to },
           ctx.user.locale,
-          undefined,
-          args.to,
         ),
     }),
     defineTool({
@@ -68,7 +66,7 @@ export function moneyTools(deps: {
       permissions: [Permission.WALLET_VIEW],
       output: WalletList,
       readOnly: true,
-      run: ctx => deps.wallets.findAll(ctx.workspaceId),
+      run: ctx => deps.wallets.list(ctx.workspaceId),
     }),
     defineTool({
       name: 'list_invoices',

@@ -4,6 +4,7 @@ import * as Schema from 'effect/Schema';
 import * as Struct from 'effect/Struct';
 import { BooleanInput, IsoDateString, NumericInput, optionalNullable } from '../common/requests';
 import type { Wire } from '../common/wire';
+import { PayableDirection, PayableSource, PayableStatus } from '../payables/payables';
 
 export const CreatePayableBody = Schema.Struct({
   direction: optionalNullable(Schema.Literals(['payable', 'receivable'])),
@@ -19,6 +20,10 @@ export const CreatePayableBody = Schema.Struct({
   isRecurring: optionalNullable(Schema.Boolean),
   comment: optionalNullable(Schema.String),
   statementId: optionalNullable(Schema.String.check(Schema.isUUID())),
+  /** The whole tag set, from the workspace's tags; on update it replaces the old one. */
+  tagIds: optionalNullable(
+    Schema.Array(Schema.String.check(Schema.isUUID())).check(Schema.isMaxLength(50)),
+  ),
 });
 export type CreatePayableBody = Wire<typeof CreatePayableBody>;
 
@@ -118,7 +123,46 @@ export const FilterPayablesBody = Schema.Struct({
   minAmount: optionalNullable(NumericInput.check(Schema.isGreaterThanOrEqualTo(0))),
   maxAmount: optionalNullable(NumericInput.check(Schema.isGreaterThanOrEqualTo(0))),
   includeArchived: optionalNullable(BooleanInput),
+  /** Only bills carrying this tag. */
+  tagId: optionalNullable(Schema.String.check(Schema.isUUID())),
   sort: optionalNullable(Schema.Literals(['dueDateAsc', 'dueDateDesc', 'amountDesc', 'vendorAsc'])),
   format: optionalNullable(Schema.Literals(['excel', 'csv'])),
 });
 export type FilterPayablesBody = Wire<typeof FilterPayablesBody>;
+
+const Uuid = Schema.String.check(Schema.isUUID());
+
+/** `/payables/:id/...`. */
+export const PayableParams = Schema.Struct({ id: Uuid });
+export type PayableParams = Wire<typeof PayableParams>;
+
+/** `/payables/:id/payments/:paymentId/...`. */
+export const PayablePaymentParams = Schema.Struct({ id: Uuid, paymentId: Uuid });
+export type PayablePaymentParams = Wire<typeof PayablePaymentParams>;
+
+/** `GET /payables/allocation-suggestion/:transactionId`. */
+export const PayableTransactionParams = Schema.Struct({ transactionId: Uuid });
+export type PayableTransactionParams = Wire<typeof PayableTransactionParams>;
+
+/** `GET /payables`, its summary and its export. */
+export const PayablesQuery = Schema.Struct({
+  /** Defaults to `payable` so existing clients keep seeing only what the workspace owes. */
+  direction: Schema.optional(PayableDirection),
+  page: Schema.optional(NumericInput.check(Schema.isGreaterThanOrEqualTo(1))),
+  limit: Schema.optional(
+    NumericInput.check(Schema.isGreaterThanOrEqualTo(1), Schema.isLessThanOrEqualTo(100)),
+  ),
+  search: Schema.optional(Schema.String),
+  status: Schema.optional(PayableStatus),
+  source: Schema.optional(PayableSource),
+  dueDateFrom: Schema.optional(IsoDateString),
+  dueDateTo: Schema.optional(IsoDateString),
+  minAmount: Schema.optional(NumericInput.check(Schema.isGreaterThanOrEqualTo(0))),
+  maxAmount: Schema.optional(NumericInput.check(Schema.isGreaterThanOrEqualTo(0))),
+  includeArchived: Schema.optional(BooleanInput),
+  /** Only bills carrying this tag. */
+  tagId: Schema.optional(Uuid),
+  sort: Schema.optional(Schema.Literals(['dueDateAsc', 'dueDateDesc', 'amountDesc', 'vendorAsc'])),
+  format: Schema.optional(Schema.Literals(['excel', 'csv'])),
+});
+export type PayablesQuery = Wire<typeof PayablesQuery>;

@@ -58,6 +58,17 @@ export const StatementParsingDetails = Schema.StructWithRest(
     transactionsCreated: maybe(Schema.Number),
     errors: maybe(Strings),
     warnings: maybe(Strings),
+    /** The accounts after the first in a file that prints several; each is imported on its own. */
+    otherAccounts: maybe(
+      Schema.Array(
+        Schema.Struct({
+          index: Schema.Number,
+          accountNumber: Schema.String,
+          currency: Schema.String,
+          transactions: Schema.Number,
+        }),
+      ),
+    ),
     processingTime: maybe(Schema.Number),
     droppedSamples: maybe(
       Schema.Array(
@@ -71,6 +82,7 @@ export const StatementParsingDetails = Schema.StructWithRest(
       Schema.Struct({
         passed: Schema.Boolean,
         warnings: maybe(Strings),
+        reasonCodes: maybe(Strings),
         balanceCheck: maybe(
           Schema.Struct({
             expectedEnd: maybe(Schema.Number),
@@ -80,6 +92,24 @@ export const StatementParsingDetails = Schema.StructWithRest(
           }),
         ),
       }),
+    ),
+    /** The parser's checks of its own reading; a failed one says where. */
+    checks: maybe(
+      Schema.Array(
+        Schema.Struct({
+          code: Schema.String,
+          passed: Schema.Boolean,
+          detail: maybe(
+            Schema.Struct({
+              row: maybe(Schema.Number),
+              date: maybe(Schema.String),
+              side: maybe(Schema.String),
+              expected: maybe(Schema.Number),
+              actual: maybe(Schema.Number),
+            }),
+          ),
+        }),
+      ),
     ),
     balanceConfirmation: maybe(
       Schema.Struct({ confirmedBy: Schema.String, confirmedAt: Schema.String }),
@@ -112,6 +142,8 @@ export const StatementParsingDetails = Schema.StructWithRest(
           currency: maybe(Schema.String),
           rawHeader: maybe(Schema.String),
           normalizedHeader: maybe(Schema.String),
+          /** The bank's name as printed: read by its parser, or taught for a bank none knows. */
+          institution: maybe(Schema.String),
           headerDisplay: maybe(
             Schema.StructWithRest(
               Schema.Struct({
@@ -185,6 +217,8 @@ export const StatementListItem = Schema.Struct({
     exchangeRate: Schema.NullOr(Schema.Union([DecimalString, Schema.Number])),
     exchangeRateMixed: Schema.Boolean,
     cardLabel: Schema.NullOr(Schema.String),
+    /** Rows still waiting for a category; transfers and duplicates need none. */
+    uncategorizedCount: Schema.optional(Schema.Number),
   }),
 });
 export type StatementListItem = Wire<typeof StatementListItem>;
@@ -221,6 +255,8 @@ export const StatementDetail = Schema.Struct({
   statementDateFrom: Schema.NullOr(DateOnly),
   statementDateTo: Schema.NullOr(DateOnly),
   categoryId: Schema.NullOr(Schema.String),
+  /** The account the statement belongs to, or null. */
+  walletId: Schema.NullOr(Schema.String),
   /** Free-form parser output; read leniently by the editor. */
   parsingDetails: Schema.NullOr(StatementParsingDetails),
   createdAt: Timestamp,

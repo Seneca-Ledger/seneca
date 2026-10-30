@@ -3,7 +3,7 @@ title: MCP and API keys
 description: Let Claude Code, Claude Desktop or your own scripts work on a workspace, within scopes, with every write audited and undoable
 ---
 
-Seneca has an MCP endpoint built into the backend: `/api/v1/mcp` (Streamable HTTP, stateless).
+Stoic Budget has an MCP endpoint built into the backend: `/api/v1/mcp` (Streamable HTTP, stateless).
 Any MCP client connects to it with an **API key**, so what an agent can do is exactly what the key's
 **scopes** allow, inside the one workspace the key belongs to.
 

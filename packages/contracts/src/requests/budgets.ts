@@ -1,6 +1,8 @@
 import * as Schema from 'effect/Schema';
-import { IsoDateString, optionalNullable } from '../common/requests';
+import { IsoDateString, NumericInput, optionalNullable } from '../common/requests';
 import type { Wire } from '../common/wire';
+
+const Uuid = Schema.String.check(Schema.isUUID());
 
 export const CreateBudgetBody = Schema.Struct({
   name: Schema.String,
@@ -33,3 +35,17 @@ export const UpdateBudgetBody = Schema.Struct({
   endsOn: optionalNullable(IsoDateString),
 });
 export type UpdateBudgetBody = Wire<typeof UpdateBudgetBody>;
+
+export const BudgetParams = Schema.Struct({ id: Uuid });
+export type BudgetParams = Wire<typeof BudgetParams>;
+
+/** `GET /budgets/impact`: what an expense would do to its budget. */
+export const BudgetImpactQuery = Schema.Struct({
+  categoryId: Uuid,
+  amount: NumericInput.check(Schema.isGreaterThanOrEqualTo(0)),
+  currency: Schema.optional(Schema.String),
+  date: Schema.optional(IsoDateString),
+  /** The account the expense would leave; without one no account is affected. */
+  walletId: Schema.optional(Uuid),
+});
+export type BudgetImpactQuery = Wire<typeof BudgetImpactQuery>;

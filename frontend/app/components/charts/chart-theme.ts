@@ -23,6 +23,8 @@ export const FORECAST_OPACITY = 0.35;
  */
 export const INCOME_FILL = 'var(--cat-tone-1)';
 export const EXPENSE_FILL = 'var(--cat-tone-2)';
+/** The part of spending a budget still had room for: the dusty blue, under the terracotta. */
+export const BUDGETED_FILL = 'var(--cat-tone-4)';
 
 /** The column under the pointer: a faint wash, lighter than any bar. */
 export const HOVER_CURSOR = { fill: 'var(--surface-soft)' };
@@ -87,6 +89,48 @@ export function categoryTonesHex(
 
 export function categoryTones(items: Array<{ key: string; isOther?: boolean }>): string[] {
   return toneIndexes(items).map(index => (index < 0 ? OTHER_TONE : CATEGORY_TONES[index]));
+}
+
+/** Twelve calm tones for merchants (`--merchant-tone-*` in _globals.scss). */
+const MERCHANT_TONE_COUNT = 12;
+/**
+ * The hue family of each merchant tone, in token order: green (sage, pine,
+ * eucalyptus, moss), warm red (terracotta, dusty rose, clay), blue (dusty
+ * blue, slate, lavender grey), yellow (sand, soft ochre).
+ */
+const MERCHANT_TONE_FAMILY = [0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 0];
+
+/**
+ * One tone per merchant on a chart. The first name keeps its own tone (held by
+ * the name, so a payee's bars and its line match); each next one keeps its own
+ * too while that hue family is still free on the chart, and otherwise moves to
+ * the nearest tone of a free family, so up to four lines never share a family
+ * and up to twelve never share a tone. Past twelve a tone repeats.
+ */
+export function merchantTones(names: string[]): string[] {
+  const taken = new Set<number>();
+  const families = new Set<number>();
+  const assigned = new Map<string, number>();
+  for (const name of names) {
+    if (assigned.has(name)) {
+      continue;
+    }
+    const own = stableHash(name) % MERCHANT_TONE_COUNT;
+    const free = (tone: number, wholeFamily: boolean) =>
+      !(taken.has(tone) || (wholeFamily && families.has(MERCHANT_TONE_FAMILY[tone])));
+    const steps = Array.from(
+      { length: MERCHANT_TONE_COUNT },
+      (_, step) => (own + step) % MERCHANT_TONE_COUNT,
+    );
+    const tone =
+      steps.find(candidate => free(candidate, families.size < 4)) ??
+      steps.find(candidate => free(candidate, false)) ??
+      own;
+    taken.add(tone);
+    families.add(MERCHANT_TONE_FAMILY[tone]);
+    assigned.set(name, tone);
+  }
+  return names.map(name => `var(--merchant-tone-${(assigned.get(name) ?? 0) + 1})`);
 }
 
 /** Each item's tone index (−1 for the rollup), held by the key, not the rank. */

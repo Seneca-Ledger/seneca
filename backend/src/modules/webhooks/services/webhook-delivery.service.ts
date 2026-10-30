@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { appError } from '../../../common/errors/app-error';
 import { WebhookDelivery, WebhookDeliveryStatus } from '../../../entities/webhook-delivery.entity';
 import { WebhookEvent } from '../../../entities/webhook-subscription.entity';
 
@@ -41,13 +42,17 @@ export class WebhookDeliveryService {
       .where('d.id = :id', { id })
       .andWhere('sub.workspaceId = :workspaceId', { workspaceId })
       .getOne();
-    if (!delivery) throw new NotFoundException('Delivery not found');
+    if (!delivery) throw new NotFoundException(appError('WEBHOOK_DELIVERY_NOT_FOUND'));
     return delivery;
   }
 
   async resetForRetry(id: string): Promise<void> {
     await this.repo.update(id, {
       status: WebhookDeliveryStatus.PENDING,
+      // An exhausted delivery has used every attempt; without this the claim
+      // query (attempt_count < max_attempts) never picks it up again.
+      attemptCount: 0,
+      lastError: null,
       nextAttemptAt: new Date(),
       lockedAt: null,
       lockedBy: null,

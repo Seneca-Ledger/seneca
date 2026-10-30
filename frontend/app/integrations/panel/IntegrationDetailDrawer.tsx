@@ -8,7 +8,6 @@ import { PanelBackTitle } from '@/app/components/panels/panel-ui';
 import { DrawerShell } from '@/app/components/ui/drawer-shell';
 import { useIntlayer } from '@/app/i18n';
 import { BankSyncPanel } from '../bank-sync/BankSyncPanel';
-import { LocalCategorizationPanel } from '../local-categorization/LocalCategorizationPanel';
 import { ProtocolIntegrationPage } from '../open-protocol-page';
 import type { IntegrationEntry } from './integration-catalog';
 
@@ -27,9 +26,6 @@ function DetailBody({
   entry: IntegrationEntry;
   onConnectionChange: () => void;
 }): React.JSX.Element {
-  if (entry.detail.kind === 'local-categorization') {
-    return <LocalCategorizationPanel />;
-  }
   if (entry.detail.kind === 'bank-sync') {
     return <BankSyncPanel onConnectionChange={onConnectionChange} />;
   }

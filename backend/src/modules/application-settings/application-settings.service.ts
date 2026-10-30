@@ -1,27 +1,19 @@
-import { randomUUID } from 'node:crypto';
-import { promises as fs } from 'node:fs';
-import * as os from 'node:os';
-import * as path from 'node:path';
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-
-import AdmZip = require('adm-zip');
-
 import { Effect, Schema } from 'effect';
 import { HttpClientResponse } from 'effect/http';
 import nodemailer from 'nodemailer';
 import type { Repository } from 'typeorm';
 import { EffectRuntime } from '../../common/effect/effect-runtime';
 import { getWith } from '../../common/effect/http-json';
+import { appError } from '../../common/errors/app-error';
 import { assertPublicEgressHost, pinPublicEgressHost } from '../../common/utils/egress-url.util';
 import { decryptText, encryptText } from '../../common/utils/encryption.util';
 import type {
   SaveAppSettingsBody,
   SaveInstanceTelegramBotBody,
-  SaveLocalCategorizationBody,
   SaveSmtpSettingsBody,
   SaveTelegramSettingsBody,
-  TestLocalCategorizationBody,
 } from '../../contracts';
 import {
   InstanceSetting,
@@ -30,21 +22,12 @@ import {
   WorkspaceServiceSettings,
   WorkspaceServiceSettingsKey,
 } from '../../entities';
-import { TransactionCategorizer } from '../classification/helpers/transaction-categorizer';
 
 /** Telegram's `getMe`: `ok` false with a description for a bad token. */
 const TelegramGetMeResponse = Schema.Struct({
   ok: Schema.Boolean,
   description: Schema.optional(Schema.String),
 });
-
-export type LocalCategorizationRuntimeSettings = {
-  enabled: boolean;
-  modelId: string;
-  threshold: number;
-  localModelPath: string | null;
-  source: 'workspace' | 'env' | 'disabled';
-};
 
 export type SmtpRuntimeSettings = {
   host: string | null;
@@ -84,26 +67,6 @@ export type AppRuntimeSettings = {
   publicUrl: string | null;
   source: 'workspace' | 'env' | 'disabled';
 };
-
-type UploadedModelArchive = {
-  originalname?: string;
-  buffer?: Buffer;
-};
-
-const DEFAULT_LOCAL_CATEGORIZATION_MODEL_ID = 'Xenova/paraphrase-multilingual-MiniLM-L12-v2';
-const DEFAULT_LOCAL_CATEGORIZATION_THRESHOLD = 0.35;
-const DEFAULT_LOCAL_CATEGORIZATION_CATEGORIES = [
-  'Продукты',
-  'Транспорт',
-  'Развлечения',
-  'Здоровье',
-  'Коммунальные услуги',
-];
-
-// The upload itself is capped at 500MB compressed (see the controller). These
-// bound what that is allowed to become once expanded.
-const MAX_MODEL_UNCOMPRESSED_BYTES = 2 * 1024 * 1024 * 1024;
-const MAX_MODEL_ARCHIVE_ENTRIES = 10_000;
 
 @Injectable()
 export class ApplicationSettingsService {
@@ -276,151 +239,6 @@ export class ApplicationSettingsService {
     const workspaceId = this.requireWorkspaceId(user, requestWorkspaceId);
     await this.settingsRepository.delete({ workspaceId, key });
     return { ok: true };
-  }
-
-  async getLocalCategorizationStatus(user: User, requestWorkspaceId?: string) {
-    const runtime = await this.getLocalCategorizationSettings(user, requestWorkspaceId);
-    const modelInstalled = runtime.localModelPath
-      ? await this.hasLocalCategorizationModelFiles(runtime.localModelPath, runtime.modelId)
-      : false;
-
-    return {
-      connected: runtime.enabled && modelInstalled,
-      status: runtime.enabled && modelInstalled ? 'connected' : 'disconnected',
-      source: runtime.source,
-      settings: {
-        enabled: runtime.enabled,
-        modelId: runtime.modelId,
-        threshold: runtime.threshold,
-        localModelPath: runtime.localModelPath,
-        modelInstalled,
-      },
-    };
-  }
-
-  async saveLocalCategorizationSettings(
-    user: User,
-    input: SaveLocalCategorizationBody,
-    requestWorkspaceId?: string,
-  ) {
-    const existing = await this.findSettings(
-      user,
-      WorkspaceServiceSettingsKey.LOCAL_CATEGORIZATION,
-      requestWorkspaceId,
-    );
-    const previous = existing
-      ? this.localCategorizationRuntimeFromParts(existing.config, 'workspace')
-      : null;
-    const config = {
-      enabled: this.booleanValue(input.enabled, previous?.enabled ?? true),
-      modelId:
-        this.stringValue(input.modelId) ||
-        previous?.modelId ||
-        DEFAULT_LOCAL_CATEGORIZATION_MODEL_ID,
-      threshold: this.thresholdValue(input.threshold, previous?.threshold),
-      // Set only by installing a model; never taken from the request.
-      localModelPath: previous?.localModelPath || null,
-    };
-
-    await this.saveSettings(
-      user,
-      WorkspaceServiceSettingsKey.LOCAL_CATEGORIZATION,
-      config,
-      {},
-      requestWorkspaceId,
-    );
-    return this.getLocalCategorizationStatus(user, requestWorkspaceId);
-  }
-
-  async installLocalCategorizationModel(
-    user: User,
-    file: UploadedModelArchive | undefined,
-    requestWorkspaceId?: string,
-  ) {
-    if (!file?.buffer?.length) {
-      throw new BadRequestException('Model archive is required');
-    }
-
-    const existing = await this.getLocalCategorizationSettings(user, requestWorkspaceId);
-    const modelId = existing.modelId || DEFAULT_LOCAL_CATEGORIZATION_MODEL_ID;
-    const modelRoot = this.getLocalCategorizationModelRoot();
-    const targetDir = this.resolveLocalModelDirectory(modelRoot, modelId);
-    const stagingDir = path.join(os.tmpdir(), `seneca-model-${randomUUID()}`);
-
-    try {
-      await fs.mkdir(stagingDir, { recursive: true });
-      await this.extractZipBuffer(file.buffer, stagingDir);
-      const modelSourceDir = await this.findExtractedModelDirectory(stagingDir);
-
-      await fs.rm(targetDir, { recursive: true, force: true });
-      await fs.mkdir(path.dirname(targetDir), { recursive: true });
-      await fs.cp(modelSourceDir, targetDir, { recursive: true });
-    } finally {
-      await fs.rm(stagingDir, { recursive: true, force: true });
-    }
-
-    await this.saveSettings(
-      user,
-      WorkspaceServiceSettingsKey.LOCAL_CATEGORIZATION,
-      { enabled: true, modelId, threshold: existing.threshold, localModelPath: modelRoot },
-      {},
-      requestWorkspaceId,
-    );
-
-    return this.getLocalCategorizationStatus(user, requestWorkspaceId);
-  }
-
-  async testLocalCategorization(
-    user: User,
-    input: TestLocalCategorizationBody,
-    requestWorkspaceId?: string,
-  ) {
-    const runtime = await this.getLocalCategorizationSettings(user, requestWorkspaceId);
-    const merchantName = this.requiredString(input.merchantName, 'merchantName');
-    const categories = this.stringArrayValue(input.categories);
-    const categorizer = new TransactionCategorizer({
-      categories: categories.length ? categories : DEFAULT_LOCAL_CATEGORIZATION_CATEGORIES,
-      threshold: runtime.threshold,
-      modelId: runtime.modelId,
-      allowRemoteModels: false,
-      localModelPath: runtime.localModelPath || undefined,
-    });
-    const category = await categorizer.categorize(merchantName);
-    const modelLoadError = categorizer.getModelLoadError();
-
-    return {
-      ready: !modelLoadError,
-      merchantName,
-      category,
-      modelLoadError: modelLoadError?.message || null,
-    };
-  }
-
-  async getLocalCategorizationSettings(
-    user?: User | null,
-    requestWorkspaceId?: string,
-  ): Promise<LocalCategorizationRuntimeSettings> {
-    const workspace = user
-      ? await this.findSettings(
-          user,
-          WorkspaceServiceSettingsKey.LOCAL_CATEGORIZATION,
-          requestWorkspaceId,
-        )
-      : null;
-    if (workspace) {
-      return this.localCategorizationRuntimeFromParts(workspace.config, 'workspace');
-    }
-
-    const env = {
-      enabled: process.env.LOCAL_CATEGORIZATION_ENABLED !== 'false',
-      modelId: process.env.LOCAL_CATEGORIZATION_MODEL_ID || DEFAULT_LOCAL_CATEGORIZATION_MODEL_ID,
-      threshold: this.thresholdValue(process.env.LOCAL_CATEGORIZATION_THRESHOLD),
-      localModelPath: process.env.LOCAL_CATEGORIZATION_MODEL_PATH || null,
-    };
-    return {
-      ...env,
-      source: env.enabled && env.localModelPath ? 'env' : 'disabled',
-    };
   }
 
   /**
@@ -667,136 +485,9 @@ export class ApplicationSettingsService {
     };
   }
 
-  private localCategorizationRuntimeFromParts(
-    config: Record<string, unknown>,
-    source: LocalCategorizationRuntimeSettings['source'],
-  ): LocalCategorizationRuntimeSettings {
-    const enabled = this.booleanValue(config.enabled, true);
-    // A stored path only says a model was installed; models are always read from
-    // the model root, so a path saved through the API before it was refused
-    // cannot point the loader at anything else.
-    const localModelPath = this.stringValue(config.localModelPath)
-      ? this.getLocalCategorizationModelRoot()
-      : null;
-    return {
-      enabled,
-      modelId: this.stringValue(config.modelId) || DEFAULT_LOCAL_CATEGORIZATION_MODEL_ID,
-      threshold: this.thresholdValue(config.threshold),
-      localModelPath,
-      source: enabled && localModelPath ? source : 'disabled',
-    };
-  }
-
-  private getLocalCategorizationModelRoot(): string {
-    return (
-      process.env.LOCAL_CATEGORIZATION_MODEL_ROOT ||
-      path.join(process.cwd(), '.local-models', 'categorization')
-    );
-  }
-
-  private resolveLocalModelDirectory(modelRoot: string, modelId: string): string {
-    const parts = modelId.split('/').filter(Boolean);
-    if (
-      !parts.length ||
-      parts.some(part => part === '.' || part === '..' || path.isAbsolute(part))
-    ) {
-      throw new BadRequestException('modelId is invalid');
-    }
-    return path.join(modelRoot, ...parts);
-  }
-
-  private async extractZipBuffer(buffer: Buffer, destination: string): Promise<void> {
-    let zip: AdmZip;
-    try {
-      zip = new AdmZip(buffer);
-    } catch {
-      throw new BadRequestException('Model archive must be a valid ZIP file');
-    }
-
-    const entries = zip.getEntries();
-    if (entries.length > MAX_MODEL_ARCHIVE_ENTRIES) {
-      throw new BadRequestException('Model archive contains too many files');
-    }
-
-    // A running total of what actually lands on disk, rather than trusting the
-    // archive's declared sizes. assertSafeZipDecompressionRatio deliberately
-    // passes on ZIP shapes it cannot fully model (ZIP64, streamed entries),
-    // which is exactly what large ML archives look like — so the upload path
-    // that accepts 500MB needs a cap that holds regardless of archive shape.
-    let writtenBytes = 0;
-
-    for (const entry of entries) {
-      const normalizedName = path.normalize(entry.entryName);
-      if (
-        path.isAbsolute(normalizedName) ||
-        normalizedName.startsWith('..') ||
-        normalizedName.includes(`${path.sep}..${path.sep}`)
-      ) {
-        throw new BadRequestException('Model archive contains unsafe paths');
-      }
-
-      const targetPath = path.join(destination, normalizedName);
-      if (entry.isDirectory) {
-        await fs.mkdir(targetPath, { recursive: true });
-        continue;
-      }
-
-      const data = entry.getData();
-      writtenBytes += data.length;
-      if (writtenBytes > MAX_MODEL_UNCOMPRESSED_BYTES) {
-        throw new BadRequestException('Model archive expands beyond the allowed size');
-      }
-
-      await fs.mkdir(path.dirname(targetPath), { recursive: true });
-      await fs.writeFile(targetPath, data);
-    }
-  }
-
-  private async findExtractedModelDirectory(root: string): Promise<string> {
-    const candidates = await this.walkDirectories(root);
-    for (const candidate of candidates) {
-      if (await this.directoryLooksLikeTransformersModel(candidate)) {
-        return candidate;
-      }
-    }
-    throw new BadRequestException('Model archive must contain config.json and an ONNX model file');
-  }
-
-  private async walkDirectories(root: string): Promise<string[]> {
-    const result = [root];
-    const entries = await fs.readdir(root, { withFileTypes: true });
-    for (const entry of entries) {
-      if (entry.isDirectory()) {
-        result.push(...(await this.walkDirectories(path.join(root, entry.name))));
-      }
-    }
-    return result;
-  }
-
-  private async hasLocalCategorizationModelFiles(
-    modelRoot: string,
-    modelId: string,
-  ): Promise<boolean> {
-    return this.directoryLooksLikeTransformersModel(
-      this.resolveLocalModelDirectory(modelRoot, modelId),
-    );
-  }
-
-  private async directoryLooksLikeTransformersModel(directory: string): Promise<boolean> {
-    try {
-      const configPath = path.join(directory, 'config.json');
-      await fs.access(configPath);
-      const onnxDir = path.join(directory, 'onnx');
-      const onnxEntries = await fs.readdir(onnxDir);
-      return onnxEntries.some(entry => entry.endsWith('.onnx'));
-    } catch {
-      return false;
-    }
-  }
-
   private async assertSmtpConnection(settings: SmtpRuntimeSettings) {
     if (!(settings.host && settings.from)) {
-      throw new BadRequestException('SMTP host and from are required');
+      throw new BadRequestException(appError('APP_SETTINGS_SMTP_HOST_FROM_REQUIRED'));
     }
     const transporter = nodemailer.createTransport({
       ...(await smtpConnectTarget(settings, settings.host)),
@@ -816,17 +507,17 @@ export class ApplicationSettingsService {
     try {
       await transporter.verify();
     } catch {
-      throw new BadRequestException('Unable to verify SMTP connection');
+      throw new BadRequestException(appError('APP_SETTINGS_SMTP_VERIFY_FAILED'));
     }
   }
 
   private async assertTelegramConnection(settings: TelegramRuntimeSettings) {
     if (!settings.botToken) {
-      throw new BadRequestException('Telegram botToken is required');
+      throw new BadRequestException(appError('APP_SETTINGS_TELEGRAM_TOKEN_REQUIRED'));
     }
     // Bot tokens are "<digits>:<base64url>"; nothing else may shape the request path.
     if (!/^\d+:[\w-]+$/.test(settings.botToken)) {
-      throw new BadRequestException('Telegram bot token is invalid');
+      throw new BadRequestException(appError('APP_SETTINGS_TELEGRAM_TOKEN_INVALID'));
     }
     const outcome = await this.effects.run(
       getWith(
@@ -843,10 +534,12 @@ export class ApplicationSettingsService {
       ).pipe(Effect.catch(() => Effect.succeed({ ok: false, unreachable: true } as const))),
     );
     if ('unreachable' in outcome) {
-      throw new BadRequestException('Unable to connect to Telegram');
+      throw new BadRequestException(appError('APP_SETTINGS_TELEGRAM_UNREACHABLE'));
     }
     if (!outcome.ok) {
-      throw new BadRequestException(outcome.description || 'Telegram bot token is invalid');
+      const reason = outcome.description;
+      if (reason) throw new BadRequestException(appError('TELEGRAM_TOKEN_REJECTED', { reason }));
+      throw new BadRequestException(appError('APP_SETTINGS_TELEGRAM_TOKEN_INVALID'));
     }
   }
 
@@ -856,7 +549,7 @@ export class ApplicationSettingsService {
     // workspace (getSmtpSettings) or is account mail (getAccountSmtpSettings).
     const workspaceId = requestWorkspaceId || user.workspaceId || user.lastWorkspaceId;
     if (!workspaceId) {
-      throw new BadRequestException('Workspace is required');
+      throw new BadRequestException(appError('APP_SETTINGS_WORKSPACE_REQUIRED'));
     }
     return workspaceId;
   }
@@ -864,7 +557,7 @@ export class ApplicationSettingsService {
   private requiredString(value: unknown, name: string): string {
     const text = this.stringValue(value);
     if (!text) {
-      throw new BadRequestException(`${name} is required`);
+      throw new BadRequestException(appError('APP_SETTINGS_FIELD_REQUIRED', { field: name }));
     }
     return text;
   }
@@ -887,29 +580,6 @@ export class ApplicationSettingsService {
     return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
   }
 
-  private thresholdValue(
-    value: unknown,
-    fallback = DEFAULT_LOCAL_CATEGORIZATION_THRESHOLD,
-  ): number {
-    const parsed =
-      typeof value === 'number'
-        ? value
-        : typeof value === 'string' && value.trim()
-          ? Number(value)
-          : Number.NaN;
-    return Number.isFinite(parsed) && parsed > 0 && parsed <= 1 ? parsed : fallback;
-  }
-
-  private stringArrayValue(value: unknown): string[] {
-    if (!Array.isArray(value)) {
-      return [];
-    }
-    return value
-      .filter((item): item is string => typeof item === 'string')
-      .map(item => item.trim())
-      .filter(Boolean);
-  }
-
   private normalizeOrigin(value: string): string {
     const trimmed = value.trim();
     if (!trimmed) {
@@ -919,7 +589,7 @@ export class ApplicationSettingsService {
       const hasScheme = /^[a-zA-Z][a-zA-Z\d+.-]*:/.test(trimmed);
       return new URL(hasScheme ? trimmed : `https://${trimmed}`).origin;
     } catch {
-      throw new BadRequestException('publicUrl must be a valid URL');
+      throw new BadRequestException(appError('APP_SETTINGS_PUBLIC_URL_INVALID'));
     }
   }
 }

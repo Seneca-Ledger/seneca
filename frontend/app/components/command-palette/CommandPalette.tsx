@@ -24,7 +24,7 @@ import { usePaletteKeyboard } from './use-palette-keyboard';
 import { type PaletteRow, usePaletteSections } from './use-palette-sections';
 import { usePaletteShortcuts } from './use-palette-shortcuts';
 
-const REPORT_BUG_URL = 'https://github.com/SymonBaikov/seneca/issues/new';
+const REPORT_BUG_URL = 'https://github.com/stoic-budget/stoic-budget/issues/new';
 
 function PaletteBody({ onOpenHelp }: { onOpenHelp: () => void }): React.JSX.Element {
   const t = useIntlayer('commandPalette');
@@ -54,7 +54,6 @@ function PaletteBody({ onOpenHelp }: { onOpenHelp: () => void }): React.JSX.Elem
       previousMonth: shortcutLabels.previousMonth.value,
       nextMonth: shortcutLabels.nextMonth.value,
       settings: navLabelText(userMenu.settings),
-      whatsNew: navLabelText(userMenu.whatsNew),
       reportBug: navLabelText(shell.reportBug),
     },
     navItems: [...buildNavItems(nav), ...buildUserMenuNavItems(nav)],

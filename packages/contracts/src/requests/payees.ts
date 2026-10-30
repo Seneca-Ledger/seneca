@@ -1,5 +1,5 @@
 import * as Schema from 'effect/Schema';
-import { optionalNullable } from '../common/requests';
+import { NumericInput, optionalNullable, PageInput } from '../common/requests';
 import type { Wire } from '../common/wire';
 
 export const UpdatePayeeBody = Schema.Struct({
@@ -36,3 +36,37 @@ export const SetTransactionPayeeBody = Schema.Struct({
   ),
 );
 export type SetTransactionPayeeBody = Wire<typeof SetTransactionPayeeBody>;
+
+/** `/payees/:id…` and `/transactions/:id/payee`: the record's uuid. */
+export const PayeeParams = Schema.Struct({ id: Schema.String.check(Schema.isUUID()) });
+export type PayeeParams = Wire<typeof PayeeParams>;
+
+/** `GET /payees/:id/pending-review`. */
+export const PayeePendingReviewQuery = Schema.Struct({
+  excludeTransactionId: Schema.optional(Schema.String.check(Schema.isUUID())),
+});
+export type PayeePendingReviewQuery = Wire<typeof PayeePendingReviewQuery>;
+
+/** `DELETE /payees/:id/aliases/:key`: the payee and how a statement writes its name. */
+export const PayeeAliasParams = Schema.Struct({
+  id: Schema.String.check(Schema.isUUID()),
+  key: Schema.String.check(Schema.isMinLength(1)),
+});
+export type PayeeAliasParams = Wire<typeof PayeeAliasParams>;
+
+/** `GET /payees/overview`: who was paid (or paid us) in a month, or ever. */
+export const PayeesOverviewQuery = Schema.Struct({
+  /** `YYYY-MM`; left out for all time. */
+  month: Schema.optional(Schema.String.check(Schema.isPattern(/^\d{4}-\d{2}$/))),
+  direction: Schema.optional(Schema.Literals(['expense', 'income'])),
+  search: Schema.optional(Schema.String.check(Schema.isMaxLength(200))),
+  page: Schema.optional(PageInput),
+  limit: Schema.optional(
+    NumericInput.check(
+      Schema.isInt(),
+      Schema.isGreaterThanOrEqualTo(1),
+      Schema.isLessThanOrEqualTo(200),
+    ),
+  ),
+});
+export type PayeesOverviewQuery = Wire<typeof PayeesOverviewQuery>;

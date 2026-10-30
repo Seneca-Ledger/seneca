@@ -2,6 +2,7 @@
 
 import * as Schema from 'effect/Schema';
 import { DateOnly, DecimalString, Timestamp, type Wire } from '../common/wire';
+import { StorageTag } from '../storage/storage';
 
 export const PayableStatus = Schema.Literals([
   'to_pay',
@@ -39,6 +40,8 @@ export const Payable = Schema.Struct({
   isRecurring: Schema.Boolean,
   comment: Schema.NullOr(Schema.String),
   statementId: Schema.NullOr(Schema.String),
+  /** The workspace tags on the bill; on list rows and single reads. */
+  tags: Schema.optional(Schema.Array(StorageTag)),
   paidAt: Schema.NullOr(Timestamp),
   dueSoonNotifiedAt: Schema.NullOr(Timestamp),
   createdById: Schema.NullOr(Schema.String),

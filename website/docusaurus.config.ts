@@ -2,14 +2,14 @@ import type { Config } from '@docusaurus/types';
 import { themes as prismThemes } from 'prism-react-renderer';
 
 const config: Config = {
-  title: 'Seneca Docs',
+  title: 'Stoic Budget Docs',
   tagline: 'Open-source financial data platform for bank statements',
-  favicon: 'img/favicon.png',
+  favicon: 'img/favicon.svg',
 
-  url: 'https://symonbaikov.github.io',
-  baseUrl: '/seneca/',
-  organizationName: 'symonbaikov',
-  projectName: 'seneca',
+  url: 'https://stoic-budget.github.io',
+  baseUrl: '/stoic-budget/',
+  organizationName: 'stoic-budget',
+  projectName: 'stoic-budget',
 
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'warn',
@@ -28,7 +28,7 @@ const config: Config = {
           path: 'docs',
           routeBasePath: 'docs',
           sidebarPath: './sidebars.ts',
-          editUrl: 'https://github.com/symonbaikov/seneca/tree/main/website/',
+          editUrl: 'https://github.com/stoic-budget/stoic-budget/tree/main/website/',
         },
         blog: false,
         theme: {
@@ -41,10 +41,11 @@ const config: Config = {
   themeConfig: {
     image: 'img/screenshots/dashboard-overview.png',
     navbar: {
-      title: 'Seneca',
+      title: 'Stoic Budget',
       logo: {
-        alt: 'Seneca logo',
-        src: 'img/logo.png',
+        alt: 'Stoic Budget logo',
+        src: 'img/logo.svg',
+        srcDark: 'img/logo-dark.svg',
       },
       items: [
         {
@@ -69,7 +70,7 @@ const config: Config = {
           position: 'left',
         },
         {
-          href: 'https://github.com/symonbaikov/seneca',
+          href: 'https://github.com/stoic-budget/stoic-budget',
           label: 'GitHub',
           position: 'right',
         },
@@ -91,7 +92,7 @@ const config: Config = {
           items: [
             {
               label: 'GitHub Issues',
-              href: 'https://github.com/symonbaikov/seneca/issues',
+              href: 'https://github.com/stoic-budget/stoic-budget/issues',
             },
             {
               label: 'Contributing',
@@ -99,19 +100,19 @@ const config: Config = {
             },
             {
               label: 'Security',
-              href: 'https://github.com/symonbaikov/seneca/security',
+              href: 'https://github.com/stoic-budget/stoic-budget/security',
             },
           ],
         },
         {
           title: 'More',
           items: [
-            { label: 'Changelog', href: 'https://github.com/symonbaikov/seneca/releases' },
-            { label: 'License (MIT)', href: 'https://github.com/symonbaikov/seneca/blob/main/LICENSE' },
+            { label: 'Changelog', href: 'https://github.com/stoic-budget/stoic-budget/releases' },
+            { label: 'License (MIT)', href: 'https://github.com/stoic-budget/stoic-budget/blob/main/LICENSE' },
           ],
         },
       ],
-      copyright: `Copyright (c) ${new Date().getFullYear()} Seneca Contributors`,
+      copyright: `Copyright (c) ${new Date().getFullYear()} Stoic Budget Contributors`,
     },
     prism: {
       theme: prismThemes.github,

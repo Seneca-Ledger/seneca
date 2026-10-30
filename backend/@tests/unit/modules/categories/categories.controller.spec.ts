@@ -18,20 +18,19 @@ describe('CategoriesController', () => {
     expect(
       await controller.create({ name: 'A', type: CategoryType.EXPENSE } as any, user, workspaceId),
     ).toEqual({ id: 'c1' });
-    expect(await controller.findAll(user, workspaceId, CategoryType.EXPENSE)).toEqual([
+    expect(await controller.findAll(user, workspaceId, { type: 'expense' })).toEqual([
       { id: 'c1' },
     ]);
-    expect(await controller.getUsageCount('c1', workspaceId)).toEqual({
+    expect(await controller.getUsageCount({ id: 'c1' }, workspaceId)).toEqual({
       transactions: 1,
       statements: 2,
       total: 3,
     });
-    expect(await controller.findOne('c1', user, workspaceId)).toEqual({ id: 'c1' });
-    expect(await controller.update('c1', { name: 'X' } as any, user, workspaceId)).toEqual({
+    expect(await controller.findOne({ id: 'c1' }, user, workspaceId)).toEqual({ id: 'c1' });
+    expect(await controller.update({ id: 'c1' }, { name: 'X' } as any, user, workspaceId)).toEqual({
       id: 'c1',
-      name: 'X',
-    });
-    expect(await controller.remove('c1', user, workspaceId)).toEqual({
+    }); // read back as stored, not the saved entity
+    expect(await controller.remove({ id: 'c1' }, user, workspaceId)).toEqual({
       message: 'Category deleted successfully',
     });
   });

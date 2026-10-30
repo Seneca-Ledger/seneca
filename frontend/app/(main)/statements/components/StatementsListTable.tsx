@@ -5,15 +5,9 @@ import { ArrowDown } from '@/app/components/icons';
 import { Checkbox } from '@/app/components/ui/checkbox';
 import { EmptyStateIllustration } from '@/app/components/ui/EmptyStateIllustration';
 import { AppPagination } from '@/app/components/ui/pagination';
-import { Spinner } from '@/app/components/ui/spinner';
+import { SnapshotSkeleton } from '@/app/components/ui/snapshot-skeleton/SnapshotSkeleton';
 import { useIntlayer } from '@/app/i18n';
 import type { StatementParsingDetails } from '@/app/lib/contracts';
-import { resolveReceiptMerchantLabel } from '@/app/lib/receipt-merchant';
-import {
-  getStatementDisplayMerchant,
-  getStatementMerchantLabel,
-  isManualExpenseStatement,
-} from '@/app/lib/statement-status';
 import {
   DEFAULT_STATEMENT_COLUMNS,
   type StatementColumn,
@@ -21,21 +15,15 @@ import {
   statementColumnWidthStyle,
 } from './columns/statement-columns';
 import { type CategoryTarget, DocumentCategoryDrawer } from './DocumentCategoryDrawer';
+import type { StatementAmountView } from './filters/amount-view';
 import type { DuplicateMeta } from './hooks/useStatementSelection';
 import { StatementsListItem } from './StatementsListItem';
-import {
-  formatPaginationLabel,
-  formatStatementAmount,
-  formatStatementDate,
-  getBankDisplayName,
-  isReceiptProcessing,
-  isStatementParsingInProgress,
-  resolvePendingReview,
-} from './StatementsListView.utils';
+import { formatPaginationLabel, resolvePendingReview } from './StatementsListView.utils';
 import { StatementsUploadSkeletons } from './StatementsUploadSkeletons';
 import { StatementTransactionsPanel } from './StatementTransactionsPanel';
+import { resolveStatementRowData } from './statement-row-data';
 
-interface StatementForTable {
+export interface StatementForTable {
   id: string;
   source?: string;
   bankName: string;
@@ -81,7 +69,7 @@ interface StatementForTable {
   parsingDetails?: StatementParsingDetails | null;
 }
 
-interface TableLabels {
+export interface TableLabels {
   merchant: string;
   date: string;
   amount: string;
@@ -105,6 +93,8 @@ interface Props {
   selectedCount: number;
   selectedStatementIds: string[];
   dateSortDirection: 'asc' | 'desc';
+  /** What the Amount column shows for a bank statement. */
+  amountView?: StatementAmountView | null;
   page: number;
   totalPagesCount: number;
   rangeStart: number;
@@ -123,7 +113,7 @@ interface Props {
   onToggleSortDirection: () => void;
   onToggleStatement: (id: string) => void;
   onView: (statement: StatementForTable) => void;
-  onIconClick: (statement: StatementForTable) => void;
+  onIconClick: (statement: StatementForTable, mode?: 'teach') => void;
   onPageChange: (page: number) => void;
 }
 
@@ -171,50 +161,6 @@ const withoutUniformFrom = (
   }
   return columns.map(column => (column.id === 'from' ? { ...column, visible: false } : column));
 };
-
-interface StatementRowData {
-  isReceipt: boolean;
-  merchantLabel: string;
-  isManualExpense: boolean;
-  allowAttachFallback: boolean;
-  isProcessingReceipt: boolean;
-  isProcessingStatement: boolean;
-  amountLabel: string;
-  dateLabel: string;
-}
-
-function resolveStatementRowData(
-  statement: StatementForTable,
-  scanningLabel: string,
-): StatementRowData {
-  const isReceipt = statement.source === 'scan';
-  const resolvedName = isReceipt
-    ? resolveReceiptMerchantLabel({
-        vendor: statement.parsedData?.vendor,
-        subject: statement.subject,
-        fallback: statement.fileName,
-      })
-    : getStatementDisplayMerchant(statement, getBankDisplayName(statement.bankName));
-  const merchantLabel = isReceipt
-    ? resolvedName
-    : getStatementMerchantLabel(statement.status, resolvedName, scanningLabel);
-  const isManualExpense = !isReceipt && isManualExpenseStatement(statement);
-  const manualAttachmentCount = Number(statement.parsingDetails?.importPreview?.attachments ?? 0);
-  const allowAttachFallback =
-    isManualExpense &&
-    !isReceipt &&
-    (manualAttachmentCount === 0 || statement.fileName.toLowerCase().startsWith('manual-expense-'));
-  return {
-    isReceipt,
-    merchantLabel,
-    isManualExpense,
-    allowAttachFallback,
-    isProcessingReceipt: isReceiptProcessing(statement),
-    isProcessingStatement: isStatementParsingInProgress(statement),
-    amountLabel: formatStatementAmount(statement),
-    dateLabel: formatStatementDate(statement),
-  };
-}
 
 function TableDesktopHeader({
   allVisibleSelected,
@@ -330,6 +276,7 @@ export function StatementsListTable({
   selectedCount,
   selectedStatementIds,
   dateSortDirection,
+  amountView = null,
   page,
   totalPagesCount,
   rangeStart,
@@ -366,9 +313,7 @@ export function StatementsListTable({
     return (
       <div className="seneca-stmt-list-view__table">
         {toolbar}
-        <div className="seneca-stmt-list-view__loading">
-          <Spinner style={{ height: 80, width: 80, color: 'var(--primary)' }} />
-        </div>
+        <SnapshotSkeleton id="statements-list" loading fallback="list" />
       </div>
     );
   }
@@ -395,76 +340,78 @@ export function StatementsListTable({
       <div className="seneca-stmt-list-view__table-scroll">
         <div className="seneca-stmt-list-view__table">
           {toolbar}
-          <TableDesktopHeader
-            allVisibleSelected={allVisibleSelected}
-            selectedCount={selectedCount}
-            dateSortDirection={dateSortDirection}
-            columns={shownColumns}
-            labels={labels}
-            reviewLabel={reviewDuplicateLabel}
-            onToggleSelectAll={onToggleSelectAll}
-            onToggleSortDirection={onToggleSortDirection}
-          />
-          <StatementsUploadSkeletons skeletonKeys={skeletonKeys} />
-          {paginatedStatements.map((statement, index) => {
-            const rowData = resolveStatementRowData(statement, labels.scanning);
-            const duplicateMeta = duplicateMetaById.get(statement.id);
-            // Neighbours in the same group share one unbroken line on the left.
-            const sameGroup = (other: StatementForTable | undefined): boolean =>
-              Boolean(
-                duplicateMeta &&
-                  other &&
-                  duplicateMetaById.get(other.id)?.groupKey === duplicateMeta.groupKey,
+          <SnapshotSkeleton id="statements-list" loading={false}>
+            <TableDesktopHeader
+              allVisibleSelected={allVisibleSelected}
+              selectedCount={selectedCount}
+              dateSortDirection={dateSortDirection}
+              columns={shownColumns}
+              labels={labels}
+              reviewLabel={reviewDuplicateLabel}
+              onToggleSelectAll={onToggleSelectAll}
+              onToggleSortDirection={onToggleSortDirection}
+            />
+            <StatementsUploadSkeletons skeletonKeys={skeletonKeys} />
+            {paginatedStatements.map((statement, index) => {
+              const rowData = resolveStatementRowData(statement, labels.scanning, amountView);
+              const duplicateMeta = duplicateMetaById.get(statement.id);
+              // Neighbours in the same group share one unbroken line on the left.
+              const sameGroup = (other: StatementForTable | undefined): boolean =>
+                Boolean(
+                  duplicateMeta &&
+                    other &&
+                    duplicateMetaById.get(other.id)?.groupKey === duplicateMeta.groupKey,
+                );
+              const transactionCount = rowData.isReceipt
+                ? 0
+                : Number(statement.totalTransactions ?? 0);
+              const expanded = transactionCount > 1 && expandedIds.has(statement.id);
+              return (
+                <Fragment key={statement.id}>
+                  <StatementsListItem
+                    key={statement.id}
+                    dataTourId={index === 0 ? 'statement-row-primary' : undefined}
+                    statement={statement as Parameters<typeof StatementsListItem>[0]['statement']}
+                    viewLabel={viewLabel}
+                    isReceipt={rowData.isReceipt}
+                    isProcessing={rowData.isProcessingReceipt}
+                    merchantLabel={rowData.merchantLabel}
+                    amountLabel={rowData.amountLabel}
+                    dateLabel={rowData.dateLabel}
+                    isPossibleDuplicate={Boolean(duplicateMeta)}
+                    duplicatePosition={duplicateMeta?.position}
+                    duplicateGroupSize={duplicateMeta?.total}
+                    duplicateRole={duplicateMeta?.role}
+                    duplicateGroupLabel={duplicateMeta?.groupLabel}
+                    duplicateGroupStart={!sameGroup(paginatedStatements[index - 1])}
+                    duplicateGroupEnd={!sameGroup(paginatedStatements[index + 1])}
+                    duplicateReason={duplicateMeta?.reason}
+                    duplicateActionLabel={reviewDuplicateLabel}
+                    pendingReview={resolvePendingReview(
+                      statement,
+                      rowData.isReceipt,
+                      statementReviewCounts,
+                    )}
+                    typeLabel={rowData.isReceipt ? listText.typeReceipt.value : statement.fileType}
+                    isManualExpense={rowData.isManualExpense}
+                    viewDisabled={rowData.isProcessingStatement}
+                    onView={() => onView(statement)}
+                    onIconClick={mode => onIconClick(statement, mode)}
+                    onToggleSelect={() => onToggleStatement(statement.id)}
+                    selected={selectedStatementIds.includes(statement.id)}
+                    columns={shownColumns}
+                    currentExchangeRateLabels={currentExchangeRateLabels}
+                    workspaceCurrency={workspaceCurrency}
+                    transactionCount={transactionCount}
+                    expanded={expanded}
+                    onToggleExpand={() => toggleExpanded(statement.id)}
+                    onAddCategory={() => setCategoryTarget(statement)}
+                  />
+                  {expanded ? <StatementTransactionsPanel statementId={statement.id} /> : null}
+                </Fragment>
               );
-            const transactionCount = rowData.isReceipt
-              ? 0
-              : Number(statement.totalTransactions ?? 0);
-            const expanded = transactionCount > 1 && expandedIds.has(statement.id);
-            return (
-              <Fragment key={statement.id}>
-                <StatementsListItem
-                  key={statement.id}
-                  dataTourId={index === 0 ? 'statement-row-primary' : undefined}
-                  statement={statement as Parameters<typeof StatementsListItem>[0]['statement']}
-                  viewLabel={viewLabel}
-                  isReceipt={rowData.isReceipt}
-                  isProcessing={rowData.isProcessingReceipt}
-                  merchantLabel={rowData.merchantLabel}
-                  amountLabel={rowData.amountLabel}
-                  dateLabel={rowData.dateLabel}
-                  isPossibleDuplicate={Boolean(duplicateMeta)}
-                  duplicatePosition={duplicateMeta?.position}
-                  duplicateGroupSize={duplicateMeta?.total}
-                  duplicateRole={duplicateMeta?.role}
-                  duplicateGroupLabel={duplicateMeta?.groupLabel}
-                  duplicateGroupStart={!sameGroup(paginatedStatements[index - 1])}
-                  duplicateGroupEnd={!sameGroup(paginatedStatements[index + 1])}
-                  duplicateReason={duplicateMeta?.reason}
-                  duplicateActionLabel={reviewDuplicateLabel}
-                  pendingReview={resolvePendingReview(
-                    statement,
-                    rowData.isReceipt,
-                    statementReviewCounts,
-                  )}
-                  typeLabel={rowData.isReceipt ? listText.typeReceipt.value : statement.fileType}
-                  isManualExpense={rowData.isManualExpense}
-                  viewDisabled={rowData.isProcessingStatement}
-                  onView={() => onView(statement)}
-                  onIconClick={() => onIconClick(statement)}
-                  onToggleSelect={() => onToggleStatement(statement.id)}
-                  selected={selectedStatementIds.includes(statement.id)}
-                  columns={shownColumns}
-                  currentExchangeRateLabels={currentExchangeRateLabels}
-                  workspaceCurrency={workspaceCurrency}
-                  transactionCount={transactionCount}
-                  expanded={expanded}
-                  onToggleExpand={() => toggleExpanded(statement.id)}
-                  onAddCategory={() => setCategoryTarget(statement)}
-                />
-                {expanded ? <StatementTransactionsPanel statementId={statement.id} /> : null}
-              </Fragment>
-            );
-          })}
+            })}
+          </SnapshotSkeleton>
         </div>
       </div>
       <DocumentCategoryDrawer target={categoryTarget} onClose={() => setCategoryTarget(null)} />

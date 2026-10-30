@@ -6,6 +6,7 @@ import {
   sniffStatementFormat,
   type TextStatementFormat,
 } from '../../modules/parsing/parsers/statement-formats.util';
+import { appError } from '../errors/app-error';
 import { resolveUploadsDir, resolveInUploadsDir as resolveUploadsPath } from './uploads.util';
 
 // Multer's diskStorage (see config/multer.config.ts) always writes to this
@@ -216,13 +217,11 @@ export function resolveFileType(file: {
  */
 export function isEInvoiceXml(file: { path?: string | null }): boolean {
   const sample = file.path ? readTextSample(file.path) : null;
-  return (
-    sample !== null &&
-    /<(?:[\w-]+:)?(?:Invoice|CreditNote|CrossIndustryInvoice)[\s>]/.test(
-      // Past the declaration and any comments in front of the root element.
-      sample.replace(/<\?[\s\S]*?\?>|<!--[\s\S]*?-->/g, ''),
-    )
-  );
+  // Scanned left to right, a declaration or comment is consumed whole, so only
+  // a root element outside them is captured.
+  const tokens =
+    /<\?[\s\S]*?\?>|<!--[\s\S]*?-->|(<(?:[\w-]+:)?(?:Invoice|CreditNote|CrossIndustryInvoice)[\s>])/g;
+  return sample !== null && [...sample.matchAll(tokens)].some(match => match[1] !== undefined);
 }
 
 export function validateFile(
@@ -230,36 +229,34 @@ export function validateFile(
   options: { allowEInvoiceXml?: boolean } = {},
 ): void {
   if (!file) {
-    throw new BadRequestException('No file provided');
+    throw new BadRequestException(appError('FILE_NOT_PROVIDED'));
   }
 
   if (file.size > MAX_FILE_SIZE) {
     throw new BadRequestException(
-      `File size exceeds maximum allowed size of ${MAX_FILE_SIZE / 1024 / 1024}MB`,
+      appError('FILE_SIZE_EXCEEDED', { limit: MAX_FILE_SIZE / 1024 / 1024 }),
     );
   }
 
   const allowedTypes = Object.values(AllowedFileType);
   if (!allowedTypes.includes(file.mimetype as AllowedFileType)) {
     throw new BadRequestException(
-      `File type ${file.mimetype} is not allowed. Allowed types: PDF, XLSX, XLS, CSV, DOCX, OFX, QIF, camt.053, MT940, JPG, PNG, TIFF, BMP, WEBP`,
+      appError('FILE_TYPE_NOT_ALLOWED_LIST', { mimetype: file.mimetype }),
     );
   }
   const isEInvoice = options.allowEInvoiceXml === true && isEInvoiceXml(file);
   if (LOOSE_TEXT_MIMES.has(file.mimetype) && !isEInvoice && !textStatementFormatOf(file)) {
-    throw new BadRequestException(
-      'File content is not a recognised statement format (OFX/QFX, QIF, camt.053 or MT940)',
-    );
+    throw new BadRequestException(appError('FILE_STATEMENT_FORMAT_UNRECOGNISED'));
   }
 
   const checkSignature = isCsvDeclaredAsExcel(file)
     ? undefined
     : MAGIC_BYTES.get(file.mimetype as AllowedFileType);
-  if (checkSignature && file.path) {
+  if (typeof checkSignature === 'function' && file.path) {
     const signature = readSignature(file.path);
     if (signature && !checkSignature(signature)) {
       throw new BadRequestException(
-        `File content does not match its declared type (${file.mimetype})`,
+        appError('FILE_SIGNATURE_MISMATCH', { mimetype: file.mimetype }),
       );
     }
   }
@@ -282,7 +279,7 @@ const SUPPORTED_RECEIPT_MIME_TYPES = new Set([
 export function assertReceiptFileSupported(file: Express.Multer.File): void {
   const isXml = file.mimetype === 'application/xml' || file.mimetype === 'text/xml';
   if (!SUPPORTED_RECEIPT_MIME_TYPES.has(file.mimetype) || (isXml && !isEInvoiceXml(file))) {
-    throw new BadRequestException('Only image, PDF and e-invoice XML receipt files are supported');
+    throw new BadRequestException(appError('FILE_RECEIPT_TYPE_UNSUPPORTED'));
   }
 }
 
@@ -313,7 +310,7 @@ const AVATAR_MAGIC_BYTES: ReadonlyMap<string, (buf: Buffer) => boolean> = new Ma
 export function validateImageSignature(file: Express.Multer.File): void {
   const checkSignature = AVATAR_MAGIC_BYTES.get(file.mimetype);
   if (typeof checkSignature !== 'function') {
-    throw new BadRequestException(`File type ${file.mimetype} is not allowed`);
+    throw new BadRequestException(appError('FILE_TYPE_NOT_ALLOWED', { mimetype: file.mimetype }));
   }
 
   if (!file.path) {
@@ -322,9 +319,7 @@ export function validateImageSignature(file: Express.Multer.File): void {
 
   const signature = readSignature(file.path);
   if (signature && !checkSignature(signature)) {
-    throw new BadRequestException(
-      `File content does not match its declared type (${file.mimetype})`,
-    );
+    throw new BadRequestException(appError('FILE_SIGNATURE_MISMATCH', { mimetype: file.mimetype }));
   }
 }
 

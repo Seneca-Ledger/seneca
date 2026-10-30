@@ -2,6 +2,7 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, type QueryRunner, Repository } from 'typeorm';
+import { appError } from '../../../common/errors/app-error';
 import { currencyCodeOrDefault } from '../../../common/utils/currency.util';
 import { readProcessingSettings } from '../../../common/utils/workspace-processing.util';
 import {
@@ -922,16 +923,17 @@ export class ImportSessionService {
    * Get full import session entity.
    *
    * @param sessionId Import session ID
+   * @param workspaceId The caller's workspace: another workspace's session is "not found"
    * @returns Import session
    * @throws NotFoundException if session not found (the caller answers 404)
    */
-  async getSession(sessionId: string): Promise<ImportSession> {
+  async getSession(sessionId: string, workspaceId: string): Promise<ImportSession> {
     const session = await this.importSessionRepository.findOne({
-      where: { id: sessionId },
+      where: { id: sessionId, workspaceId },
     });
 
     if (!session) {
-      throw new NotFoundException('Import session not found');
+      throw new NotFoundException(appError('IMPORT_SESSION_NOT_FOUND'));
     }
 
     return session;
@@ -943,18 +945,12 @@ export class ImportSessionService {
    *
    * @param sessionId Import session ID
    * @returns Session summary
-   * @throws ImportValidationError if session not found
+   * @throws NotFoundException if session not found in the workspace
    */
-  async getSessionSummary(sessionId: string): Promise<ImportSessionSummary> {
+  async getSessionSummary(sessionId: string, workspaceId: string): Promise<ImportSessionSummary> {
     this.logger.debug(`Getting summary for session ${sessionId}`);
 
-    const session = await this.importSessionRepository.findOne({
-      where: { id: sessionId },
-    });
-
-    if (!session) {
-      throw new ImportValidationError(`Import session not found: ${sessionId}`, { sessionId });
-    }
+    const session = await this.getSession(sessionId, workspaceId);
 
     if (!session.sessionMetadata) {
       return this.createEmptyMetadata();
@@ -981,11 +977,15 @@ export class ImportSessionService {
    * @param resolutions Map of transaction index to resolution action
    * @throws ImportValidationError if session not found or not in preview state
    */
-  async resolveConflicts(sessionId: string, resolutions: ConflictResolutionMap): Promise<void> {
+  async resolveConflicts(
+    sessionId: string,
+    workspaceId: string,
+    resolutions: ConflictResolutionMap,
+  ): Promise<void> {
     this.logger.log(`Resolving conflicts for session ${sessionId}`, resolutions);
 
     const session = await this.importSessionRepository.findOne({
-      where: { id: sessionId },
+      where: { id: sessionId, workspaceId },
     });
 
     if (!session) {
@@ -1030,7 +1030,7 @@ export class ImportSessionService {
 
     // Update metadata
     await this.importSessionRepository.update(
-      { id: sessionId },
+      { id: sessionId, workspaceId },
       {
         sessionMetadata: metadata,
       },
@@ -1044,18 +1044,13 @@ export class ImportSessionService {
    * Marks the session as cancelled and prevents further processing.
    *
    * @param sessionId Import session ID
-   * @throws ImportValidationError if session not found or already completed
+   * @throws NotFoundException if session not found in the workspace
+   * @throws ImportValidationError if session already completed
    */
-  async cancelSession(sessionId: string): Promise<void> {
+  async cancelSession(sessionId: string, workspaceId: string): Promise<void> {
     this.logger.log(`Cancelling session ${sessionId}`);
 
-    const session = await this.importSessionRepository.findOne({
-      where: { id: sessionId },
-    });
-
-    if (!session) {
-      throw new ImportValidationError(`Import session not found: ${sessionId}`, { sessionId });
-    }
+    const session = await this.getSession(sessionId, workspaceId);
 
     if (session.status === ImportSessionStatus.COMPLETED) {
       throw new ImportValidationError('Cannot cancel a completed session', {
@@ -1065,7 +1060,7 @@ export class ImportSessionService {
     }
 
     await this.importSessionRepository.update(
-      { id: sessionId },
+      { id: sessionId, workspaceId },
       {
         status: ImportSessionStatus.CANCELLED,
         completedAt: new Date(),

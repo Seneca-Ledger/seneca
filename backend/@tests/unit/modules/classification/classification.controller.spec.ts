@@ -21,7 +21,7 @@ describe('ClassificationController', () => {
       transactionRepository as any,
     );
 
-    await controller.classifyTransaction('tx-1', { id: 'u1' } as any, 'ws-1');
+    await controller.classifyTransaction({ id: 'tx-1' }, { id: 'u1' } as any, 'ws-1');
 
     expect(transactionRepository.findOne).toHaveBeenCalledWith({
       where: { id: 'tx-1', workspaceId: 'ws-1' },
@@ -38,7 +38,7 @@ describe('ClassificationController', () => {
       transactionRepository as any,
     );
 
-    const result = await controller.classifyTransaction('tx-1', { id: 'u1' } as any, 'ws-1');
+    const result = await controller.classifyTransaction({ id: 'tx-1' }, { id: 'u1' } as any, 'ws-1');
 
     expect(result).toBe(transaction);
     expect(classificationService.classifyTransaction).not.toHaveBeenCalled();

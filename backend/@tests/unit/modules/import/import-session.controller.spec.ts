@@ -40,7 +40,7 @@ describe('ImportSessionController', () => {
         parsingDetails: { importPreview: { sessionId: 'session-1', transactions: [] } },
       });
 
-      const result = await controller.getImportPreview('stmt-1', 'ws-1');
+      const result = await controller.getImportPreview({ id: 'stmt-1' }, 'ws-1');
 
       expect(result.importPreview).toEqual({ sessionId: 'session-1', transactions: [] });
       expect(statementProcessingService.processStatement).not.toHaveBeenCalled();
@@ -53,7 +53,7 @@ describe('ImportSessionController', () => {
         parsingDetails: null,
       });
 
-      const result = await controller.getImportPreview('stmt-1', 'ws-1');
+      const result = await controller.getImportPreview({ id: 'stmt-1' }, 'ws-1');
 
       expect(result).toEqual({
         statementId: 'stmt-1',
@@ -72,7 +72,7 @@ describe('ImportSessionController', () => {
         parsingDetails: null,
       });
 
-      const result = await controller.getImportPreview('stmt-1', 'ws-1');
+      const result = await controller.getImportPreview({ id: 'stmt-1' }, 'ws-1');
 
       expect(result.importPreview).toBeNull();
       expect(statementProcessingService.processStatement).not.toHaveBeenCalled();
@@ -81,7 +81,7 @@ describe('ImportSessionController', () => {
     it('throws NotFoundException when the statement does not exist', async () => {
       statementRepository.findOne.mockResolvedValue(null);
 
-      await expect(controller.getImportPreview('missing', 'ws-1')).rejects.toThrow(
+      await expect(controller.getImportPreview({ id: 'missing' }, 'ws-1')).rejects.toThrow(
         NotFoundException,
       );
     });

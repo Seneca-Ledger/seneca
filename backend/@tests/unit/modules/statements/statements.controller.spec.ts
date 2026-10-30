@@ -8,7 +8,9 @@ import { buildContentDisposition } from '@/common/utils/http-file.util';
 import { StatementStatus } from '@/entities/statement.entity';
 import type { User } from '@/entities/user.entity';
 import type { StatementsQuery } from '@/contracts';
-import { ReceiptStatementService } from '@/modules/statements/services/receipt-statement.service';
+import type { ScanUploadService } from '@/modules/statements/services/scan-upload.service';
+import type { StatementStageService } from '@/modules/statements/services/statement-stage.service';
+import { StatementUploadsController } from '@/modules/statements/statement-uploads.controller';
 import { StatementsController } from '@/modules/statements/statements.controller';
 import type { StatementsService } from '@/modules/statements/statements.service';
 import type { Response } from 'express';
@@ -37,13 +39,17 @@ describe('StatementsController', () => {
     storeKey: vi.fn(),
   };
 
-  const receiptStatementService = {
-    createFromReceiptScan: vi.fn(),
+  const scanUploadService = {
+    upload: vi.fn(),
   };
 
   const controller = new StatementsController(
     statementsService as unknown as StatementsService,
-    receiptStatementService as unknown as ReceiptStatementService,
+    {} as unknown as StatementStageService,
+  );
+  const uploads = new StatementUploadsController(
+    statementsService as unknown as StatementsService,
+    scanUploadService as unknown as ScanUploadService,
     idempotencyService as unknown as IdempotencyService,
   );
 
@@ -69,7 +75,7 @@ describe('StatementsController', () => {
     };
     const currentUser = { id: 'user-1' } as User;
 
-    const result = await controller.upload(
+    const result = await uploads.upload(
       [file as Express.Multer.File],
       {} as UploadStatementBody,
       currentUser,
@@ -77,7 +83,7 @@ describe('StatementsController', () => {
     );
 
     expect(statementsService.create).toHaveBeenCalledTimes(1);
-    expect(receiptStatementService.createFromReceiptScan).not.toHaveBeenCalled();
+    expect(scanUploadService.upload).not.toHaveBeenCalled();
     expect(result).toMatchObject({
       cached: false,
       data: [
@@ -95,13 +101,13 @@ describe('StatementsController', () => {
     const currentUser = { id: 'user-1' } as User;
     const payload = { amount: 5000, description: 'Такси' } as any;
 
-    const first = await controller.createManualExpense([], payload, currentUser, 'ws-1', 'key-1');
+    const first = await uploads.createManualExpense([], payload, currentUser, 'ws-1', 'key-1');
     expect(first).toEqual(created);
     expect(idempotencyService.checkKey).toHaveBeenCalledWith('key-1', 'user-1', 'ws-1');
     expect(idempotencyService.storeKey).toHaveBeenCalledWith('key-1', 'user-1', 'ws-1', created);
 
     idempotencyService.checkKey.mockResolvedValueOnce({ data: created, cached: true });
-    const second = await controller.createManualExpense([], payload, currentUser, 'ws-1', 'key-1');
+    const second = await uploads.createManualExpense([], payload, currentUser, 'ws-1', 'key-1');
     expect(second).toMatchObject({ id: 'stmt-manual-1', cached: true });
     expect(statementsService.createManualExpense).toHaveBeenCalledTimes(1);
   });
@@ -110,7 +116,7 @@ describe('StatementsController', () => {
     statementsService.createManualExpense.mockResolvedValue({ id: 'stmt-manual-2' });
     const currentUser = { id: 'user-1' } as User;
 
-    await controller.createManualExpense([], {} as any, currentUser, 'ws-1');
+    await uploads.createManualExpense([], {} as any, currentUser, 'ws-1');
 
     expect(idempotencyService.checkKey).not.toHaveBeenCalled();
     expect(idempotencyService.storeKey).not.toHaveBeenCalled();
@@ -162,7 +168,7 @@ describe('StatementsController', () => {
 
     statementsService.convertDroppedSampleToTransaction.mockResolvedValue(response);
 
-    const result = await controller.convertDroppedSample('stmt-1', payload, currentUser, 'ws-1');
+    const result = await controller.convertDroppedSample({ id: 'stmt-1' }, payload, currentUser, 'ws-1');
 
     expect(statementsService.convertDroppedSampleToTransaction).toHaveBeenCalledWith(
       'stmt-1',
@@ -176,9 +182,9 @@ describe('StatementsController', () => {
     expect(result).toEqual(response);
   });
 
-  it('delegates receipt scan uploads to the receipt scan statement flow', async () => {
+  it('hands scan uploads to the scan upload flow', async () => {
     const createdStatement = { id: 'stmt-receipt-1', status: StatementStatus.COMPLETED };
-    receiptStatementService.createFromReceiptScan.mockResolvedValue([createdStatement]);
+    scanUploadService.upload.mockResolvedValue([createdStatement]);
 
     const file = {
       originalname: 'receipt.jpg',
@@ -188,14 +194,14 @@ describe('StatementsController', () => {
     };
     const currentUser = { id: 'user-1' } as User;
 
-    const result = await controller.uploadReceipt(
+    const result = await uploads.uploadReceipt(
       [file as Express.Multer.File],
       { language: 'ru' } as UploadReceiptScanBody,
       currentUser,
       'ws-1',
     );
 
-    expect(receiptStatementService.createFromReceiptScan).toHaveBeenCalledWith({
+    expect(scanUploadService.upload).toHaveBeenCalledWith({
       user: { id: 'user-1' },
       workspaceId: 'ws-1',
       files: [file],
@@ -206,7 +212,7 @@ describe('StatementsController', () => {
 
   it('allows receipt scan uploads without optional language', async () => {
     const createdStatement = { id: 'stmt-receipt-2', status: StatementStatus.COMPLETED };
-    receiptStatementService.createFromReceiptScan.mockResolvedValue([createdStatement]);
+    scanUploadService.upload.mockResolvedValue([createdStatement]);
 
     const file = {
       originalname: 'receipt.pdf',
@@ -216,14 +222,14 @@ describe('StatementsController', () => {
     };
     const currentUser = { id: 'user-1' } as User;
 
-    const result = await controller.uploadReceipt(
+    const result = await uploads.uploadReceipt(
       [file as Express.Multer.File],
       {} as UploadReceiptScanBody,
       currentUser,
       'ws-1',
     );
 
-    expect(receiptStatementService.createFromReceiptScan).toHaveBeenCalledWith({
+    expect(scanUploadService.upload).toHaveBeenCalledWith({
       user: { id: 'user-1' },
       workspaceId: 'ws-1',
       files: [file],
@@ -257,7 +263,7 @@ describe('StatementsController', () => {
       mimeType: 'application/pdf',
     });
 
-    await controller.getFile('stmt-1', currentUser, 'ws-1', response as unknown as Response);
+    await controller.getFile({ id: 'stmt-1' }, currentUser, 'ws-1', response as unknown as Response);
 
     expect(statementsService.getFileStream).toHaveBeenCalledWith('stmt-1', 'ws-1');
     expect(response.setHeader).toHaveBeenCalledWith('Content-Type', 'application/pdf');

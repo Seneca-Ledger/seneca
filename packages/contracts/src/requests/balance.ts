@@ -1,11 +1,14 @@
 import * as Schema from 'effect/Schema';
 import {
+  DateOnlyInput,
   IsoDateString,
   isAtMostTwoDecimals,
   NumericInput,
   optionalNullable,
 } from '../common/requests';
 import type { Wire } from '../common/wire';
+
+const Uuid = Schema.String.check(Schema.isUUID());
 
 export const UpdateBalanceSnapshotBody = Schema.Struct({
   accountId: Schema.String.check(Schema.isUUID()),
@@ -29,3 +32,10 @@ export const UpdateAccountClassificationBody = Schema.Struct({
   riskLevel: optionalNullable(Schema.Literals(['low', 'medium', 'high'])),
 });
 export type UpdateAccountClassificationBody = Wire<typeof UpdateAccountClassificationBody>;
+
+export const BalanceAccountParams = Schema.Struct({ id: Uuid });
+export type BalanceAccountParams = Wire<typeof BalanceAccountParams>;
+
+/** `DELETE /reports/balance/accounts/:id/history/:date`. */
+export const BalanceHistoryPointParams = Schema.Struct({ id: Uuid, date: DateOnlyInput });
+export type BalanceHistoryPointParams = Wire<typeof BalanceHistoryPointParams>;

@@ -19,7 +19,7 @@ import {
   e2eTestingModule,
   registerAccount,
 } from './helpers/e2e-app';
-import { APP_NAME } from '../../src/common/brand';
+import { APP_NAME, APP_SLUG } from '../../src/common/brand';
 
 /**
  * The MCP endpoint: API keys only, only while the workspace has MCP on, tools
@@ -146,7 +146,7 @@ describe('MCP endpoint (e2e)', () => {
       clientInfo: { name: 'e2e', version: '0' },
     }).expect(200);
 
-    expect(res.body.result.serverInfo.name).toBe('seneca');
+    expect(res.body.result.serverInfo.name).toBe(APP_SLUG);
     expect(res.body.result.capabilities.tools).toBeDefined();
   });
 

@@ -3,7 +3,7 @@ title: CI/CD Pipeline
 description: Continuous integration and release publishing
 ---
 
-Seneca's pipelines live in `.github/workflows`.
+Stoic Budget's pipelines live in `.github/workflows`.
 
 ## CI pipeline
 
@@ -33,7 +33,7 @@ On pull requests, the `sensitive-changes` job requires labels:
 
 ## CD pipeline
 
-Seneca is self-hosted: `cd.yml` builds, scans, signs, and publishes images, then stops. There are no deployment
+Stoic Budget is self-hosted: `cd.yml` builds, scans, signs, and publishes images, then stops. There are no deployment
 environments and no smoke tests. It runs on `v*.*.*` tags or manual dispatch:
 
 1. Conftest policies

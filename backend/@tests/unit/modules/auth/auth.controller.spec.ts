@@ -80,7 +80,7 @@ describe('AuthController', () => {
       message: 'ok-all',
     });
     await expect(controller.getSessions({ id: 'u1' } as any, req)).resolves.toEqual([{ id: 's1' }]);
-    await expect(controller.logoutSession({ id: 'u1' } as any, 's1')).resolves.toEqual({
+    await expect(controller.logoutSession({ id: 'u1' } as any, { sessionId: 's1' })).resolves.toEqual({
       message: 'ok-session',
     });
     // The profile is the user's view, never the row: no credentials ride along.

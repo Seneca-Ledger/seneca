@@ -8,6 +8,7 @@ describe('ReceiptDocumentsService', () => {
     where: vi.fn(),
     andWhere: vi.fn(),
     leftJoin: vi.fn(),
+    leftJoinAndSelect: vi.fn(),
     orderBy: vi.fn(),
     take: vi.fn(),
     skip: vi.fn(),
@@ -23,7 +24,15 @@ describe('ReceiptDocumentsService', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    for (const method of ['where', 'andWhere', 'leftJoin', 'orderBy', 'take', 'skip'] as const) {
+    for (const method of [
+      'where',
+      'andWhere',
+      'leftJoin',
+      'leftJoinAndSelect',
+      'orderBy',
+      'take',
+      'skip',
+    ] as const) {
       queryBuilder[method].mockReturnValue(queryBuilder);
     }
     queryBuilder.getManyAndCount.mockResolvedValue([[], 0]);
@@ -58,7 +67,7 @@ describe('ReceiptDocumentsService', () => {
     });
 
     it('keeps amountless scans that already have a statement when includeLinkedScans=true', async () => {
-      await service.list(workspaceId, { includeLinkedScans: 'true' });
+      await service.list(workspaceId, { includeLinkedScans: true });
 
       expect(queryBuilder.andWhere).toHaveBeenCalledWith(
         "(NULLIF(TRIM(receipt.parsed_data->>'amount'), '') IS NOT NULL OR (receipt.source = :scanSource AND receipt.statement_id IS NOT NULL))",
@@ -70,7 +79,7 @@ describe('ReceiptDocumentsService', () => {
     });
 
     it('allows invalid receipts when includeInvalid=true', async () => {
-      await service.list(workspaceId, { includeInvalid: 'true' });
+      await service.list(workspaceId, { includeInvalid: true });
 
       expect(queryBuilder.andWhere).not.toHaveBeenCalledWith('receipt.status != :failedStatus', {
         failedStatus: 'failed',
@@ -81,11 +90,17 @@ describe('ReceiptDocumentsService', () => {
     });
 
     it('returns only receipts without amount when hasAmount=false', async () => {
-      await service.list(workspaceId, { includeInvalid: 'true', hasAmount: 'false' });
+      await service.list(workspaceId, { includeInvalid: true, hasAmount: false });
 
       expect(queryBuilder.andWhere).toHaveBeenCalledWith(
         "NULLIF(TRIM(receipt.parsed_data->>'amount'), '') IS NULL",
       );
+    });
+
+    it('loads the receipt tags with the list', async () => {
+      await service.list(workspaceId, {});
+
+      expect(queryBuilder.leftJoinAndSelect).toHaveBeenCalledWith('receipt.tags', 'tags');
     });
 
     it('resolves the picked category name for listed receipts', async () => {
@@ -120,7 +135,7 @@ describe('ReceiptDocumentsService', () => {
     it('reports a receipt of another workspace as not found', async () => {
       receiptRepository.findOne.mockResolvedValue(null);
 
-      await expect(service.thumbnail('missing-receipt', workspaceId, '')).resolves.toEqual({
+      await expect(service.thumbnail('missing-receipt', workspaceId, undefined)).resolves.toEqual({
         kind: 'missing',
         error: 'Receipt not found',
       });
@@ -137,7 +152,7 @@ describe('ReceiptDocumentsService', () => {
       } as Receipt);
       vi.spyOn(fs.promises, 'access').mockResolvedValue(undefined);
 
-      await expect(service.thumbnail('receipt-1', workspaceId, '')).resolves.toEqual({
+      await expect(service.thumbnail('receipt-1', workspaceId, undefined)).resolves.toEqual({
         kind: 'missing',
         error: 'No PDF attachment found',
       });
@@ -151,7 +166,7 @@ describe('ReceiptDocumentsService', () => {
       } as Receipt);
       vi.spyOn(fs.promises, 'access').mockRejectedValue(new Error('ENOENT'));
 
-      await expect(service.thumbnail('receipt-1', workspaceId, '')).resolves.toEqual({
+      await expect(service.thumbnail('receipt-1', workspaceId, undefined)).resolves.toEqual({
         kind: 'missing',
         error: 'No attachment found',
       });
@@ -166,7 +181,7 @@ describe('ReceiptDocumentsService', () => {
       const accessSpy = vi.spyOn(fs.promises, 'access').mockResolvedValue(undefined);
       const readFileSpy = vi.spyOn(fs.promises, 'readFile');
 
-      await expect(service.thumbnail('receipt-1', workspaceId, '')).resolves.toEqual({
+      await expect(service.thumbnail('receipt-1', workspaceId, undefined)).resolves.toEqual({
         kind: 'missing',
         error: 'No attachment found',
       });
@@ -183,7 +198,7 @@ describe('ReceiptDocumentsService', () => {
       vi.spyOn(fs.promises, 'access').mockResolvedValue(undefined);
       vi.spyOn(fs.promises, 'readFile').mockResolvedValue(Buffer.from('thumbnail-image'));
 
-      await expect(service.thumbnail('receipt-thumb-1', workspaceId, '240')).resolves.toEqual({
+      await expect(service.thumbnail('receipt-thumb-1', workspaceId, 240)).resolves.toEqual({
         kind: 'image',
         mimeType: 'image/jpeg',
         data: Buffer.from('thumbnail-image'),

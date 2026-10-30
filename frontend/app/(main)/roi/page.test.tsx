@@ -24,8 +24,29 @@ vi.mock('@/app/i18n', () => ({
   useLocale: () => ({ locale: 'en' }),
 }));
 vi.mock('./components/RoiProjectionChart', () => ({ RoiProjectionChart: () => null }));
+vi.mock('./components/PerformanceTab', () => ({
+  PerformanceTab: () => <div data-testid="performance-tab" />,
+}));
+vi.mock('@/app/components/ui/page-title', () => ({ PageTitle: () => null }));
+const search = vi.hoisted(() => ({ value: 'tab=calculator' }));
+const replace = vi.hoisted(() => vi.fn());
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ replace }),
+  usePathname: () => '/roi',
+  useSearchParams: () => new URLSearchParams(search.value),
+}));
 
 describe('RoiPage', () => {
+  it('opens on performance and keeps the chosen tab in the address', () => {
+    search.value = '';
+    render(<RoiPage />);
+
+    expect(screen.getByTestId('performance-tab')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('tab', { name: 'tabCalculator' }));
+    expect(replace).toHaveBeenCalledWith('/roi?tab=calculator', { scroll: false });
+    search.value = 'tab=calculator';
+  });
+
   it('holds the answer\'s place with a dash, then fills it in as the amounts arrive', () => {
     render(<RoiPage />);
 

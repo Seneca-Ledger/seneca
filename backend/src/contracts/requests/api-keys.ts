@@ -22,6 +22,10 @@ export const ApiKeyScope = Schema.Literals([
   'category.create',
   'category.edit',
   'category.delete',
+  'tag.view',
+  'tag.create',
+  'tag.edit',
+  'tag.delete',
   'branch.view',
   'branch.create',
   'branch.edit',
@@ -77,3 +81,7 @@ export const CreateApiKeyBody = Schema.Struct({
   scopes: Schema.Array(ApiKeyScope).check(Schema.isMinLength(1), Schema.isUnique()),
 });
 export type CreateApiKeyBody = Wire<typeof CreateApiKeyBody>;
+
+/** `DELETE /api-keys/:id`: a key's uuid. */
+export const ApiKeyIdParams = Schema.Struct({ id: Schema.String.check(Schema.isUUID()) });
+export type ApiKeyIdParams = Wire<typeof ApiKeyIdParams>;

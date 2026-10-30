@@ -2,6 +2,8 @@ import * as Schema from 'effect/Schema';
 import { IsoDateString, NumericInput, optionalNullable } from '../common/requests';
 import type { Wire } from '../common/wire';
 
+const Uuid = Schema.String.check(Schema.isUUID());
+
 export const CreateInvestmentAccountBody = Schema.Struct({
   name: Schema.String.check(Schema.isBetweenLength(1, 255)),
   /** Investment (brokerage, ISA, ETF savings plan) or retirement (pension, 401k, IRA). */
@@ -26,6 +28,11 @@ export type UpsertHoldingBody = Wire<typeof UpsertHoldingBody>;
 export const LinkContributionBody = Schema.Struct({
   transactionId: Schema.String.check(Schema.isUUID()),
   accountId: Schema.String.check(Schema.isUUID()),
+  /**
+   * What the row is to the account. An expense can only be a contribution; an
+   * income row has to say whether it is money taken back out or a dividend.
+   */
+  role: optionalNullable(Schema.Literals(['contribution', 'withdrawal', 'income'])),
 });
 export type LinkContributionBody = Wire<typeof LinkContributionBody>;
 
@@ -99,3 +106,22 @@ export const MetalSettingsBody = Schema.Struct({
   dealerDiscount: optionalNullable(DealerDiscountInput),
 });
 export type MetalSettingsBody = Wire<typeof MetalSettingsBody>;
+
+/** An investment account, a holding or a metal lot, by id. */
+export const InvestmentParams = Schema.Struct({ id: Uuid });
+export type InvestmentParams = Wire<typeof InvestmentParams>;
+
+export const InvestmentContributionParams = Schema.Struct({ transactionId: Uuid });
+export type InvestmentContributionParams = Wire<typeof InvestmentContributionParams>;
+
+/** `GET /metals/receipt-options`: at most this many receipts (1–200), default 50. */
+export const MetalReceiptOptionsQuery = Schema.Struct({
+  limit: Schema.optional(NumericInput.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(1))),
+});
+export type MetalReceiptOptionsQuery = Wire<typeof MetalReceiptOptionsQuery>;
+
+/** `GET /investments/returns`: the window, default a year. */
+export const InvestmentReturnsQuery = Schema.Struct({
+  range: Schema.optional(Schema.Literals(['30d', 'ytd', '1y', '3y', '5y', 'all'])),
+});
+export type InvestmentReturnsQuery = Wire<typeof InvestmentReturnsQuery>;

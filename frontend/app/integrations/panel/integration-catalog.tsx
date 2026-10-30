@@ -1,6 +1,5 @@
 import AccountBalanceOutlinedIcon from '@mui/icons-material/AccountBalanceOutlined';
 import AlternateEmailOutlinedIcon from '@mui/icons-material/AlternateEmailOutlined';
-import CategoryOutlinedIcon from '@mui/icons-material/CategoryOutlined';
 import CloudQueueOutlinedIcon from '@mui/icons-material/CloudQueueOutlined';
 import DnsOutlinedIcon from '@mui/icons-material/DnsOutlined';
 import LinkOutlinedIcon from '@mui/icons-material/LinkOutlined';
@@ -13,13 +12,7 @@ import { useIntlayer } from '@/app/i18n';
 import { APP_NAME } from '@/app/lib/brand';
 import type { ProtocolIntegrationPageProps } from '../open-protocol-page';
 
-export type IntegrationCategoryKey =
-  | 'ai'
-  | 'application'
-  | 'bank'
-  | 'storage'
-  | 'email'
-  | 'messaging';
+export type IntegrationCategoryKey = 'application' | 'bank' | 'storage' | 'email' | 'messaging';
 
 type CatalogText = ReturnType<typeof useIntlayer<'integrationCatalog'>>;
 type PeppolText = ReturnType<typeof useIntlayer<'peppol'>>;
@@ -32,7 +25,6 @@ type ProtocolConfig = Omit<ProtocolIntegrationPageProps, 'embedded' | 'onConnect
  */
 export type IntegrationDetail =
   | { kind: 'protocol'; config: ProtocolConfig }
-  | { kind: 'local-categorization' }
   | { kind: 'bank-sync' };
 
 export type IntegrationEntry = {
@@ -58,17 +50,6 @@ function buildIntegrationCatalog(t: CatalogText, peppol: PeppolText): Integratio
   const e = t.entries;
 
   return [
-    {
-      key: 'local-categorization',
-      name: e.localCategorization.name.value,
-      description: e.localCategorization.description.value,
-      badge: 'Local model',
-      category: 'ai',
-      recommended: true,
-      icon: <CategoryOutlinedIcon sx={{ fontSize: 22 }} aria-hidden="true" />,
-      statusPath: '/settings/local-categorization',
-      detail: { kind: 'local-categorization' },
-    },
     {
       key: 'smtp',
       name: e.smtp.name.value,
@@ -265,15 +246,14 @@ function buildIntegrationCatalog(t: CatalogText, peppol: PeppolText): Integratio
       },
     },
     {
-      key: 'simplefin',
-      name: e.simplefin.name.value,
-      description: e.simplefin.description.value,
-      badge: 'Open protocol',
+      key: 'bank-sync',
+      name: e.bankSync.name.value,
+      description: e.bankSync.description.value,
+      badge: 'Your own provider',
       category: 'bank',
       recommended: false,
       icon: <AccountBalanceOutlinedIcon sx={{ fontSize: 22 }} aria-hidden="true" />,
-      statusPath: '/integrations/simplefin/status',
-      docsUrl: 'https://www.simplefin.org/protocol.html',
+      statusPath: '/integrations/bank-sync/connections',
       detail: { kind: 'bank-sync' },
     },
     {

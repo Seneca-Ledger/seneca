@@ -1,89 +1,55 @@
 import { randomUUID } from 'node:crypto';
-import * as fs from 'node:fs';
-import * as path from 'node:path';
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { Cron, CronExpression } from '@nestjs/schedule';
+import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, type Repository } from 'typeorm';
+import { appError } from '../../common/errors/app-error';
 import { decryptText, encryptText } from '../../common/utils/encryption.util';
-import { resolveUploadsDir } from '../../common/utils/uploads.util';
-import { STANDARD_WORKSPACE } from '../../common/workspaces/version-workspaces';
-import type { UpdateBankSyncSettingsBody } from '../../contracts';
 import {
   Integration,
-  IntegrationProvider,
   IntegrationStatus,
   OpenProtocolSettings,
   Transaction,
   User,
   Wallet,
 } from '../../entities';
-import { StatementsService } from '../statements/statements.service';
-import { buildOfxStatement, ofxFileName, providerRowKey } from './bank-sync-ofx.util';
-import { type BankSyncAccount, BankSyncAuthError } from './bank-sync-provider.interface';
-import { SimpleFinProvider } from './simplefin.provider';
+import {
+  accountSettingOf,
+  type BankSyncConnectionConfig,
+  linkSettingOf,
+  linksOf,
+  normalizeConfig,
+} from './bank-sync.config';
+import {
+  BANK_SYNC_PROVIDERS,
+  type BankSyncInstitution,
+  type BankSyncProvider,
+  isRedirectProvider,
+  type RedirectBankSyncProvider,
+  type TokenBankSyncProvider,
+} from './bank-sync-provider.interface';
 
-/** How far back the first pull of an account reaches. */
-const FIRST_SYNC_DAYS = 90;
-/** Later pulls start this far before the previous one: posted dates settle late. */
-const OVERLAP_DAYS = 7;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-export interface BankSyncAccountSetting {
+export interface BankSyncConnection {
   id: string;
-  name: string;
-  org: string;
-  currency: string;
-  /** Off: listed but never pulled. New accounts found after connecting start off. */
-  enabled: boolean;
-  walletId: string | null;
-  lastSyncAt: string | null;
-  balance: number | null;
-  balanceDate: string | null;
-}
-
-export interface BankSyncConfig {
-  provider: 'simplefin';
-  autoSync: boolean;
-  accounts: BankSyncAccountSetting[];
-  lastSyncAt: string | null;
-  lastError: string | null;
-}
-
-export interface BankSyncStatus {
-  connected: boolean;
+  provider: string;
+  linkStyle: 'token' | 'redirect';
+  label: string;
   status: IntegrationStatus;
-  settings: BankSyncConfig | null;
-  scopes: string[];
+  config: BankSyncConnectionConfig;
 }
-
-export interface BankSyncResult {
-  ok: true;
-  /** Rows handed to statement import (its own dedupe may still drop some). */
-  imported: number;
-  statements: number;
-  accounts: Array<{ id: string; imported: number; statementId: string | null; error?: string }>;
-}
-
-const EMPTY_CONFIG: BankSyncConfig = {
-  provider: 'simplefin',
-  autoSync: true,
-  accounts: [],
-  lastSyncAt: null,
-  lastError: null,
-};
 
 /**
- * Bank sync through the user's own aggregator account. Seneca stores the
- * credential encrypted next to the other open-protocol integrations, pulls on
- * demand or every six hours, and feeds each account's new rows to statement
- * import as an OFX file, so everything downstream (dedupe, rules, review
- * inbox, audit) is the same path a hand-uploaded statement takes.
+ * The connections a workspace holds with bank-data providers, and which wallet
+ * each provider account feeds.
+ *
+ * A workspace may hold several connections, including several with the same
+ * provider: Enable Banking's free tier gives one application access only to
+ * the accounts of the person who linked them, so a couple sharing a workspace
+ * needs one connection each. The pull itself lives in BankSyncPullService.
  */
 @Injectable()
 export class BankSyncService {
-  private readonly logger = new Logger(BankSyncService.name);
-
   constructor(
     @InjectRepository(Integration)
     private readonly integrationRepository: Repository<Integration>,
@@ -93,388 +59,425 @@ export class BankSyncService {
     private readonly transactionRepository: Repository<Transaction>,
     @InjectRepository(Wallet)
     private readonly walletRepository: Repository<Wallet>,
-    private readonly statementsService: StatementsService,
-    private readonly provider: SimpleFinProvider,
+    @Inject(BANK_SYNC_PROVIDERS)
+    private readonly providers: BankSyncProvider[],
   ) {}
 
-  async status(workspaceId: string): Promise<BankSyncStatus> {
-    const { integration, settings } = await this.find(workspaceId);
-    const connected =
-      !!integration && integration.status !== IntegrationStatus.DISCONNECTED && !!settings;
-    return {
-      connected,
-      status: integration?.status ?? IntegrationStatus.DISCONNECTED,
-      settings: connected ? this.configOf(settings) : null,
-      scopes: [],
-    };
+  /** The providers this build can offer, for the "add a connection" screen. */
+  catalogue(): Array<{ key: string; linkStyle: 'token' | 'redirect' }> {
+    return this.providers.map(provider => ({
+      key: provider.key,
+      linkStyle: provider.linkStyle,
+    }));
   }
 
-  /** Setup token → credential → account list; every account starts enabled. */
-  async connect(user: User, workspaceId: string, setupToken: string): Promise<BankSyncStatus> {
-    const credential = await this.provider.claim(setupToken);
-    const accounts = await this.provider.fetchAccounts(credential, { balancesOnly: true });
-    const previous = this.configOf((await this.find(workspaceId)).settings);
-    const config: BankSyncConfig = {
-      ...EMPTY_CONFIG,
-      autoSync: previous.autoSync,
-      accounts: accounts.map(account =>
-        this.accountSetting(
-          account,
-          previous.accounts.find(item => item.id === account.id),
-          true,
-        ),
-      ),
-    };
-    await this.save(user, workspaceId, config, { accessUrl: encryptText(credential) });
-    return this.status(workspaceId);
+  async list(workspaceId: string): Promise<BankSyncConnection[]> {
+    const integrations = await this.integrationRepository.find({
+      where: { workspaceId, provider: In(this.providers.map(item => item.key)) },
+      relations: { openProtocolSettings: true },
+      order: { createdAt: 'ASC' },
+    });
+    return integrations
+      .filter(integration => integration.status !== IntegrationStatus.DISCONNECTED)
+      .map(integration => this.present(integration));
   }
 
-  async updateSettings(
+  /** SimpleFIN style: the pasted token becomes the credential, and the accounts arrive at once. */
+  async connectWithToken(
+    user: User,
     workspaceId: string,
-    dto: UpdateBankSyncSettingsBody,
-  ): Promise<BankSyncStatus> {
-    const { settings } = await this.requireConnected(workspaceId);
-    const config = this.configOf(settings);
-    if (dto.autoSync != null) config.autoSync = dto.autoSync;
-    if (dto.accounts) {
-      const walletIds = dto.accounts
-        .map(item => item.walletId)
-        .filter((id): id is string => typeof id === 'string');
-      const wallets = walletIds.length
-        ? await this.walletRepository.find({
-            where: { workspaceId, id: In(walletIds) },
-            select: {
-              id: true,
-            },
-          })
-        : [];
-      const known = new Set(wallets.map(wallet => wallet.id));
-      for (const change of dto.accounts) {
-        const account = config.accounts.find(item => item.id === change.id);
-        if (!account) throw new NotFoundException(`Account ${change.id} is not in this connection`);
-        if (change.enabled != null) account.enabled = change.enabled;
-        if (change.walletId !== undefined) {
-          if (change.walletId !== null && !known.has(change.walletId)) {
-            throw new BadRequestException('Wallet does not belong to this workspace');
-          }
-          account.walletId = change.walletId;
-        }
-      }
-    }
-    settings.config = config as unknown as Record<string, unknown>;
-    await this.settingsRepository.save(settings);
-    return this.status(workspaceId);
+    providerKey: string,
+    setupToken: string,
+    label?: string | null,
+  ): Promise<BankSyncConnection> {
+    const provider = this.tokenProvider(providerKey);
+    const secrets = await provider.claim(setupToken);
+    const integration = await this.createIntegration(user, workspaceId, providerKey);
+    const config = normalizeConfig({ label: label || providerKey }, providerKey);
+    const accounts = await provider.fetchAccounts({ secrets, links: [] }, { balancesOnly: true });
+    config.accounts = accounts.map(account => accountSettingOf(account, undefined, true));
+    await this.persist(integration, config, this.encryptSecrets(secrets));
+    return this.present(await this.reload(integration));
   }
 
-  /** Asks the provider for the account list again; accounts seen for the first time start disabled. */
-  async refreshAccounts(workspaceId: string): Promise<BankSyncStatus> {
-    const { integration, settings } = await this.requireConnected(workspaceId);
-    const config = this.configOf(settings);
-    const accounts = await this.guard(integration, () =>
-      this.provider.fetchAccounts(this.credentialOf(settings), { balancesOnly: true }),
+  /**
+   * Enable Banking style: the application credentials are stored first, banks
+   * are authorized afterwards one at a time.
+   */
+  async createRedirectConnection(
+    user: User,
+    workspaceId: string,
+    providerKey: string,
+    secrets: Record<string, string>,
+    label?: string | null,
+  ): Promise<BankSyncConnection> {
+    const provider = this.redirectProvider(providerKey);
+    await provider.verifyCredentials(secrets);
+    const integration = await this.createIntegration(user, workspaceId, providerKey);
+    const config = normalizeConfig({ label: label || providerKey }, providerKey);
+    await this.persist(integration, config, this.encryptSecrets(secrets));
+    return this.present(await this.reload(integration));
+  }
+
+  async listInstitutions(
+    workspaceId: string,
+    connectionId: string,
+    country: string,
+  ): Promise<BankSyncInstitution[]> {
+    const { integration } = await this.require(workspaceId, connectionId);
+    const provider = this.redirectProvider(integration.provider);
+    return provider.listInstitutions(this.secretsOf(integration), country);
+  }
+
+  /** Starts a bank authorization and remembers the state the callback must echo. */
+  async beginLink(
+    workspaceId: string,
+    connectionId: string,
+    input: {
+      institution: string;
+      country: string;
+      redirectUrl: string;
+      maxConsentValiditySeconds?: number | null;
+    },
+  ): Promise<{ url: string; state: string }> {
+    const { integration, settings } = await this.require(workspaceId, connectionId);
+    const provider = this.redirectProvider(integration.provider);
+    const state = randomUUID();
+    const { url } = await provider.beginLink(this.secretsOf(integration), {
+      institution: input.institution,
+      country: input.country,
+      redirectUrl: input.redirectUrl,
+      state,
+      maxConsentValiditySeconds: input.maxConsentValiditySeconds,
+    });
+    const config = this.configOf(integration);
+    config.pendingLink = { state, institution: input.institution, country: input.country };
+    await this.saveConfig(settings, config);
+    return { url, state };
+  }
+
+  /**
+   * Finishes the authorization the user started. The state has to be the one we
+   * handed out: a code arriving with anything else is not ours to redeem.
+   */
+  async completeLink(
+    workspaceId: string,
+    connectionId: string,
+    code: string,
+    state: string,
+  ): Promise<BankSyncConnection> {
+    const { integration, settings } = await this.require(workspaceId, connectionId);
+    const provider = this.redirectProvider(integration.provider);
+    const config = this.configOf(integration);
+    if (!config.pendingLink || config.pendingLink.state !== state) {
+      throw new BadRequestException(appError('BANK_SYNC_LINK_STATE_MISMATCH'));
+    }
+    const secrets = this.secretsOf(integration);
+    const link = await provider.completeLink(secrets, code);
+    config.pendingLink = null;
+    config.links = [...config.links.filter(item => item.id !== link.id), linkSettingOf(link)];
+    const accounts = await provider.fetchAccounts(
+      { secrets, links: linksOf(config) },
+      { balancesOnly: true },
     );
+    const known = new Map(config.accounts.map(account => [account.id, account]));
+    // Accounts from a link the user just authorized start on: they asked for them.
     config.accounts = accounts.map(account =>
-      this.accountSetting(
-        account,
-        config.accounts.find(item => item.id === account.id),
-        false,
-      ),
+      accountSettingOf(account, known.get(account.id), account.linkId === link.id),
     );
-    settings.config = config as unknown as Record<string, unknown>;
-    await this.settingsRepository.save(settings);
-    return this.status(workspaceId);
+    integration.status = IntegrationStatus.CONNECTED;
+    await this.integrationRepository.save(integration);
+    await this.saveConfig(settings, config);
+    return this.present(await this.reload(integration));
   }
 
-  async sync(user: User, workspaceId: string): Promise<BankSyncResult> {
-    const { integration, settings } = await this.requireConnected(workspaceId);
-    const config = this.configOf(settings);
-    const enabled = config.accounts.filter(account => account.enabled);
-    const result: BankSyncResult = { ok: true, imported: 0, statements: 0, accounts: [] };
-    if (enabled.length === 0) return result;
-
-    const now = new Date();
-    const sinceOf = (account: BankSyncAccountSetting) =>
-      account.lastSyncAt
-        ? new Date(new Date(account.lastSyncAt).getTime() - OVERLAP_DAYS * DAY_MS)
-        : new Date(now.getTime() - FIRST_SYNC_DAYS * DAY_MS);
-    const since = new Date(Math.min(...enabled.map(account => sinceOf(account).getTime())));
-
-    let pulled: BankSyncAccount[];
-    try {
-      pulled = await this.guard(integration, () =>
-        this.provider.fetchAccounts(this.credentialOf(settings), { since }),
-      );
-    } catch (error) {
-      config.lastError = this.messageOf(error);
-      settings.config = config as unknown as Record<string, unknown>;
-      await this.settingsRepository.save(settings);
-      throw error;
-    }
-
-    for (const account of enabled) {
-      const remote = pulled.find(item => item.id === account.id);
-      if (!remote) {
-        result.accounts.push({
-          id: account.id,
-          imported: 0,
-          statementId: null,
-          error: 'not returned by provider',
-        });
-        continue;
-      }
-      const floor = sinceOf(account).getTime();
-      const candidates = remote.transactions.filter(
-        item => !item.pending && item.posted.getTime() >= floor,
-      );
-      const fresh = await this.withoutKnownRows(workspaceId, account.id, candidates);
-      let statementId: string | null = null;
-      let error: string | undefined;
-      if (fresh.length > 0) {
-        try {
-          statementId = await this.importAsStatement(
-            user,
-            workspaceId,
-            remote,
-            fresh,
-            account.walletId,
-          );
-          result.imported += fresh.length;
-          result.statements += 1;
-        } catch (importError) {
-          error = this.messageOf(importError);
-          this.logger.warn(`Bank sync: account ${account.id} import failed: ${error}`);
-        }
-      }
-      if (!error) {
-        account.lastSyncAt = now.toISOString();
-        account.balance = remote.balance;
-        account.balanceDate = remote.balanceDate?.toISOString() ?? null;
-        account.name = remote.name;
-      }
-      result.accounts.push({
-        id: account.id,
-        imported: error ? 0 : fresh.length,
-        statementId,
-        ...(error ? { error } : {}),
-      });
-    }
-
-    config.lastSyncAt = now.toISOString();
-    config.lastError = result.accounts.find(item => item.error)?.error ?? null;
-    settings.config = config as unknown as Record<string, unknown>;
-    settings.lastSyncAt = now;
-    await this.settingsRepository.save(settings);
-    return result;
+  /** Asks the provider for the account list again; accounts seen for the first time start off. */
+  async refreshAccounts(workspaceId: string, connectionId: string): Promise<BankSyncConnection> {
+    const { integration, settings } = await this.require(workspaceId, connectionId);
+    const provider = this.providerOf(integration.provider);
+    const config = this.configOf(integration);
+    const accounts = await provider.fetchAccounts(
+      { secrets: this.secretsOf(integration), links: linksOf(config) },
+      { balancesOnly: true },
+    );
+    const known = new Map(config.accounts.map(account => [account.id, account]));
+    config.accounts = accounts.map(account =>
+      accountSettingOf(account, known.get(account.id), false),
+    );
+    await this.saveConfig(settings, config);
+    return this.present(await this.reload(integration));
   }
 
-  /** Forgets the credential; the imported statements stay. */
-  async disconnect(workspaceId: string): Promise<{ ok: true }> {
-    const { integration, settings } = await this.find(workspaceId);
-    if (settings) {
-      settings.encryptedSecrets = {};
-      settings.config = { ...this.configOf(settings), accounts: [] } as unknown as Record<
-        string,
-        unknown
-      >;
-      await this.settingsRepository.save(settings);
+  async updateConnection(
+    workspaceId: string,
+    connectionId: string,
+    changes: { label?: string | null; autoSync?: boolean | null },
+  ): Promise<BankSyncConnection> {
+    const { integration, settings } = await this.require(workspaceId, connectionId);
+    const config = this.configOf(integration);
+    if (changes.label != null) config.label = changes.label;
+    if (changes.autoSync != null) config.autoSync = changes.autoSync;
+    await this.saveConfig(settings, config);
+    return this.present(await this.reload(integration));
+  }
+
+  /**
+   * Turns one provider account on or off, or points it at a wallet. A wallet
+   * takes at most one feed across the whole workspace, so a second claim on it
+   * is refused rather than silently doubling its rows.
+   */
+  async updateAccount(
+    workspaceId: string,
+    connectionId: string,
+    accountId: string,
+    changes: { enabled?: boolean | null; walletId?: string | null },
+  ): Promise<BankSyncConnection> {
+    const { integration, settings } = await this.require(workspaceId, connectionId);
+    const config = this.configOf(integration);
+    const account = config.accounts.find(item => item.id === accountId);
+    if (!account) {
+      throw new NotFoundException(appError('BANK_SYNC_ACCOUNT_UNKNOWN', { id: accountId }));
     }
-    if (integration) {
-      integration.status = IntegrationStatus.DISCONNECTED;
-      await this.integrationRepository.save(integration);
+    if (changes.walletId !== undefined) {
+      if (changes.walletId !== null) {
+        await this.requireWallet(workspaceId, changes.walletId);
+        await this.requireWalletFree(workspaceId, changes.walletId, connectionId, accountId);
+      }
+      account.walletId = changes.walletId;
     }
+    if (changes.enabled != null) account.enabled = changes.enabled;
+    await this.saveConfig(settings, config);
+    return this.present(await this.reload(integration));
+  }
+
+  /**
+   * Moves a wallet's feed to another provider without starting over.
+   *
+   * The history stays where it is: nothing is deleted, and the new feed is told
+   * to begin the day after the wallet's last known row. Providers replay their
+   * full history on a fresh link and disagree with each other about dates, so
+   * without that floor a switch means hundreds of near-duplicate rows — the
+   * single loudest complaint about doing this anywhere else.
+   */
+  async switchFeed(
+    workspaceId: string,
+    input: { walletId: string; toConnectionId: string; toAccountId: string },
+  ): Promise<{
+    from: { connectionId: string; accountId: string } | null;
+    syncFrom: string | null;
+  }> {
+    await this.requireWallet(workspaceId, input.walletId);
+    const target = await this.require(workspaceId, input.toConnectionId);
+    const targetConfig = this.configOf(target.integration);
+    const targetAccount = targetConfig.accounts.find(item => item.id === input.toAccountId);
+    if (!targetAccount) {
+      throw new NotFoundException(appError('BANK_SYNC_ACCOUNT_UNKNOWN', { id: input.toAccountId }));
+    }
+    if (targetAccount.walletId && targetAccount.walletId !== input.walletId) {
+      throw new BadRequestException(appError('BANK_SYNC_ACCOUNT_FEEDS_OTHER_WALLET'));
+    }
+
+    const previous = await this.feedOf(workspaceId, input.walletId);
+    const lastRow = await this.lastTransactionDate(workspaceId, input.walletId);
+    const syncFrom = lastRow ? new Date(lastRow.getTime() + DAY_MS) : null;
+
+    if (
+      previous &&
+      !(previous.connectionId === input.toConnectionId && previous.accountId === input.toAccountId)
+    ) {
+      const source = await this.require(workspaceId, previous.connectionId);
+      const sourceConfig = this.configOf(source.integration);
+      const sourceAccount = sourceConfig.accounts.find(item => item.id === previous.accountId);
+      if (sourceAccount) {
+        sourceAccount.walletId = null;
+        sourceAccount.enabled = false;
+      }
+      await this.saveConfig(source.settings, sourceConfig);
+    }
+
+    targetAccount.walletId = input.walletId;
+    targetAccount.enabled = true;
+    targetAccount.syncFrom = syncFrom ? syncFrom.toISOString() : null;
+    targetAccount.lastSyncAt = null;
+    targetAccount.health = 'never_synced';
+    targetAccount.lastError = null;
+    targetAccount.balanceDrift = null;
+    await this.saveConfig(target.settings, targetConfig);
+
+    return {
+      from: previous,
+      syncFrom: syncFrom ? syncFrom.toISOString() : null,
+    };
+  }
+
+  /** Forgets the credentials; the imported statements and transactions stay. */
+  async disconnect(workspaceId: string, connectionId: string): Promise<{ ok: true }> {
+    const { integration, settings } = await this.require(workspaceId, connectionId);
+    settings.encryptedSecrets = {};
+    const config = this.configOf(integration);
+    await this.saveConfig(settings, { ...config, accounts: [], links: [], pendingLink: null });
+    integration.status = IntegrationStatus.DISCONNECTED;
+    await this.integrationRepository.save(integration);
     return { ok: true };
   }
 
-  /** Pulls every connected workspace that left auto-sync on, as the user who connected it. */
-  @Cron(CronExpression.EVERY_6_HOURS)
-  async autoSync(): Promise<void> {
-    const integrations = await this.integrationRepository.find({
-      // A past version pulls nothing new, whatever its copied settings say.
-      where: {
-        provider: IntegrationProvider.SIMPLEFIN,
-        status: IntegrationStatus.CONNECTED,
-        workspace: STANDARD_WORKSPACE,
-      },
-      relations: {
-        openProtocolSettings: true,
-        connectedByUser: true,
-      },
-    });
-    for (const integration of integrations) {
-      const config = this.configOf(integration.openProtocolSettings);
-      if (!(config.autoSync && integration.connectedByUser)) continue;
-      try {
-        const result = await this.sync(integration.connectedByUser, integration.workspaceId);
-        if (result.imported > 0) {
-          this.logger.log(
-            `Bank sync: workspace ${integration.workspaceId} pulled ${result.imported} rows into ${result.statements} statements`,
-          );
-        }
-      } catch (error) {
-        this.logger.warn(
-          `Bank sync: workspace ${integration.workspaceId} failed: ${this.messageOf(error)}`,
-        );
-      }
-    }
-  }
-
-  private async importAsStatement(
-    user: User,
+  /** Which provider account feeds this wallet, if any. */
+  async feedOf(
     workspaceId: string,
-    account: BankSyncAccount,
-    transactions: BankSyncAccount['transactions'],
-    walletId: string | null,
-  ): Promise<string> {
-    const uploadsDir = resolveUploadsDir();
-    await fs.promises.mkdir(uploadsDir, { recursive: true });
-    const content = Buffer.from(buildOfxStatement(account, transactions), 'utf8');
-    const filePath = path.join(uploadsDir, `${randomUUID()}.ofx`);
-    await fs.promises.writeFile(filePath, content);
-    const file = {
-      fieldname: 'files',
-      originalname: ofxFileName(account),
-      encoding: '7bit',
-      mimetype: 'application/x-ofx',
-      size: content.length,
-      destination: uploadsDir,
-      filename: path.basename(filePath),
-      path: filePath,
-      buffer: content,
-    } as Express.Multer.File;
-    try {
-      const statement = await this.statementsService.create(
-        user,
-        workspaceId,
-        file,
-        walletId ?? undefined,
-      );
-      return statement.id;
-    } catch (error) {
-      await fs.promises.unlink(filePath).catch(() => undefined);
-      throw error;
+    walletId: string,
+  ): Promise<{ connectionId: string; accountId: string } | null> {
+    for (const connection of await this.list(workspaceId)) {
+      const account = connection.config.accounts.find(item => item.walletId === walletId);
+      if (account) return { connectionId: connection.id, accountId: account.id };
     }
+    return null;
   }
 
-  /** Drops rows whose account-scoped provider id is already a document number in this workspace. */
-  private async withoutKnownRows<T extends { id: string }>(
-    workspaceId: string,
-    accountId: string,
-    rows: T[],
-  ): Promise<T[]> {
-    if (rows.length === 0) return rows;
-    const known = new Set<string>();
-    const ids = rows.map(row => providerRowKey(accountId, row.id));
-    for (let offset = 0; offset < ids.length; offset += 500) {
-      const existing = await this.transactionRepository.find({
-        where: { workspaceId, documentNumber: In(ids.slice(offset, offset + 500)) },
-        select: {
-          documentNumber: true,
-        },
-      });
-      for (const row of existing) {
-        if (row.documentNumber) known.add(row.documentNumber);
-      }
-    }
-    return rows.filter(row => !known.has(providerRowKey(accountId, row.id)));
-  }
+  // --- shared with the pull service ---
 
-  /** Runs a provider call; a rejected credential flips the integration to "needs re-auth". */
-  private async guard<T>(integration: Integration, call: () => Promise<T>): Promise<T> {
-    try {
-      return await call();
-    } catch (error) {
-      if (error instanceof BankSyncAuthError) {
-        integration.status = IntegrationStatus.NEEDS_REAUTH;
-        await this.integrationRepository.save(integration);
-        throw new BadRequestException(
-          'SimpleFIN no longer accepts this connection: paste a new setup token',
-        );
-      }
-      throw error;
-    }
-  }
-
-  private async find(workspaceId: string) {
+  async require(workspaceId: string, connectionId: string) {
     const integration = await this.integrationRepository.findOne({
-      where: { workspaceId, provider: IntegrationProvider.SIMPLEFIN },
-      relations: {
-        openProtocolSettings: true,
-      },
+      where: { id: connectionId, workspaceId },
+      relations: { openProtocolSettings: true },
     });
-    return { integration, settings: integration?.openProtocolSettings ?? null };
+    if (!integration?.openProtocolSettings) {
+      throw new NotFoundException(appError('BANK_SYNC_CONNECTION_NOT_FOUND'));
+    }
+    if (integration.status === IntegrationStatus.DISCONNECTED) {
+      throw new BadRequestException(appError('BANK_SYNC_CONNECTION_DISCONNECTED'));
+    }
+    return { integration, settings: integration.openProtocolSettings };
   }
 
-  private async requireConnected(workspaceId: string) {
-    const { integration, settings } = await this.find(workspaceId);
-    if (!integration || integration.status === IntegrationStatus.DISCONNECTED || !settings) {
-      throw new BadRequestException('Bank sync is not connected');
+  providerOf(key: string): BankSyncProvider {
+    const provider = this.providers.find(item => item.key === key);
+    if (!provider) {
+      throw new BadRequestException(appError('BANK_SYNC_PROVIDER_UNKNOWN', { provider: key }));
     }
-    if (!settings.encryptedSecrets?.accessUrl) {
-      throw new BadRequestException('Bank sync is not connected');
-    }
-    return { integration, settings };
+    return provider;
   }
 
-  private async save(
+  configOf(integration: Integration): BankSyncConnectionConfig {
+    return normalizeConfig(integration.openProtocolSettings?.config, integration.provider);
+  }
+
+  secretsOf(integration: Integration): Record<string, string> {
+    const stored = integration.openProtocolSettings?.encryptedSecrets ?? {};
+    const entries = Object.entries(stored);
+    if (entries.length === 0) throw new BadRequestException(appError('BANK_SYNC_NO_CREDENTIALS'));
+    return Object.fromEntries(entries.map(([key, value]) => [key, decryptText(value)]));
+  }
+
+  async saveConfig(
+    settings: OpenProtocolSettings,
+    config: BankSyncConnectionConfig,
+  ): Promise<void> {
+    settings.config = config as unknown as Record<string, unknown>;
+    await this.settingsRepository.save(settings);
+  }
+
+  present(integration: Integration): BankSyncConnection {
+    const config = this.configOf(integration);
+    return {
+      id: integration.id,
+      provider: integration.provider,
+      linkStyle: this.providerOf(integration.provider).linkStyle,
+      label: config.label || integration.provider,
+      status: integration.status,
+      config,
+    };
+  }
+
+  // --- internals ---
+
+  private tokenProvider(key: string): TokenBankSyncProvider {
+    const provider = this.providerOf(key);
+    if (isRedirectProvider(provider)) {
+      throw new BadRequestException(appError('BANK_SYNC_PROVIDER_NOT_TOKEN', { provider: key }));
+    }
+    return provider;
+  }
+
+  private redirectProvider(key: string): RedirectBankSyncProvider {
+    const provider = this.providerOf(key);
+    if (!isRedirectProvider(provider)) {
+      throw new BadRequestException(appError('BANK_SYNC_PROVIDER_NOT_REDIRECT', { provider: key }));
+    }
+    return provider;
+  }
+
+  private encryptSecrets(secrets: Record<string, string>): Record<string, string> {
+    return Object.fromEntries(
+      Object.entries(secrets).map(([key, value]) => [key, encryptText(value)]),
+    );
+  }
+
+  private async createIntegration(
     user: User,
     workspaceId: string,
-    config: BankSyncConfig,
+    providerKey: string,
+  ): Promise<Integration> {
+    const integration = this.integrationRepository.create({
+      workspaceId,
+      provider: providerKey as Integration['provider'],
+      // Several connections to one provider are normal here, so each gets its
+      // own instance key; NULL would mean "the only one" and collide.
+      instanceKey: randomUUID(),
+      scopes: [],
+      status: IntegrationStatus.CONNECTED,
+      connectedByUserId: user.id,
+    });
+    return this.integrationRepository.save(integration);
+  }
+
+  private async persist(
+    integration: Integration,
+    config: BankSyncConnectionConfig,
     secrets: Record<string, string>,
   ): Promise<void> {
-    const existing = await this.find(workspaceId);
-    const integration =
-      existing.integration ??
-      this.integrationRepository.create({
-        workspaceId,
-        provider: IntegrationProvider.SIMPLEFIN,
-        scopes: [],
-      });
-    integration.status = IntegrationStatus.CONNECTED;
-    integration.connectedByUserId = user.id;
-    const saved = await this.integrationRepository.save(integration);
     const settings =
-      existing.settings ??
-      this.settingsRepository.create({ integrationId: saved.id, lastSyncAt: null });
+      integration.openProtocolSettings ??
+      this.settingsRepository.create({ integrationId: integration.id, lastSyncAt: null });
     settings.config = config as unknown as Record<string, unknown>;
     settings.encryptedSecrets = secrets;
     await this.settingsRepository.save(settings);
   }
 
-  private credentialOf(settings: OpenProtocolSettings): string {
-    return decryptText(settings.encryptedSecrets.accessUrl);
+  private async reload({ id, workspaceId }: Integration): Promise<Integration> {
+    const integration = await this.integrationRepository.findOne({
+      where: { id, workspaceId },
+      relations: { openProtocolSettings: true },
+    });
+    if (!integration) throw new NotFoundException(appError('BANK_SYNC_CONNECTION_NOT_FOUND'));
+    return integration;
   }
 
-  private configOf(settings: OpenProtocolSettings | null | undefined): BankSyncConfig {
-    const raw = (settings?.config ?? {}) as Partial<BankSyncConfig>;
-    return {
-      provider: 'simplefin',
-      autoSync: raw.autoSync ?? EMPTY_CONFIG.autoSync,
-      accounts: Array.isArray(raw.accounts) ? raw.accounts.map(item => ({ ...item })) : [],
-      lastSyncAt: raw.lastSyncAt ?? null,
-      lastError: raw.lastError ?? null,
-    };
+  private async requireWallet(workspaceId: string, walletId: string): Promise<void> {
+    const wallet = await this.walletRepository.findOne({
+      where: { workspaceId, id: walletId },
+      select: { id: true },
+    });
+    if (!wallet) throw new BadRequestException(appError('BANK_SYNC_WALLET_NOT_IN_WORKSPACE'));
   }
 
-  private accountSetting(
-    account: BankSyncAccount,
-    previous: BankSyncAccountSetting | undefined,
-    enabledWhenNew: boolean,
-  ): BankSyncAccountSetting {
-    return {
-      id: account.id,
-      name: account.name,
-      org: account.org,
-      currency: account.currency,
-      enabled: previous?.enabled ?? enabledWhenNew,
-      walletId: previous?.walletId ?? null,
-      lastSyncAt: previous?.lastSyncAt ?? null,
-      balance: account.balance,
-      balanceDate: account.balanceDate?.toISOString() ?? null,
-    };
+  private async requireWalletFree(
+    workspaceId: string,
+    walletId: string,
+    connectionId: string,
+    accountId: string,
+  ): Promise<void> {
+    const feed = await this.feedOf(workspaceId, walletId);
+    if (feed && !(feed.connectionId === connectionId && feed.accountId === accountId)) {
+      throw new BadRequestException(appError('BANK_SYNC_WALLET_HAS_FEED'));
+    }
   }
 
-  private messageOf(error: unknown): string {
-    if (error instanceof Error) return error.message;
-    return String(error);
+  private async lastTransactionDate(workspaceId: string, walletId: string): Promise<Date | null> {
+    const row = await this.transactionRepository.findOne({
+      where: { workspaceId, walletId },
+      order: { transactionDate: 'DESC' },
+      select: { transactionDate: true },
+    });
+    return row?.transactionDate ? new Date(row.transactionDate) : null;
   }
 }

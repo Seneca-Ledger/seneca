@@ -182,8 +182,9 @@ vi.mock('@/app/(main)/statements/components/columns/statement-columns', () => ({
   statementColumnWidthStyle: () => ({ flex: '1 1 0', minWidth: 0 }),
 }));
 
-vi.mock('@/app/components/ui/spinner', () => ({
-  Spinner: () => null,
+vi.mock('@/app/components/ui/snapshot-skeleton/SnapshotSkeleton', () => ({
+  SnapshotSkeleton: ({ loading, children }: { loading: boolean; children?: React.ReactNode }) =>
+    loading ? <div role="status" /> : children,
 }));
 
 vi.mock('@/app/components/PDFPreviewModal', () => ({
@@ -515,6 +516,7 @@ describe('StatementsListView', () => {
     const lastFiltersDrawerProps = filtersDrawerPropsSpy.mock.calls.at(-1)?.[0];
     expect(lastFiltersDrawerProps?.visibleScreens).toEqual([
       'amount',
+      'amountView',
       'date',
       'groupBy',
       'has',

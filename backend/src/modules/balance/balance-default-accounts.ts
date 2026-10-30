@@ -1,8 +1,10 @@
+import type { WorkspaceProfile } from '../../common/utils/workspace-profile.util';
 import {
   BalanceAccountSubType,
   BalanceAccountType,
   BalanceAutoSource,
 } from '../../entities/balance-account.entity';
+import { PERSONAL_BALANCE_ACCOUNTS } from './balance-personal-accounts';
 
 type DefaultBalanceAccountDefinition = {
   code: string;
@@ -19,6 +21,10 @@ type DefaultBalanceAccountDefinition = {
   isExpandable?: boolean;
 };
 
+/**
+ * The accounting chart of accounts: the one a business files with. Sections
+ * are Roman-numbered because that is how the form is printed.
+ */
 export const DEFAULT_BALANCE_ACCOUNTS: DefaultBalanceAccountDefinition[] = [
   {
     code: 'ASSET_NON_CURRENT',
@@ -171,6 +177,27 @@ export const DEFAULT_BALANCE_ACCOUNTS: DefaultBalanceAccountDefinition[] = [
     isEditable: false,
     isExpandable: true,
   },
+  {
+    // What the credit cards and loans on the Accounts page owe, kept up by their rows.
+    code: 'LIABILITY_ACCOUNT_DEBTS',
+    name: 'Кредитные карты и кредиты',
+    nameEn: 'Cards and loans',
+    nameKk: 'Несие карталары мен несиелер',
+    accountType: BalanceAccountType.LIABILITY,
+    subType: BalanceAccountSubType.BORROWED_CAPITAL,
+    parentCode: 'LIABILITY_BORROWED',
+    position: 0,
+    isEditable: false,
+    isAutoComputed: true,
+    autoSource: BalanceAutoSource.WALLETS,
+  },
 ];
+
+/** The chart a workspace starts from, by what kind of money it keeps. */
+export function defaultAccountsFor(
+  profile: WorkspaceProfile,
+): readonly DefaultBalanceAccountDefinition[] {
+  return profile === 'home' ? PERSONAL_BALANCE_ACCOUNTS : DEFAULT_BALANCE_ACCOUNTS;
+}
 
 export type { DefaultBalanceAccountDefinition };

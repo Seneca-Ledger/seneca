@@ -900,7 +900,7 @@ describe('ImportSessionService', () => {
 
       importSessionRepository.findOne.mockResolvedValue(mockSession);
 
-      const result = await service.getSessionSummary('session-1');
+      const result = await service.getSessionSummary('session-1', 'ws-1');
 
       expect(result.totalTransactions).toBe(10);
       expect(result.newCount).toBe(5);
@@ -917,18 +917,18 @@ describe('ImportSessionService', () => {
 
       importSessionRepository.findOne.mockResolvedValue(mockSession);
 
-      const result = await service.getSessionSummary('session-1');
+      const result = await service.getSessionSummary('session-1', 'ws-1');
 
       expect(result.totalTransactions).toBe(0);
       expect(result.newCount).toBe(0);
       expect(result.matchedCount).toBe(0);
     });
 
-    it('should throw ImportValidationError if session not found', async () => {
+    it('should throw NotFoundException if session not found', async () => {
       importSessionRepository.findOne.mockResolvedValue(null);
 
-      await expect(service.getSessionSummary('invalid-session')).rejects.toThrow(
-        ImportValidationError,
+      await expect(service.getSessionSummary('invalid-session', 'ws-1')).rejects.toThrow(
+        NotFoundException,
       );
     });
   });
@@ -973,10 +973,10 @@ describe('ImportSessionService', () => {
         1: 'force_import' as const,
       };
 
-      await service.resolveConflicts('session-1', resolutions);
+      await service.resolveConflicts('session-1', 'ws-1', resolutions);
 
       expect(importSessionRepository.update).toHaveBeenCalledWith(
-        { id: 'session-1' },
+        { id: 'session-1', workspaceId: 'ws-1' },
         expect.objectContaining({
           sessionMetadata: expect.objectContaining({
             previewData: expect.objectContaining({
@@ -1006,7 +1006,7 @@ describe('ImportSessionService', () => {
 
       importSessionRepository.findOne.mockResolvedValue(sessionInWrongStatus);
 
-      await expect(service.resolveConflicts('session-1', { 0: 'skip' })).rejects.toThrow(
+      await expect(service.resolveConflicts('session-1', 'ws-1', { 0: 'skip' })).rejects.toThrow(
         ImportValidationError,
       );
     });
@@ -1019,7 +1019,7 @@ describe('ImportSessionService', () => {
 
       importSessionRepository.findOne.mockResolvedValue(sessionWithoutPreview);
 
-      await expect(service.resolveConflicts('session-1', { 0: 'skip' })).rejects.toThrow(
+      await expect(service.resolveConflicts('session-1', 'ws-1', { 0: 'skip' })).rejects.toThrow(
         ImportValidationError,
       );
     });
@@ -1035,10 +1035,10 @@ describe('ImportSessionService', () => {
       importSessionRepository.findOne.mockResolvedValue(mockSession);
       importSessionRepository.update.mockResolvedValue(undefined as any);
 
-      await service.cancelSession('session-1');
+      await service.cancelSession('session-1', 'ws-1');
 
       expect(importSessionRepository.update).toHaveBeenCalledWith(
-        { id: 'session-1' },
+        { id: 'session-1', workspaceId: 'ws-1' },
         expect.objectContaining({
           status: ImportSessionStatus.CANCELLED,
           completedAt: expect.any(Date),
@@ -1054,13 +1054,56 @@ describe('ImportSessionService', () => {
 
       importSessionRepository.findOne.mockResolvedValue(completedSession);
 
-      await expect(service.cancelSession('session-1')).rejects.toThrow(ImportValidationError);
+      await expect(service.cancelSession('session-1', 'ws-1')).rejects.toThrow(ImportValidationError);
     });
 
-    it('should throw ImportValidationError if session not found', async () => {
+    it('should throw NotFoundException if session not found', async () => {
       importSessionRepository.findOne.mockResolvedValue(null);
 
-      await expect(service.cancelSession('invalid-session')).rejects.toThrow(ImportValidationError);
+      await expect(service.cancelSession('invalid-session', 'ws-1')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
+
+  describe('workspace scope', () => {
+    // The repository answers only rows the where clause matches, as Postgres would.
+    const ownSession = {
+      id: 'session-1',
+      workspaceId: 'ws-1',
+      status: ImportSessionStatus.PREVIEW,
+      sessionMetadata: null,
+    } as ImportSession;
+
+    beforeEach(() => {
+      importSessionRepository.findOne.mockImplementation(async (options: any) =>
+        options.where.id === ownSession.id && options.where.workspaceId === ownSession.workspaceId
+          ? ownSession
+          : null,
+      );
+      importSessionRepository.update.mockResolvedValue(undefined as any);
+    });
+
+    it('loads a session by id and workspace, so another workspace sees "not found"', async () => {
+      await expect(service.getSession('session-1', 'ws-1')).resolves.toBe(ownSession);
+      await expect(service.getSession('session-1', 'ws-2')).rejects.toThrow(NotFoundException);
+      await expect(service.getSessionSummary('session-1', 'ws-2')).rejects.toThrow(
+        NotFoundException,
+      );
+      await expect(service.cancelSession('session-1', 'ws-2')).rejects.toThrow(NotFoundException);
+      await expect(service.resolveConflicts('session-1', 'ws-2', { 0: 'skip' })).rejects.toThrow(
+        ImportValidationError,
+      );
+      expect(importSessionRepository.update).not.toHaveBeenCalled();
+    });
+
+    it('writes a cancel only to the session of the workspace', async () => {
+      await service.cancelSession('session-1', 'ws-1');
+
+      expect(importSessionRepository.update).toHaveBeenCalledWith(
+        { id: 'session-1', workspaceId: 'ws-1' },
+        expect.objectContaining({ status: ImportSessionStatus.CANCELLED }),
+      );
     });
   });
 });

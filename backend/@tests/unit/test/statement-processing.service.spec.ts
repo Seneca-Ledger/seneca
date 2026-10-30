@@ -75,10 +75,6 @@ describe('StatementProcessingService', () => {
 
   const classificationService = {
     classifyTransaction: vi.fn(async () => ({ categoryId: 'cat-1' })),
-    determineMajorityCategory: vi.fn(async () => ({
-      categoryId: 'cat-1',
-      type: 'expense' as any,
-    })),
   };
 
   const metadataExtractionService = {
@@ -110,7 +106,13 @@ describe('StatementProcessingService', () => {
 
   // Runs the callback against a manager whose save() feeds the same
   // savedTransactions array the repository mock uses.
+  const walletRepository = {
+    find: vi.fn(async () => [] as unknown[]),
+    findOne: vi.fn(async () => null as unknown),
+  };
+
   const dataSource = {
+    getRepository: vi.fn(() => walletRepository),
     transaction: vi.fn(async (run: (manager: unknown) => Promise<unknown>) =>
       run({
         save: vi.fn(async (_entity: unknown, rows: Partial<Transaction>[]) =>
@@ -261,6 +263,54 @@ describe('StatementProcessingService', () => {
     expect(statement.totalDebit).toBe(100);
     expect(statement.totalCredit).toBe(200);
     expect(statement.totalTransactions).toBe(2);
+  });
+
+  describe('the account of a statement', () => {
+    afterEach(() => {
+      statement.walletId = null;
+      statement.accountNumber = null;
+    });
+
+    it('puts every row in the account the statement was uploaded to', async () => {
+      statement.walletId = 'wallet-everyday';
+      walletRepository.findOne.mockResolvedValueOnce({
+        id: 'wallet-everyday',
+        ownerMemberId: 'member-1',
+      });
+      // A rule pointing elsewhere does not move a row out of its statement's account.
+      classificationService.classifyTransaction.mockResolvedValue({
+        categoryId: 'cat-1',
+        walletId: 'wallet-other',
+      } as never);
+
+      await service.processStatement(statement.id);
+
+      expect(savedTransactions).toHaveLength(2);
+      for (const row of savedTransactions) {
+        expect(row).toMatchObject({ walletId: 'wallet-everyday', ownerMemberId: 'member-1' });
+      }
+      classificationService.classifyTransaction.mockResolvedValue({ categoryId: 'cat-1' });
+    });
+
+    it('finds the account by the statement number and keeps the match', async () => {
+      parsedStatement.metadata.accountNumber = 'DE00 0000 0000 0001';
+      walletRepository.find.mockResolvedValueOnce([
+        { id: 'wallet-everyday', accountNumber: '0001', currency: 'USD', isActive: true, ownerMemberId: null },
+      ]);
+
+      await service.processStatement(statement.id);
+
+      expect(statement.walletId).toBe('wallet-everyday');
+      expect(savedTransactions.every(row => row.walletId === 'wallet-everyday')).toBe(true);
+      parsedStatement.metadata.accountNumber = '';
+    });
+
+    it('leaves rows without an account when nothing matches', async () => {
+      await service.processStatement(statement.id);
+
+      expect(statement.walletId).toBeNull();
+      expect(savedTransactions.every(row => row.walletId === undefined)).toBe(true);
+    });
   });
 
   it('writes every transaction in one database transaction', async () => {
@@ -426,6 +476,7 @@ describe('StatementProcessingService', () => {
 
     expect(statement.status).toBe(StatementStatus.NEEDS_REVIEW);
     expect(statement.parsingDetails?.validation?.passed).toBe(false);
+    expect(statement.parsingDetails?.validation?.reasonCodes).toEqual(['balance_mismatch']);
     expect(statement.parsingDetails?.validation?.balanceCheck).toMatchObject({
       expectedEnd: 1100,
       actualEnd: 1500,
@@ -433,6 +484,34 @@ describe('StatementProcessingService', () => {
     });
     // Transactions are still persisted — only their visibility is withheld.
     expect(savedTransactions).toHaveLength(2);
+  });
+
+  it("holds the statement for review when the parser's own reading fails a check", async () => {
+    parserFactory.getParser.mockResolvedValueOnce({
+      parse: vi.fn().mockResolvedValue({
+        ...parsedStatement,
+        checks: [
+          { code: 'printed_totals', passed: true },
+          {
+            code: 'balance_chain',
+            passed: false,
+            detail: { row: 2, date: '15/02/2025', expected: 1110, actual: 1050 },
+          },
+        ],
+        layout: { fingerprint: '0123456789ab', headings: ['date:date | amount:amount'], unknownWords: [] },
+      }),
+      constructor: { name: 'FakeParser' },
+    });
+
+    await service.processStatement(statement.id);
+
+    expect(statement.status).toBe(StatementStatus.NEEDS_REVIEW);
+    expect(statement.parsingDetails?.validation?.reasonCodes).toEqual(['balance_chain']);
+    expect(statement.parsingDetails?.warnings).toContain(
+      'Balance chain broken at row 2 (15/02/2025): expected 1110.00 got 1050.00',
+    );
+    expect(statement.parsingDetails?.checks).toHaveLength(2);
+    expect(statement.parsingDetails?.layout?.fingerprint).toBe('0123456789ab');
   });
 
   it('completes the statement when the balance reconciles', async () => {
@@ -448,6 +527,52 @@ describe('StatementProcessingService', () => {
 
     expect(statement.status).toBe(StatementStatus.COMPLETED);
     expect(statement.parsingDetails?.validation?.passed).toBe(true);
+    expect(statement.parsingDetails?.validation?.reasonCodes).toEqual([]);
+  });
+
+  describe('a file that prints several accounts', () => {
+    const otherAccount: ParsedStatement = {
+      metadata: { ...parsedStatement.metadata, accountNumber: 'ACC-2', currency: 'EUR' },
+      transactions: [parsedStatement.transactions[0]],
+    };
+    const twoAccounts = () =>
+      parserFactory.getParser.mockResolvedValueOnce({
+        parse: vi.fn().mockResolvedValue({
+          ...parsedStatement,
+          metadata: { ...parsedStatement.metadata, accountNumber: 'ACC-1', currency: 'USD' },
+          otherAccounts: [otherAccount],
+        }),
+        constructor: { name: 'FakeParser' },
+      });
+
+    afterEach(() => {
+      statement.sourceAccountIndex = null;
+    });
+
+    it('imports the first account into the upload and lists the others', async () => {
+      twoAccounts();
+
+      await service.processStatement(statement.id);
+
+      expect(statement.accountNumber).toBe('ACC-1');
+      expect(savedTransactions).toHaveLength(parsedStatement.transactions.length);
+      expect(statement.status).toBe(StatementStatus.COMPLETED);
+      expect(statement.parsingDetails?.otherAccounts).toEqual([
+        { index: 1, accountNumber: 'ACC-2', currency: 'EUR', transactions: 1 },
+      ]);
+    });
+
+    it('imports only its own account into a statement made for one of the others', async () => {
+      twoAccounts();
+      statement.sourceAccountIndex = 1;
+
+      await service.processStatement(statement.id);
+
+      expect(statement.accountNumber).toBe('ACC-2');
+      expect(statement.currency).toBe('EUR');
+      expect(savedTransactions).toHaveLength(otherAccount.transactions.length);
+      expect(statement.parsingDetails?.otherAccounts).toBeUndefined();
+    });
   });
 
   it('completes the statement when the bank gave no balances to check', async () => {
@@ -457,18 +582,15 @@ describe('StatementProcessingService', () => {
     expect(statement.parsingDetails?.validation?.balanceCheck).toBeUndefined();
   });
 
-  it('does not assign one majority category to every uncategorized transaction', async () => {
+  it('guesses no category: neither for the rows nor for the statement as a whole', async () => {
+    statement.categoryId = null;
     classificationService.classifyTransaction.mockResolvedValue({} as any);
-    classificationService.determineMajorityCategory.mockResolvedValue({
-      categoryId: 'cat-majority',
-      type: 'expense' as any,
-    });
 
     await service.processStatement(statement.id);
 
     expect(savedTransactions[0].categoryId).toBeUndefined();
     expect(savedTransactions[1].categoryId).toBeUndefined();
-    expect(statement.categoryId).toBe('cat-majority');
+    expect(statement.categoryId).toBeNull();
   });
 
   it('skips automatic category assignment when manual category selection is required', async () => {
@@ -477,10 +599,6 @@ describe('StatementProcessingService', () => {
     } as Statement['parsingDetails'];
     statement.categoryId = null;
     classificationService.classifyTransaction.mockResolvedValue({ categoryId: 'cat-1' });
-    classificationService.determineMajorityCategory.mockResolvedValue({
-      categoryId: 'cat-majority',
-      type: 'expense' as any,
-    });
 
     await service.processStatement(statement.id);
 

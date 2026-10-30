@@ -55,12 +55,58 @@ describe('useCashFlowMap: include transfers', () => {
     act(() => hook?.update({ includeTransfers: false }));
     await waitFor(() => expect(getByTestId('include').textContent).toBe('false'));
     expect(apiPut).toHaveBeenCalledWith('/view-preferences/reports', {
-      state: { includeTransfers: false },
+      state: { includeTransfers: false, netRefunds: false },
     });
 
     apiPut.mockClear();
     act(() => hook?.update({ compare: false }));
     expect(apiPut).not.toHaveBeenCalled();
     expect(hook?.filters.compare).toBe(false);
+  });
+});
+
+describe('useCashFlowMap: refunds and the comparison window', () => {
+  beforeEach(() => {
+    apiGet.mockReset();
+    apiPut.mockReset();
+    apiPut.mockResolvedValue({ data: {} });
+    hook = null;
+  });
+
+  const lastMapParams = (): Record<string, unknown> =>
+    apiGet.mock.calls.filter(([url]) => url === '/reports/cash-flow-map').at(-1)?.[1]?.params;
+
+  it('counts refunds as income until this person asks to net them, and remembers that', async () => {
+    serve(null);
+    renderWithQuery(<Probe />);
+    await waitFor(() => expect(lastMapParams()).toBeDefined());
+    expect(hook?.filters.netRefunds).toBe(false);
+    expect(lastMapParams()).not.toHaveProperty('netRefunds');
+
+    act(() => hook?.update({ netRefunds: true }));
+    await waitFor(() => expect(lastMapParams()).toMatchObject({ netRefunds: true }));
+    expect(apiPut).toHaveBeenCalledWith('/view-preferences/reports', {
+      state: { includeTransfers: true, netRefunds: true },
+    });
+  });
+
+  it('comes back netting refunds when that was saved', async () => {
+    serve({ netRefunds: true });
+    renderWithQuery(<Probe />);
+    await waitFor(() => expect(hook?.filters.netRefunds).toBe(true));
+  });
+
+  it('asks for last year only while comparing', async () => {
+    serve(null);
+    renderWithQuery(<Probe />);
+    await waitFor(() => expect(lastMapParams()).toBeDefined());
+    expect(lastMapParams()).not.toHaveProperty('compareTo');
+
+    act(() => hook?.update({ compareTo: 'year' }));
+    await waitFor(() => expect(lastMapParams()).toMatchObject({ compare: true, compareTo: 'year' }));
+
+    act(() => hook?.update({ compare: false }));
+    await waitFor(() => expect(lastMapParams()).not.toHaveProperty('compare'));
+    expect(lastMapParams()).not.toHaveProperty('compareTo');
   });
 });

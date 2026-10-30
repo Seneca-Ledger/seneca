@@ -17,6 +17,7 @@ vi.mock('@/common/utils/advanced-language-detector.util', () => ({
 vi.mock('@/common/utils/pdf-parser.util', () => ({
   extractTextFromPdf: vi.fn(),
   extractTablesFromPdf: vi.fn(),
+  extractTextAndLayoutFromPdf: vi.fn().mockResolvedValue({ text: '', rows: [] }),
 }));
 
 describe('GenericPdfParser', () => {

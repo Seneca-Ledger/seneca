@@ -38,6 +38,7 @@ import { formatStoredDate } from '@/app/lib/user-format-store';
 import { useWorkspaceId } from '../../hooks/useWorkspaceId';
 import apiClient from '../../lib/api';
 import { queryKeys } from '../../lib/query-keys';
+import { type AdminPermission, usePermissionOptions } from './hooks/usePermissionOptions';
 
 const USER_ROW_SKELETON_KEYS = ['user-0', 'user-1', 'user-2', 'user-3', 'user-4', 'user-5'];
 
@@ -79,7 +80,6 @@ interface User {
   createdAt: string;
 }
 
-type AdminPermission = ContractInput<'UpdatePermissionsBody'>['permissions'][number];
 type UserRole = NonNullable<ContractInput<'UpdateUserBody'>['role']>;
 
 const USER_ROLES: readonly UserRole[] = ['admin', 'user', 'viewer'];
@@ -88,36 +88,7 @@ const isUserRole = (value: string): value is UserRole => USER_ROLES.some(role =>
 export default function UsersManagementPage() {
   const t = useIntlayer('adminUsersPage');
   const { locale } = useLocale();
-  const ALL_PERMISSIONS: Array<{ value: AdminPermission; label: string }> = [
-    { value: 'statement.view', label: t.permissions.statementView.value },
-    { value: 'statement.upload', label: t.permissions.statementUpload.value },
-    { value: 'statement.delete', label: t.permissions.statementDelete.value },
-    { value: 'statement.edit', label: t.permissions.statementEdit.value },
-    { value: 'transaction.view', label: t.permissions.transactionView.value },
-    { value: 'transaction.edit', label: t.permissions.transactionEdit.value },
-    {
-      value: 'transaction.delete',
-      label: t.permissions.transactionDelete.value,
-    },
-    {
-      value: 'transaction.bulk_update',
-      label: t.permissions.transactionBulkUpdate.value,
-    },
-    { value: 'category.view', label: t.permissions.categoryView.value },
-    { value: 'category.create', label: t.permissions.categoryCreate.value },
-    { value: 'category.edit', label: t.permissions.categoryEdit.value },
-    { value: 'category.delete', label: t.permissions.categoryDelete.value },
-    { value: 'branch.view', label: t.permissions.branchView.value },
-    { value: 'branch.create', label: t.permissions.branchCreate.value },
-    { value: 'branch.edit', label: t.permissions.branchEdit.value },
-    { value: 'branch.delete', label: t.permissions.branchDelete.value },
-    { value: 'wallet.view', label: t.permissions.walletView.value },
-    { value: 'wallet.create', label: t.permissions.walletCreate.value },
-    { value: 'wallet.edit', label: t.permissions.walletEdit.value },
-    { value: 'wallet.delete', label: t.permissions.walletDelete.value },
-    { value: 'report.view', label: t.permissions.reportView.value },
-    { value: 'report.export', label: t.permissions.reportExport.value },
-  ];
+  const ALL_PERMISSIONS = usePermissionOptions();
 
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');

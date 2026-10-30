@@ -4,6 +4,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { JwtAuthGuard } from '../../../../src/common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../../../src/common/guards/permissions.guard';
 import { WorkspaceContextGuard } from '../../../../src/common/guards/workspace-context.guard';
+import { ReceiptApprovalsController } from '../../../../src/modules/receipts/receipt-approvals.controller';
+import { ReceiptTagsController } from '../../../../src/modules/receipts/receipt-tags.controller';
 import { ReceiptsController } from '../../../../src/modules/receipts/receipts.controller';
 import { ReceiptsService } from '../../../../src/modules/receipts/receipts.service';
 import { ReceiptLocationService } from '../../../../src/modules/receipts/services/receipt-location.service';
@@ -13,11 +15,15 @@ import { ReceiptSplitService } from '../../../../src/modules/receipts/services/r
 import { ReceiptPlaceSuggestionService } from '../../../../src/modules/receipts/services/receipt-place-suggestion.service';
 import { ReceiptDocumentsService } from '../../../../src/modules/receipts/services/receipt-documents.service';
 import { ReceiptDuplicateService } from '../../../../src/modules/receipts/services/receipt-duplicate.service';
+import { ReceiptTagsService } from '../../../../src/modules/receipts/services/receipt-tags.service';
 
 describe('ReceiptsController', () => {
   let controller: ReceiptsController;
+  let approvals: ReceiptApprovalsController;
   let locationService: { setManual: Mock; resetToAuto: Mock };
   let placeSuggestionService: { suggest: Mock };
+  let tagsController: ReceiptTagsController;
+  let tagsService: { getTags: Mock; setTags: Mock };
   let service: {
     createFromUpload: Mock;
     createFromScan: Mock;
@@ -56,9 +62,13 @@ describe('ReceiptsController', () => {
     };
 
     placeSuggestionService = { suggest: vi.fn().mockResolvedValue({ needed: false }) };
+    tagsService = {
+      getTags: vi.fn().mockResolvedValue([{ id: 'tag-1', name: 'Trip' }]),
+      setTags: vi.fn().mockResolvedValue([]),
+    };
 
     const moduleBuilder = Test.createTestingModule({
-      controllers: [ReceiptsController],
+      controllers: [ReceiptsController, ReceiptApprovalsController, ReceiptTagsController],
       providers: [
         { provide: ReceiptsService, useValue: service },
         { provide: ReceiptLocationService, useValue: locationService },
@@ -68,6 +78,7 @@ describe('ReceiptsController', () => {
         { provide: ReceiptPlaceSuggestionService, useValue: placeSuggestionService },
         { provide: ReceiptDocumentsService, useValue: {} },
         { provide: ReceiptDuplicateService, useValue: {} },
+        { provide: ReceiptTagsService, useValue: tagsService },
       ],
     });
 
@@ -82,6 +93,8 @@ describe('ReceiptsController', () => {
     const module: TestingModule = await moduleBuilder.compile();
 
     controller = module.get(ReceiptsController);
+    approvals = module.get(ReceiptApprovalsController);
+    tagsController = module.get(ReceiptTagsController);
   });
 
   it('delegates upload to service', async () => {
@@ -127,7 +140,7 @@ describe('ReceiptsController', () => {
   });
 
   it('delegates approval to service', async () => {
-    await controller.approve('receipt-1', 'workspace-1', { id: 'user-1' } as any, {
+    await approvals.approve({ id: 'receipt-1' }, 'workspace-1', { id: 'user-1' } as any, {
       transactionId: null,
     });
 
@@ -137,7 +150,7 @@ describe('ReceiptsController', () => {
   });
 
   it('delegates bulk approval to service', async () => {
-    await controller.bulkApprove(
+    await approvals.bulkApprove(
       { receiptIds: ['receipt-1', 'receipt-2'] } as any,
       'workspace-1',
       { id: 'user-1' } as any,
@@ -152,7 +165,7 @@ describe('ReceiptsController', () => {
   });
 
   it('passes the editing user to update', async () => {
-    await controller.update('receipt-1', 'workspace-1', { status: 'reviewed' } as any, {
+    await controller.update({ id: 'receipt-1' }, 'workspace-1', { status: 'reviewed' } as any, {
       id: 'user-1',
     } as any);
 
@@ -165,7 +178,7 @@ describe('ReceiptsController', () => {
   });
 
   it('delegates delete to service', async () => {
-    await controller.delete('receipt-1', 'workspace-1', { id: 'user-1' } as any);
+    await controller.delete({ id: 'receipt-1' }, 'workspace-1', { id: 'user-1' } as any);
 
     expect(service.delete).toHaveBeenCalledWith('receipt-1', 'workspace-1', 'user-1');
   });
@@ -177,7 +190,7 @@ describe('ReceiptsController', () => {
       send: vi.fn(),
     } as any;
 
-    await controller.getFile('receipt-1', 'workspace-1', response);
+    await controller.getFile({ id: 'receipt-1' }, 'workspace-1', response);
 
     expect(service.getFilePayload).toHaveBeenCalledWith('receipt-1', 'workspace-1');
     expect(response.setHeader).toHaveBeenCalledWith('Content-Type', 'image/jpeg');
@@ -194,7 +207,7 @@ describe('ReceiptsController', () => {
       json: vi.fn(),
     } as any;
 
-    await controller.getFile('receipt-1', 'workspace-1', response);
+    await controller.getFile({ id: 'receipt-1' }, 'workspace-1', response);
 
     expect(response.status).toHaveBeenCalledWith(HttpStatus.NOT_FOUND);
   });
@@ -222,7 +235,7 @@ describe('ReceiptsController', () => {
 
   it('pins a manual location inside the workspace', async () => {
     await expect(
-      controller.setLocation('receipt-1', 'workspace-1', { latitude: 1, longitude: 2 }, {
+      controller.setLocation({ id: 'receipt-1' }, 'workspace-1', { latitude: 1, longitude: 2 }, {
         id: 'user-1',
       } as any),
     ).resolves.toMatchObject({ locationSource: 'manual' });
@@ -239,7 +252,7 @@ describe('ReceiptsController', () => {
     locationService.setManual.mockResolvedValue(null);
 
     await expect(
-      controller.setLocation('receipt-1', 'workspace-2', { latitude: 1, longitude: 2 }, {
+      controller.setLocation({ id: 'receipt-1' }, 'workspace-2', { latitude: 1, longitude: 2 }, {
         id: 'user-1',
       } as any),
     ).rejects.toThrow('Receipt not found');
@@ -247,13 +260,13 @@ describe('ReceiptsController', () => {
 
   it('resets the location to automatic', async () => {
     const user = { id: 'user-1' } as any;
-    await expect(controller.resetLocation('receipt-1', 'workspace-1', user)).resolves.toMatchObject({
+    await expect(controller.resetLocation({ id: 'receipt-1' }, 'workspace-1', user)).resolves.toMatchObject({
       locationSource: 'device',
     });
     expect(locationService.resetToAuto).toHaveBeenCalledWith('receipt-1', 'workspace-1', 'user-1');
 
     locationService.resetToAuto.mockResolvedValue(null);
-    await expect(controller.resetLocation('receipt-1', 'workspace-2', user)).rejects.toThrow(
+    await expect(controller.resetLocation({ id: 'receipt-1' }, 'workspace-2', user)).rejects.toThrow(
       'Receipt not found',
     );
   });
@@ -263,7 +276,7 @@ describe('ReceiptsController', () => {
     locationService.setManual.mockResolvedValue({ id: 'receipt-1', locationSource: 'place' });
 
     await expect(
-      controller.setLocation('receipt-1', 'workspace-1', { latitude: 1, longitude: 2, place }, {
+      controller.setLocation({ id: 'receipt-1' }, 'workspace-1', { latitude: 1, longitude: 2, place }, {
         id: 'user-1',
       } as any),
     ).resolves.toMatchObject({ locationSource: 'place' });
@@ -288,5 +301,20 @@ describe('ReceiptsController', () => {
     await expect(controller.placeSuggestions('workspace-2', dto)).rejects.toThrow(
       'Receipt not found',
     );
+  });
+
+  it('reads and replaces a receipt\'s tags inside the workspace', async () => {
+    await expect(tagsController.getTags({ id: 'receipt-1' }, 'workspace-1')).resolves.toEqual([
+      { id: 'tag-1', name: 'Trip' },
+    ]);
+    expect(tagsService.getTags).toHaveBeenCalledWith('receipt-1', 'workspace-1');
+
+    await expect(
+      tagsController.setTags({ id: 'receipt-1' }, { tagIds: ['tag-1', 'tag-2'] }, 'workspace-1'),
+    ).resolves.toEqual([]);
+    expect(tagsService.setTags).toHaveBeenCalledWith('receipt-1', 'workspace-1', [
+      'tag-1',
+      'tag-2',
+    ]);
   });
 });

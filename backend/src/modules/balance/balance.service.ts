@@ -1,11 +1,15 @@
 import { randomUUID } from 'node:crypto';
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, type Repository } from 'typeorm';
-import * as xlsx from 'xlsx';
+import { In, Not, type Repository } from 'typeorm';
 import { toEnum } from '../../common/effect/to-enum';
+import { appError } from '../../common/errors/app-error';
 import { onlyCounted } from '../../common/utils/counted-transactions.util';
 import { currencyCodeOrDefault } from '../../common/utils/currency.util';
+import {
+  readWorkspaceProfile,
+  type WorkspaceProfile,
+} from '../../common/utils/workspace-profile.util';
 import type {
   BalanceAccountNode,
   BalanceSheetResponse,
@@ -24,12 +28,12 @@ import {
   EntityType,
   RiskLevel,
   Statement,
-  StatementStatus,
   Transaction,
   Wallet,
   Workspace,
   WorkspaceMember,
 } from '../../entities';
+import { DEBT_WALLET_TYPES } from '../../entities/wallet.entity';
 import { AuditService } from '../audit/audit.service';
 import {
   addAmount,
@@ -38,19 +42,23 @@ import {
   normalizeCurrencyCode,
 } from '../exchange-rates/currency-converter';
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
-import { loadPdfMake } from '../reports/report-document.util';
 import { balanceAccountName } from './balance-account-name';
-import { DEFAULT_BALANCE_ACCOUNTS } from './balance-default-accounts';
+import {
+  negateSeries,
+  statementCashSeries,
+  sumSeries,
+  walletCashSeries,
+} from './balance-cash-series';
+import { defaultAccountsFor } from './balance-default-accounts';
+import { exportBalanceAsExcel, exportBalanceAsPdf } from './balance-export';
+import { ACCOUNTING_ONLY_SECTIONS } from './balance-personal-accounts';
 import { BalanceExportFormat } from './dto/export-balance.dto';
 
 /** The one line whose risk is fixed rather than chosen. */
 export const CASH_ACCOUNT_CODE = 'ASSET_CASH';
 
-const LIVE_STATEMENT_STATUSES = [
-  StatementStatus.PARSED,
-  StatementStatus.VALIDATED,
-  StatementStatus.COMPLETED,
-];
+/** The liability line the credit cards and loans on the Accounts page fill. */
+export const DEBTS_ACCOUNT_CODE = 'LIABILITY_ACCOUNT_DEBTS';
 
 @Injectable()
 export class BalanceService {
@@ -94,7 +102,7 @@ export class BalanceService {
 
     const asDate = new Date(date);
     if (Number.isNaN(asDate.getTime())) {
-      throw new BadRequestException('Invalid date format');
+      throw new BadRequestException(appError('BALANCE_DATE_INVALID'));
     }
 
     return asDate.toISOString().split('T')[0];
@@ -115,10 +123,6 @@ export class BalanceService {
     return Math.round(value * 100) / 100;
   }
 
-  private formatAmount(value: number, currency: string): string {
-    return `${this.round(value).toFixed(2)} ${currency}`;
-  }
-
   private resolveAccountName(node: BalanceAccountNode, locale?: string): string {
     return balanceAccountName(node, locale);
   }
@@ -130,67 +134,6 @@ export class BalanceService {
         this.localizeTree(node.children, locale);
       }
     }
-  }
-
-  private getExportLabels(locale?: string): Record<string, string> {
-    const resolvedLocale = locale === 'en' || locale === 'kk' || locale === 'ru' ? locale : 'en';
-    const labels = {
-      ru: {
-        balanceAsOf: 'Баланс на',
-        assets: 'Активы',
-        liabilities: 'Пассивы',
-        total: 'Итого',
-        difference: 'Разница',
-        balanced: 'Сходится',
-        yes: 'Да',
-        no: 'Нет',
-        notBalanced: 'не сходится',
-      },
-      en: {
-        balanceAsOf: 'Balance sheet as of',
-        assets: 'Assets',
-        liabilities: 'Liabilities',
-        total: 'Total',
-        difference: 'Difference',
-        balanced: 'Balanced',
-        yes: 'Yes',
-        no: 'No',
-        notBalanced: 'not balanced',
-      },
-      kk: {
-        balanceAsOf: 'Баланс',
-        assets: 'Активтер',
-        liabilities: 'Пассивтер',
-        total: 'Барлығы',
-        difference: 'Айырма',
-        balanced: 'Сәйкес',
-        yes: 'Иә',
-        no: 'Жоқ',
-        notBalanced: 'сәйкес емес',
-      },
-    };
-
-    return labels[resolvedLocale];
-  }
-
-  private flattenForExport(
-    accounts: BalanceAccountNode[],
-    level = 0,
-  ): Array<{ label: string; amount: number }> {
-    const rows: Array<{ label: string; amount: number }> = [];
-
-    for (const account of accounts) {
-      rows.push({
-        label: `${'  '.repeat(level)}${account.name}`,
-        amount: this.round(account.amount),
-      });
-
-      if (account.children.length > 0) {
-        rows.push(...this.flattenForExport(account.children, level + 1));
-      }
-    }
-
-    return rows;
   }
 
   private async ensureSeeded(workspaceId: string): Promise<void> {
@@ -266,12 +209,15 @@ export class BalanceService {
    * one query per date. The balance sheet asks for one date, the net worth
    * chart for its sample points; both read the same rule from here:
    *
-   * - with active wallets, their opening balances plus the movements booked
-   *   to them;
-   * - otherwise the closing balance of the latest statement of each bank
-   *   account, summed over the accounts.
+   * - every active account that is not a debt: its opening balance plus the
+   *   movements booked to it;
+   * - plus, for bank statements no account holds, the closing balance of the
+   *   latest statement of each bank account.
    *
-   * Statements in the trash, and their rows, are left out.
+   * Both together, so creating the first account moves money between the two
+   * parts instead of dropping every other bank from the total. Debts (cards,
+   * loans) are liabilities, not negative cash. Statements in the trash, and
+   * their rows, are left out.
    */
   async getCashSeries(workspaceId: string, dates: string[]): Promise<Map<string, CurrencyAmounts>> {
     const members = await this.workspaceMemberRepository.find({
@@ -288,7 +234,12 @@ export class BalanceService {
     const wallets =
       memberIds.length > 0
         ? await this.walletRepository.find({
-            where: { workspaceId, userId: In(memberIds), isActive: true },
+            where: {
+              workspaceId,
+              userId: In(memberIds),
+              isActive: true,
+              type: Not(In([...DEBT_WALLET_TYPES])),
+            },
             select: {
               id: true,
               initialBalance: true,
@@ -297,115 +248,30 @@ export class BalanceService {
           })
         : [];
 
-    return wallets.length > 0
-      ? this.getWalletCashSeries(workspaceId, wallets, dates)
-      : this.getStatementCashSeries(workspaceId, dates);
+    const [walletSeries, statementSeries] = await Promise.all([
+      wallets.length > 0
+        ? walletCashSeries(this.transactionRepository, workspaceId, wallets, dates)
+        : null,
+      statementCashSeries(this.statementRepository, workspaceId, dates),
+    ]);
+    return walletSeries ? sumSeries(dates, walletSeries, statementSeries) : statementSeries;
   }
 
-  private async getWalletCashSeries(
-    workspaceId: string,
-    wallets: Array<Pick<Wallet, 'id' | 'initialBalance' | 'currency'>>,
-    dates: string[],
-  ): Promise<Map<string, CurrencyAmounts>> {
-    const walletIds = wallets.map(wallet => wallet.id);
-    const to = dates[dates.length - 1];
-
-    const rows = await onlyCounted(
-      this.transactionRepository
-        .createQueryBuilder('transaction')
-        .leftJoin('transaction.statement', 'statement')
-        .select('transaction.transactionDate', 'date')
-        .addSelect('transaction.currency', 'currency')
-        .addSelect('COALESCE(SUM(transaction.credit), 0)', 'credit')
-        .addSelect('COALESCE(SUM(transaction.debit), 0)', 'debit')
-        .where('transaction.workspaceId = :workspaceId', { workspaceId }),
-      'transaction',
-    )
-      .andWhere('transaction.walletId IN (:...walletIds)', { walletIds })
-      .andWhere('transaction.transactionDate <= :to', { to })
-      .andWhere('(transaction.statementId IS NULL OR statement.deletedAt IS NULL)')
-      .groupBy('transaction.transactionDate')
-      .addGroupBy('transaction.currency')
-      .orderBy('transaction.transactionDate', 'ASC')
-      .getRawMany<{ date: string; currency: string; credit: string; debit: string }>();
-
-    const running: CurrencyAmounts = new Map();
-    for (const wallet of wallets) {
-      addAmount(
-        running,
-        normalizeCurrencyCode(wallet.currency),
-        this.toNumber(wallet.initialBalance),
-      );
+  /**
+   * What the active credit cards and loans owe at each of `dates`, per
+   * currency, as positive amounts: the liability side of what cash leaves out.
+   */
+  async getDebtSeries(workspaceId: string, dates: string[]): Promise<Map<string, CurrencyAmounts>> {
+    const debts = await this.walletRepository.find({
+      where: { workspaceId, isActive: true, type: In([...DEBT_WALLET_TYPES]) },
+      select: { id: true, initialBalance: true, currency: true },
+    });
+    if (debts.length === 0) {
+      return new Map(dates.map(date => [date, new Map()]));
     }
-
-    const series = new Map<string, CurrencyAmounts>();
-    let index = 0;
-    for (const date of dates) {
-      while (index < rows.length && this.toDateOnly(rows[index].date) <= date) {
-        const row = rows[index];
-        addAmount(
-          running,
-          normalizeCurrencyCode(row.currency),
-          this.toNumber(row.credit) - this.toNumber(row.debit),
-        );
-        index += 1;
-      }
-      series.set(date, new Map(running));
-    }
-    return series;
-  }
-
-  private async getStatementCashSeries(
-    workspaceId: string,
-    dates: string[],
-  ): Promise<Map<string, CurrencyAmounts>> {
-    // A statement without a closing date counts from the day it was uploaded.
-    const rows = await this.statementRepository
-      .createQueryBuilder('statement')
-      .select('statement.bankName', 'bankName')
-      .addSelect('statement.accountNumber', 'accountNumber')
-      .addSelect('statement.currency', 'currency')
-      .addSelect('statement.balanceEnd', 'balanceEnd')
-      .addSelect('COALESCE(statement.statementDateTo, DATE(statement.createdAt))', 'date')
-      .where('statement.workspaceId = :workspaceId', { workspaceId })
-      .andWhere('statement.balanceEnd IS NOT NULL')
-      .andWhere('statement.deletedAt IS NULL')
-      .andWhere('statement.status IN (:...statuses)', { statuses: LIVE_STATEMENT_STATUSES })
-      .orderBy('date', 'ASC')
-      .addOrderBy('statement.createdAt', 'ASC')
-      .getRawMany<{
-        bankName: string | null;
-        accountNumber: string | null;
-        currency: string | null;
-        balanceEnd: string;
-        date: string;
-      }>();
-
-    // The latest closing balance per bank account, then summed per currency.
-    const latestByAccount = new Map<string, { currency: string; balance: number }>();
-    const series = new Map<string, CurrencyAmounts>();
-    let index = 0;
-    for (const date of dates) {
-      while (index < rows.length && this.toDateOnly(rows[index].date) <= date) {
-        const row = rows[index];
-        const currency = normalizeCurrencyCode(row.currency);
-        latestByAccount.set(`${row.bankName ?? ''}|${row.accountNumber ?? ''}|${currency}`, {
-          currency,
-          balance: this.toNumber(row.balanceEnd),
-        });
-        index += 1;
-      }
-      const amounts: CurrencyAmounts = new Map();
-      for (const { currency, balance } of latestByAccount.values()) {
-        addAmount(amounts, currency, balance);
-      }
-      series.set(date, amounts);
-    }
-    return series;
-  }
-
-  private toDateOnly(value: string | Date): string {
-    return new Date(value).toISOString().split('T')[0];
+    return negateSeries(
+      await walletCashSeries(this.transactionRepository, workspaceId, debts, dates),
+    );
   }
 
   /**
@@ -428,11 +294,11 @@ export class BalanceService {
     });
 
     if (!account) {
-      throw new NotFoundException('Balance account not found');
+      throw new NotFoundException(appError('BALANCE_ACCOUNT_NOT_FOUND'));
     }
 
     if (account.code === CASH_ACCOUNT_CODE) {
-      throw new BadRequestException('Cash is always low risk and cannot be classified');
+      throw new BadRequestException(appError('BALANCE_CASH_NOT_CLASSIFIABLE'));
     }
 
     const before = { capitalRole: account.capitalRole, riskLevel: account.riskLevel };
@@ -487,11 +353,11 @@ export class BalanceService {
     });
 
     if (!parent) {
-      throw new NotFoundException('Balance account not found');
+      throw new NotFoundException(appError('BALANCE_ACCOUNT_NOT_FOUND'));
     }
 
     if (!parent.isExpandable) {
-      throw new BadRequestException('This balance section does not accept custom accounts');
+      throw new BadRequestException(appError('BALANCE_SECTION_NO_CUSTOM_ACCOUNTS'));
     }
 
     const siblingCount = await this.balanceAccountRepository.count({
@@ -555,7 +421,7 @@ export class BalanceService {
     }
 
     if (account.isSystem) {
-      throw new BadRequestException('System accounts cannot be deleted');
+      throw new BadRequestException(appError('BALANCE_SYSTEM_ACCOUNT_LOCKED'));
     }
 
     await this.balanceAccountRepository.remove(account);
@@ -575,11 +441,22 @@ export class BalanceService {
     });
   }
 
+  /**
+   * Gives a workspace its chart of accounts the first time anything reads it.
+   * Which chart depends on the profile: a household gets the one written in
+   * its own words, a business the one it files with.
+   */
   async seedDefaultAccounts(workspaceId: string): Promise<void> {
     const existing = await this.balanceAccountRepository.count({ where: { workspaceId } });
     if (existing > 0) {
       return;
     }
+
+    const workspace = await this.workspaceRepository.findOne({
+      where: { id: workspaceId },
+      select: { id: true, settings: true },
+    });
+    const definitions = defaultAccountsFor(readWorkspaceProfile(workspace));
 
     // Сидим в одной транзакции: два одновременных первых захода в новый воркспейс
     // оба проходили count===0, и проигравший падал на UQ_balance_accounts_workspace_code
@@ -589,7 +466,7 @@ export class BalanceService {
         const accounts = manager.getRepository(BalanceAccount);
         const parentByCode = new Map<string, BalanceAccount>();
 
-        for (const definition of DEFAULT_BALANCE_ACCOUNTS) {
+        for (const definition of definitions) {
           const parentId = definition.parentCode
             ? (parentByCode.get(definition.parentCode)?.id ?? null)
             : null;
@@ -636,19 +513,24 @@ export class BalanceService {
 
     const snapshotDate = this.resolveDate(date);
 
-    const [accounts, snapshotsMap, cash, retainedEarnings, currency] = await Promise.all([
-      this.balanceAccountRepository.find({
-        where: { workspaceId },
-        order: {
-          position: 'ASC',
-          createdAt: 'ASC',
-        },
-      }),
-      this.getLatestSnapshotMap(workspaceId, snapshotDate),
-      this.getAutoComputedCashBalance(workspaceId, snapshotDate),
-      this.getRetainedEarnings(workspaceId, snapshotDate),
-      this.getWorkspaceCurrency(workspaceId),
-    ]);
+    const [accounts, snapshotsMap, cash, debts, retainedEarnings, currency, profile] =
+      await Promise.all([
+        this.balanceAccountRepository.find({
+          where: { workspaceId },
+          order: {
+            position: 'ASC',
+            createdAt: 'ASC',
+          },
+        }),
+        this.getLatestSnapshotMap(workspaceId, snapshotDate),
+        this.getAutoComputedCashBalance(workspaceId, snapshotDate),
+        this.getDebtSeries(workspaceId, [snapshotDate]).then(
+          series => series.get(snapshotDate) ?? new Map<string, number>(),
+        ),
+        this.getRetainedEarnings(workspaceId, snapshotDate),
+        this.getWorkspaceCurrency(workspaceId),
+        this.getWorkspaceProfile(workspaceId),
+      ]);
 
     const snapshotCurrency = (snapshot: BalanceSnapshot) =>
       normalizeCurrencyCode(snapshot.currency || currency);
@@ -657,6 +539,7 @@ export class BalanceService {
       currency,
       [
         ...cash.keys(),
+        ...debts.keys(),
         ...retainedEarnings.keys(),
         ...[...snapshotsMap.values()].map(snapshotCurrency),
       ].map(code => ({ currency: code, date: snapshotDate })),
@@ -665,6 +548,7 @@ export class BalanceService {
 
     const autoAmountsByCode = new Map<string, number>([
       ['ASSET_CASH', converter.convertAll(cash, snapshotDate)],
+      [DEBTS_ACCOUNT_CODE, converter.convertAll(debts, snapshotDate)],
       ['EQUITY_RETAINED_EARNINGS', converter.convertAll(retainedEarnings, snapshotDate)],
     ]);
 
@@ -764,7 +648,21 @@ export class BalanceService {
       difference,
       isBalanced: Math.abs(difference) < 0.01,
       missingRates: converter.missing,
+      // A household still filed under the accounting chart can be moved onto
+      // the one written in its own words; the page offers it, nothing forces it.
+      personalLayoutAvailable:
+        profile === 'home' &&
+        accounts.some(account => ACCOUNTING_ONLY_SECTIONS.includes(account.code)),
+      profile,
     };
+  }
+
+  private async getWorkspaceProfile(workspaceId: string): Promise<WorkspaceProfile> {
+    const workspace = await this.workspaceRepository.findOne({
+      where: { id: workspaceId },
+      select: { id: true, settings: true },
+    });
+    return readWorkspaceProfile(workspace);
   }
 
   async getAccountsTree(workspaceId: string, date?: string, locale?: string) {
@@ -777,7 +675,12 @@ export class BalanceService {
     };
   }
 
-  async updateSnapshot(userId: string, workspaceId: string, dto: UpdateBalanceSnapshotBody) {
+  /**
+   * Writes one value for one day. `userId` is null when nothing but a schedule
+   * is behind it, and the audit says system rather than naming someone who
+   * was not there.
+   */
+  async updateSnapshot(userId: string | null, workspaceId: string, dto: UpdateBalanceSnapshotBody) {
     const snapshotDate = this.resolveDate(dto.date ?? undefined);
     const account = await this.balanceAccountRepository.findOne({
       where: {
@@ -787,11 +690,11 @@ export class BalanceService {
     });
 
     if (!account) {
-      throw new NotFoundException('Balance account not found');
+      throw new NotFoundException(appError('BALANCE_ACCOUNT_NOT_FOUND'));
     }
 
     if (!account.isEditable) {
-      throw new BadRequestException('This balance line is auto-calculated and cannot be edited');
+      throw new BadRequestException(appError('BALANCE_LINE_AUTO_CALCULATED'));
     }
 
     const amount = this.round(dto.amount);
@@ -826,7 +729,7 @@ export class BalanceService {
 
     await this.auditService.createEvent({
       workspaceId,
-      actorType: ActorType.USER,
+      actorType: userId ? ActorType.USER : ActorType.SYSTEM,
       actorId: userId,
       entityType: EntityType.WORKSPACE,
       entityId: workspaceId,
@@ -851,125 +754,6 @@ export class BalanceService {
     };
   }
 
-  private async exportAsExcel(data: BalanceSheetResponse, locale?: string): Promise<Buffer> {
-    const labels = this.getExportLabels(locale);
-    const leftRows = this.flattenForExport(data.assets.sections);
-    const rightRows = this.flattenForExport(data.liabilities.sections);
-    const maxRows = Math.max(leftRows.length, rightRows.length);
-
-    const rows: Array<Array<string | number>> = [
-      [`${labels.balanceAsOf} ${data.date}`, '', '', ''],
-      ['', '', '', ''],
-      [
-        `${labels.assets} (${this.formatAmount(data.assets.total, data.currency)})`,
-        '',
-        `${labels.liabilities} (${this.formatAmount(data.liabilities.total, data.currency)})`,
-        '',
-      ],
-      ['', '', '', ''],
-    ];
-
-    for (let i = 0; i < maxRows; i++) {
-      const left = leftRows[i];
-      const right = rightRows[i];
-      rows.push([
-        left?.label || '',
-        left ? this.round(left.amount) : '',
-        right?.label || '',
-        right ? this.round(right.amount) : '',
-      ]);
-    }
-
-    rows.push(['', '', '', '']);
-    rows.push([
-      labels.total,
-      this.round(data.assets.total),
-      labels.total,
-      this.round(data.liabilities.total),
-    ]);
-    rows.push([
-      labels.difference,
-      this.round(data.difference),
-      labels.balanced,
-      data.isBalanced ? labels.yes : labels.no,
-    ]);
-
-    const worksheet = xlsx.utils.aoa_to_sheet(rows);
-    worksheet['!cols'] = [{ wch: 46 }, { wch: 16 }, { wch: 46 }, { wch: 16 }];
-
-    const workbook = xlsx.utils.book_new();
-    xlsx.utils.book_append_sheet(workbook, worksheet, 'Balance');
-
-    return xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' }) as Buffer;
-  }
-
-  /**
-   * Rendered with pdfmake rather than pdf-lib: pdf-lib's standard fonts are
-   * WinAnsi-encoded and throw on Cyrillic, which broke every ru/kk export.
-   * pdfmake's bundled Roboto covers those alphabets and paginates on its own,
-   * so long sheets are no longer silently cut off at one page.
-   */
-  private async exportAsPdf(data: BalanceSheetResponse, locale?: string): Promise<Buffer> {
-    const labels = this.getExportLabels(locale);
-    const leftRows = this.flattenForExport(data.assets.sections);
-    const rightRows = this.flattenForExport(data.liabilities.sections);
-    const maxRows = Math.max(leftRows.length, rightRows.length);
-
-    const body: unknown[][] = [
-      [
-        { text: labels.assets, style: 'th' },
-        { text: this.formatAmount(data.assets.total, data.currency), style: 'thAmount' },
-        { text: labels.liabilities, style: 'th' },
-        { text: this.formatAmount(data.liabilities.total, data.currency), style: 'thAmount' },
-      ],
-    ];
-
-    for (let i = 0; i < maxRows; i++) {
-      const left = leftRows[i];
-      const right = rightRows[i];
-      body.push([
-        { text: left?.label ?? '' },
-        { text: left ? this.formatAmount(left.amount, data.currency) : '', alignment: 'right' },
-        { text: right?.label ?? '' },
-        { text: right ? this.formatAmount(right.amount, data.currency) : '', alignment: 'right' },
-      ]);
-    }
-
-    const pdfMake = await loadPdfMake();
-    const docDefinition = {
-      pageSize: 'A4',
-      pageOrientation: 'landscape',
-      pageMargins: [40, 40, 40, 40],
-      content: [
-        { text: `${labels.balanceAsOf} ${data.date}`, style: 'title' },
-        {
-          table: { headerRows: 1, widths: ['*', 'auto', '*', 'auto'], body },
-          layout: 'lightHorizontalLines',
-        },
-        {
-          text: `${labels.difference}: ${this.formatAmount(data.difference, data.currency)} (${
-            data.isBalanced ? labels.balanced : labels.notBalanced
-          })`,
-          color: data.isBalanced ? '#1f8033' : '#b33333',
-          bold: true,
-          margin: [0, 16, 0, 0],
-        },
-      ],
-      styles: {
-        title: { bold: true, fontSize: 16, margin: [0, 0, 0, 14] },
-        th: { bold: true, fontSize: 11 },
-        thAmount: { bold: true, fontSize: 11, alignment: 'right' },
-      },
-      defaultStyle: { font: 'Roboto', fontSize: 9 },
-    };
-
-    return new Promise<Buffer>(resolve => {
-      pdfMake.createPdf(docDefinition).getBuffer((buffer: Uint8Array) => {
-        resolve(Buffer.from(buffer));
-      });
-    });
-  }
-
   async exportBalanceSheet(
     workspaceId: string,
     dto: ExportBalanceQuery,
@@ -984,7 +768,7 @@ export class BalanceService {
     const dateKey = balanceSheet.date;
 
     if (dto.format === BalanceExportFormat.PDF) {
-      const buffer = await this.exportAsPdf(balanceSheet, effectiveLocale);
+      const buffer = await exportBalanceAsPdf(balanceSheet, effectiveLocale);
       return {
         fileName: `balance-sheet-${dateKey}.pdf`,
         contentType: 'application/pdf',
@@ -992,7 +776,7 @@ export class BalanceService {
       };
     }
 
-    const buffer = await this.exportAsExcel(balanceSheet, effectiveLocale);
+    const buffer = await exportBalanceAsExcel(balanceSheet, effectiveLocale);
     return {
       fileName: `balance-sheet-${dateKey}.xlsx`,
       contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',

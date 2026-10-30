@@ -65,6 +65,7 @@ export const NAV_BINDINGS: Record<string, string> = {
   [DEFAULT_APP_ROUTE]: 'KeyG KeyD',
   '/statements': 'KeyG KeyS',
   '/review': 'KeyG KeyV',
+  '/accounts': 'KeyG KeyM',
   '/custom-tables': 'KeyG KeyT',
   '/reports': 'KeyG KeyR',
   '/workspaces': 'KeyG KeyW',

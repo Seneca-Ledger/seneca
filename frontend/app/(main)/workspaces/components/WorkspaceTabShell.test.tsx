@@ -30,7 +30,6 @@ describe('WorkspaceTabShell', () => {
     expect(tabs.map(tab => tab.textContent)).toEqual([
       'Overview',
       'Members (3)',
-      'Categories',
       'All Workspaces',
     ]);
     expect(tabs[0]).toHaveAttribute('href', '/workspaces/overview');

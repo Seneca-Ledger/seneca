@@ -26,7 +26,6 @@ import { appError } from '../../common/errors/app-error';
 import { appDefaultCurrency, currencyCodeOrDefault } from '../../common/utils/currency.util';
 import { ensureCanEdit } from '../../common/utils/ensure-can-edit.util';
 import { normalizeFilename } from '../../common/utils/filename.util';
-import { generateTransactionFingerprint } from '../../common/utils/fingerprint.util';
 import { neutralizeSpreadsheetFormulaCell } from '../../common/utils/spreadsheet-formula.util';
 import { assertNoTaxLockedTransactions } from '../../common/utils/tax-lock.util';
 import { resolveUploadsDir } from '../../common/utils/uploads.util';
@@ -92,16 +91,26 @@ import {
   type CustomTableRowSortDto,
 } from './dto/list-custom-table-rows.dto';
 import { FormulaRecalcService, formulaColumnsOf } from './formula-recalc.service';
+import { convertedRowFingerprint, flagRepeatedRows } from './helpers/converted-repeats';
 import {
   assertValidFormula,
   collectFieldRefs,
   evaluateFormula,
   evaluateFormulaDetailed,
+  FormulaError,
   type FormulaResultType,
   type FormulaValue,
   inferFormulaResultType,
 } from './helpers/formula-evaluator';
 import { detectPaidStatus, type PaidStatusInput } from './helpers/paid-status.helper';
+import {
+  columnSourceConfig,
+  generateColumnKey,
+  newSourceColumns,
+  sourceBindingOf,
+  sourceColumnConfig,
+  sourceFields,
+} from './helpers/source-columns';
 import { orderFormulaColumns } from './helpers/table-evaluator';
 import type { SourceAdapter, SourceFilters, SourceRow, SourceValue } from './sources/source.types';
 import { MAX_SOURCE_ROWS } from './sources/source.utils';
@@ -111,12 +120,6 @@ type DataEntryFieldKey = 'date' | 'type' | 'amount' | 'currency' | 'note';
 type JsonObject = Record<string, unknown>;
 type RowDataValue = string | number | boolean | null | undefined | JsonObject | RowDataValue[];
 type RowDataRecord = Record<string, RowDataValue>;
-type ColumnSourceConfig = {
-  kind?: string;
-  field?: string;
-  name?: string;
-  colIndex?: number;
-};
 type DriverErrorLike = { driverError?: { code?: string } };
 type RowStylesRecord = Record<string, JsonObject>;
 type CustomTableWithViewSettings = CustomTable & { viewSettings?: JsonObject };
@@ -212,16 +215,6 @@ export class CustomTablesService {
     return data[key];
   }
 
-  private getColumnSourceConfig(
-    config: CustomTableColumn['config'] | null | undefined,
-  ): ColumnSourceConfig | null {
-    if (!config || typeof config !== 'object') {
-      return null;
-    }
-    const source = (config as { source?: unknown }).source;
-    return typeof source === 'object' && source !== null ? (source as ColumnSourceConfig) : null;
-  }
-
   private getViewSettingsObject(table: CustomTable): JsonObject {
     return table.viewSettings && typeof table.viewSettings === 'object'
       ? (table.viewSettings as JsonObject)
@@ -307,7 +300,7 @@ export class CustomTablesService {
   }
 
   private getColumnSearchText(column: CustomTableColumn): string {
-    const source = this.getColumnSourceConfig(column.config);
+    const source = columnSourceConfig(column.config);
     return [column.title, column.key, source?.field, source?.name, source?.kind]
       .map(value => this.normalizeColumnText(value))
       .filter(Boolean)
@@ -320,7 +313,7 @@ export class CustomTablesService {
   ): string | undefined {
     const normalizedTokens = tokens.map(token => token.toLowerCase());
     const exact = columns.find(column => {
-      const source = this.getColumnSourceConfig(column.config);
+      const source = columnSourceConfig(column.config);
       const sourceField = this.normalizeColumnText(source?.field);
       return sourceField && normalizedTokens.includes(sourceField);
     });
@@ -543,11 +536,6 @@ export class CustomTablesService {
     throw new NotFoundException(appError('TABLE_NOT_FOUND'));
   }
 
-  private generateColumnKey(): string {
-    const raw = randomUUID().replace(/-/g, '');
-    return `col_${raw.slice(0, 12)}`;
-  }
-
   private isUuid(value: string): boolean {
     return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
   }
@@ -676,7 +664,7 @@ export class CustomTablesService {
     };
 
     for (const column of columns) {
-      const source = this.getColumnSourceConfig(column.config);
+      const source = columnSourceConfig(column.config);
       if (
         source?.kind === 'data_entry_field' &&
         source.field &&
@@ -1085,7 +1073,7 @@ export class CustomTablesService {
         columnDefs.map((def, position) =>
           this.customTableColumnRepository.create({
             tableId: table.id,
-            key: this.generateColumnKey(),
+            key: generateColumnKey(),
             title: def.title,
             type: def.type,
             isRequired: false,
@@ -1320,7 +1308,7 @@ export class CustomTablesService {
         columnDefs.map((def, position) =>
           this.customTableColumnRepository.create({
             tableId: table.id,
-            key: this.generateColumnKey(),
+            key: generateColumnKey(),
             title: def.title,
             type: def.type,
             isRequired: false,
@@ -1590,7 +1578,7 @@ export class CustomTablesService {
       const byField = new Map<string, CustomTableColumn>();
       const extra: CustomTableColumn[] = [];
       for (const column of existing) {
-        const field = this.getColumnSourceConfig(column.config);
+        const field = columnSourceConfig(column.config);
         const known =
           field?.kind === 'app_field' &&
           field.field &&
@@ -1612,16 +1600,12 @@ export class CustomTablesService {
       const kept = adapter.columns.map((def, position) => {
         const column =
           byField.get(def.field) ??
-          columnRepo.create({ tableId, key: this.generateColumnKey(), title: def.title });
+          columnRepo.create({ tableId, key: generateColumnKey(), title: def.title });
         column.type = def.type;
         column.isRequired = false;
         column.isUnique = false;
         column.position = position;
-        column.config = {
-          ...(def.config ?? {}),
-          ...(def.money ? { precision: 2, ...(currency ? { currency } : {}) } : {}),
-          source: { kind: 'app_field', field: def.field },
-        };
+        column.config = sourceColumnConfig(def, currency);
         return column;
       });
       const saved = await columnRepo.save(kept);
@@ -1659,6 +1643,7 @@ export class CustomTablesService {
       return saved;
     });
 
+    table.sourceBinding = { ...binding, fields: sourceFields(adapter) };
     const applied = await this.applySourceRows({
       userId,
       workspaceId,
@@ -1786,7 +1771,7 @@ export class CustomTablesService {
           description: dto.description?.trim() || null,
           source: CustomTableSource.MANUAL,
           categoryId,
-          sourceBinding: { kind: adapter.kind, filters, syncedAt: null },
+          sourceBinding: sourceBindingOf(adapter, filters),
         }),
       );
     } catch (error) {
@@ -1799,17 +1784,13 @@ export class CustomTablesService {
         adapter.columns.map((def, position) =>
           this.customTableColumnRepository.create({
             tableId: table.id,
-            key: this.generateColumnKey(),
+            key: generateColumnKey(),
             title: (dto.columnTitles?.[def.field] || def.title).slice(0, 120),
             type: def.type,
             isRequired: false,
             isUnique: false,
             position,
-            config: {
-              ...(def.config ?? {}),
-              ...(def.money ? { precision: 2, ...(currency ? { currency } : {}) } : {}),
-              source: { kind: 'app_field', field: def.field },
-            },
+            config: sourceColumnConfig(def, currency),
           }),
         ),
       );
@@ -1868,13 +1849,9 @@ export class CustomTablesService {
       workspaceId,
       (binding.filters ?? {}) as SourceFilters,
     );
-    const result = await this.applySourceRows({
-      userId,
-      workspaceId,
-      table,
-      columns: table.columns ?? [],
-      sourceRows,
-    });
+    const columns = await this.addNewSourceColumns(table, adapter);
+    table.sourceBinding = { ...binding, fields: sourceFields(adapter) };
+    const result = await this.applySourceRows({ userId, workspaceId, table, columns, sourceRows });
     await this.logEvent({
       userId,
       workspaceId,
@@ -1934,6 +1911,26 @@ export class CustomTablesService {
     return this.refreshFromSource(userId, workspaceId, table.id);
   }
 
+  /** Adds a column for each field the source gained since the table was made. */
+  private async addNewSourceColumns(
+    table: CustomTable,
+    adapter: SourceAdapter,
+  ): Promise<CustomTableColumn[]> {
+    const existing = table.columns ?? [];
+    const drafts = newSourceColumns(table, adapter);
+    if (!drafts.length) {
+      return existing;
+    }
+    try {
+      const created = await this.customTableColumnRepository.save(
+        drafts.map(draft => this.customTableColumnRepository.create(draft)),
+      );
+      return [...existing, ...created];
+    } catch (error) {
+      this.throwHelpfulSchemaError(error);
+    }
+  }
+
   /**
    * Upsert by sourceKey. Only columns bound to a source field are written
    * (jsonb `||` patch), so user columns, styles, comments and row ids survive
@@ -1955,7 +1952,7 @@ export class CustomTablesService {
     const { table, sourceRows } = params;
     const keyByField = new Map<string, string>();
     for (const column of params.columns) {
-      const source = this.getColumnSourceConfig(column.config);
+      const source = columnSourceConfig(column.config);
       if (source?.kind === 'app_field' && source.field) {
         keyByField.set(source.field, column.key);
       }
@@ -2276,16 +2273,12 @@ export class CustomTablesService {
         categoryId: table.categoryId ?? null,
         // Converted in bulk from a table: each row is confirmed in Review.
         isVerified: false,
-        fingerprint: generateTransactionFingerprint({
-          workspaceId,
-          accountNumber: '',
-          date: row.transactionDate,
-          amount: row.amount,
-          currency: row.currency,
-          direction: 'debit',
-          merchant: row.merchant,
-        }),
+        fingerprint: convertedRowFingerprint(workspaceId, row),
       }),
+    );
+    // Identical rows import as identical statement lines do: kept, the repeat flagged.
+    warnings.push(
+      ...(await flagRepeatedRows(this.transactionRepository, workspaceId, transactions, converted)),
     );
 
     const savedTransactions = await this.transactionRepository.save(transactions);
@@ -2536,7 +2529,7 @@ export class CustomTablesService {
         { selfKey },
       );
     } catch (error) {
-      throw new BadRequestException(error instanceof Error ? error.message : 'Invalid formula');
+      throw new BadRequestException(appError(...FormulaError.argsOf(error)));
     }
 
     const refsByKey = new Map<string, string[]>();
@@ -2670,7 +2663,7 @@ export class CustomTablesService {
     const position = dto.position ?? (await this.getNextColumnPosition(tableId));
     const column = this.customTableColumnRepository.create({
       tableId,
-      key: this.generateColumnKey(),
+      key: generateColumnKey(),
       title: dto.title,
       type: type ?? CustomTableColumnType.TEXT,
       isRequired: dto.isRequired ?? false,
@@ -2761,11 +2754,11 @@ export class CustomTablesService {
       column.position = dto.position;
     }
     if (dto.config !== undefined) {
-      const previousSource = this.getColumnSourceConfig(column.config);
+      const previousSource = columnSourceConfig(column.config);
       column.config = dto.config ?? null;
       // Clients rebuild config from their draft and know nothing about the
       // source link; dropping it would silently stop refreshes for this column.
-      if (previousSource && !this.getColumnSourceConfig(column.config)) {
+      if (previousSource && !columnSourceConfig(column.config)) {
         column.config = { ...(column.config ?? {}), source: previousSource };
       }
     }
@@ -3104,7 +3097,7 @@ export class CustomTablesService {
       try {
         assertValidFormula(expression, keys);
       } catch (error) {
-        throw new BadRequestException(error instanceof Error ? error.message : 'Invalid formula');
+        throw new BadRequestException(appError(...FormulaError.argsOf(error)));
       }
       return { id: item.id?.trim() || randomUUID(), title: item.title.trim(), expression };
     });
@@ -4576,7 +4569,7 @@ export class CustomTablesService {
     const columns = await this.customTableColumnRepository.find({ where: { tableId: table.id } });
     const keyByField = new Map<string, string>();
     for (const column of columns) {
-      const source = this.getColumnSourceConfig(column.config);
+      const source = columnSourceConfig(column.config);
       if (source?.kind === 'app_field' && source.field) {
         keyByField.set(source.field, column.key);
       }

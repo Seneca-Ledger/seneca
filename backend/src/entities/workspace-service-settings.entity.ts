@@ -13,6 +13,7 @@ import { User } from './user.entity';
 import { Workspace } from './workspace.entity';
 
 export enum WorkspaceServiceSettingsKey {
+  /** Kept only for rows saved before local ML categorization was removed; nothing reads it. */
   LOCAL_CATEGORIZATION = 'local_categorization',
   SMTP = 'smtp',
   TELEGRAM = 'telegram',

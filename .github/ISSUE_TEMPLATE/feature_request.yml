@@ -1,5 +1,5 @@
 name: Feature Request
-description: Suggest a new feature or enhancement for Seneca
+description: Suggest a new feature or enhancement for Stoic Budget
 title: "[Feature]: "
 labels: ["enhancement", "needs-triage"]
 body:
@@ -129,7 +129,7 @@ body:
       options:
         - label: I have searched existing issues and feature requests
           required: true
-        - label: This feature aligns with Seneca's goals
+        - label: This feature aligns with Stoic Budget's goals
           required: true
         - label: I have provided a clear problem statement and solution
           required: true

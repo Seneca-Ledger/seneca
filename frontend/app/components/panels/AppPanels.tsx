@@ -3,7 +3,6 @@
 import type React from 'react';
 import { HelpPanel } from '@/app/components/help/HelpPanel';
 import { NotificationsPanel } from '@/app/components/notifications/NotificationsPanel';
-import { WhatsNewPanel } from '@/app/components/whats-new/WhatsNewPanel';
 import { IntegrationsPanel } from '@/app/integrations/panel/IntegrationsPanel';
 import { PluginsPanel } from '@/app/plugins/panel/PluginsPanel';
 
@@ -17,7 +16,6 @@ export function AppPanels(): React.JSX.Element {
       <IntegrationsPanel />
       <PluginsPanel />
       <NotificationsPanel />
-      <WhatsNewPanel />
       <HelpPanel />
     </>
   );

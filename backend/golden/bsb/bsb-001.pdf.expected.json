@@ -1,0 +1,82 @@
+{
+  "metadata": {
+    "accountNumber": "2161-2777-1657",
+    "currency": "SGD",
+    "balanceStart": 15450.75,
+    "balanceEnd": 15271.23
+  },
+  "transactions": [
+    {
+      "transactionDate": "2025-01-01T00:00:00",
+      "counterpartyName": "Paynow from PAYNOW TRANSFER 8373579 TO: Corp Holdings P4583998QR",
+      "currency": "SGD",
+      "credit": 1902.69
+    },
+    {
+      "transactionDate": "2025-01-01T00:00:00",
+      "counterpartyName": "Paynow PAYNOW TO 9547491 TO: Guardian Health & Beauty",
+      "currency": "SGD",
+      "debit": 70.64
+    },
+    {
+      "transactionDate": "2025-01-01T00:00:00",
+      "counterpartyName": "Fast debit PAYNOW TRANSFER 7246426 TO: SP Group OTHER",
+      "currency": "SGD",
+      "debit": 14.47
+    },
+    {
+      "transactionDate": "2025-01-01T00:00:00",
+      "counterpartyName": "Paynow received PAYNOW TRANSFER 2141011 TO: Original Merchant",
+      "currency": "SGD",
+      "credit": 69.63
+    },
+    {
+      "transactionDate": "2025-01-12T00:00:00",
+      "counterpartyName": "Fast received PAYNOW 5979135 TO: Employer Pte Ltd P1377026QR OTHER",
+      "currency": "SGD",
+      "credit": 29.83
+    },
+    {
+      "transactionDate": "2025-01-17T00:00:00",
+      "counterpartyName": "Paynow qr PAYNOW 9348807 TO: Cold Storage Singapore Pte Ltd P1185585QR",
+      "currency": "SGD",
+      "debit": 528.75
+    },
+    {
+      "transactionDate": "2025-01-26T00:00:00",
+      "counterpartyName": "Paynow qr PAYNOW QR 9752510 TO: Lazada Group",
+      "currency": "SGD",
+      "debit": 218.18
+    },
+    {
+      "transactionDate": "2025-01-27T00:00:00",
+      "counterpartyName": "Paynow PAYNOW QR 1564488 TO: Grab Holdings P2765200QR",
+      "currency": "SGD",
+      "debit": 45.89
+    },
+    {
+      "transactionDate": "2025-01-28T00:00:00",
+      "counterpartyName": "Paynow qr PAYNOW TO 1681972 TO: Cold Storage Singapore Pte Ltd P4519868QR",
+      "currency": "SGD",
+      "debit": 15.18
+    },
+    {
+      "transactionDate": "2025-01-28T00:00:00",
+      "counterpartyName": "Paynow to PAYNOW TO 5967276 TO: H&M Hennes & Mauritz",
+      "currency": "SGD",
+      "debit": 36.29
+    },
+    {
+      "transactionDate": "2025-01-30T00:00:00",
+      "counterpartyName": "Fast debit PAYNOW TO 9521556 TO: Sheng Siong Group Ltd P4825006QR OTHER",
+      "currency": "SGD",
+      "debit": 1230.27
+    },
+    {
+      "transactionDate": "2025-01-31T00:00:00",
+      "counterpartyName": "Fast PAYNOW TRANSFER 6622105 TO: McDonald's Restaurants Pte Ltd P9971842QR OTHER",
+      "currency": "SGD",
+      "debit": 22.0
+    }
+  ]
+}

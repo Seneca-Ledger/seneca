@@ -104,7 +104,7 @@
 
 // Subscription details drawer: status as a dot and a word, the price, two dates
 // and one quiet way to cancel.
-.lumio-sub-detail {
+.seneca-sub-detail {
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -201,7 +201,7 @@
 
 // Payments of a subscription, in its card and in the add form: one quiet list,
 // text actions under it, statement rows to pick in a short scrolling list.
-.lumio-sub-payments {
+.seneca-sub-payments {
   display: flex;
   flex-direction: column;
   gap: 10px;

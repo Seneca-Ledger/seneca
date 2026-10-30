@@ -2,7 +2,8 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, type Repository } from 'typeorm';
 import { toEnum } from '../../common/effect/to-enum';
-import { countedSql } from '../../common/utils/counted-transactions.util';
+import { appError } from '../../common/errors/app-error';
+import { notInVersionWorkspace } from '../../common/workspaces/version-workspaces';
 import type {
   CreateInvestmentAccountBody,
   InvestmentHolding as HoldingView,
@@ -15,15 +16,11 @@ import {
   InvestmentHolding,
   InvestmentPriceSource,
 } from '../../entities/investment-holding.entity';
-import {
-  Transaction,
-  TransactionType,
-  TransferPairKind,
-  TransferPairSource,
-} from '../../entities/transaction.entity';
+import { Transaction } from '../../entities/transaction.entity';
 import { Workspace } from '../../entities/workspace.entity';
 import { BalanceService } from '../balance/balance.service';
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
+import { InvestmentFlowsService } from './investment-flows.service';
 import { pricedUnits } from './metal-weight.util';
 import { normalizeStockSymbol, StockPriceService } from './stock-price.service';
 
@@ -51,6 +48,7 @@ export class InvestmentsService {
     private readonly balanceService: BalanceService,
     private readonly exchangeRatesService: ExchangeRatesService,
     private readonly stockPriceService: StockPriceService,
+    private readonly flowsService: InvestmentFlowsService,
   ) {}
 
   async listAccounts(workspaceId: string): Promise<InvestmentAccountView[]> {
@@ -68,9 +66,12 @@ export class InvestmentsService {
       where: { workspaceId, accountId: In(accounts.map(account => account.id)) },
       order: { createdAt: 'ASC' },
     });
-    const contributed = await this.contributedByAccount(
+    const { flows } = await this.flowsService.valueFlows(
       workspaceId,
-      accounts.map(account => account.id),
+      await this.flowsService.loadFlows(
+        workspaceId,
+        accounts.map(account => account.id),
+      ),
       currency,
     );
     const views: InvestmentAccountView[] = [];
@@ -80,7 +81,13 @@ export class InvestmentsService {
         rows.push(await this.holdingView(holding, currency));
       }
       const value = round2(rows.reduce((sum, row) => sum + row.value, 0));
-      const paidIn = contributed.get(account.id) ?? 0;
+      const totals = { contribution: 0, withdrawal: 0, income: 0 };
+      for (const flow of flows) {
+        if (flow.accountId === account.id) {
+          totals[flow.kind] += flow.value;
+        }
+      }
+      const netInvested = totals.contribution - totals.withdrawal;
       views.push({
         id: account.id,
         name: account.name,
@@ -88,8 +95,11 @@ export class InvestmentsService {
         kind: account.accountKind as BalanceAccountKind.INVESTMENT | BalanceAccountKind.RETIREMENT,
         currency,
         value,
-        contributed: round2(paidIn),
-        gain: round2(value - paidIn),
+        contributed: round2(totals.contribution),
+        withdrawn: round2(totals.withdrawal),
+        income: round2(totals.income),
+        netInvested: round2(netInvested),
+        gain: round2(value - netInvested + totals.income),
         holdings: rows,
       });
     }
@@ -105,7 +115,7 @@ export class InvestmentsService {
     const section = await this.accountRepository.findOne({
       where: { workspaceId, code: INVESTMENTS_SECTION_CODE },
     });
-    if (!section) throw new NotFoundException('Investments section not found');
+    if (!section) throw new NotFoundException(appError('INVESTMENTS_SECTION_NOT_FOUND'));
     const created = await this.balanceService.createCustomAccount(userId, workspaceId, {
       name: dto.name,
       parentId: section.id,
@@ -115,7 +125,7 @@ export class InvestmentsService {
       { accountKind: toEnum(BalanceAccountKind, dto.kind) ?? BalanceAccountKind.INVESTMENT },
     );
     const view = (await this.listAccounts(workspaceId)).find(account => account.id === created.id);
-    if (!view) throw new NotFoundException('Investment account not found');
+    if (!view) throw new NotFoundException(appError('INVESTMENTS_ACCOUNT_NOT_FOUND'));
     return view;
   }
 
@@ -142,7 +152,7 @@ export class InvestmentsService {
   ): Promise<HoldingView> {
     await this.requireAccount(workspaceId, accountId);
     if (!(dto.name || dto.symbol)) {
-      throw new BadRequestException('A holding needs a name or a symbol');
+      throw new BadRequestException(appError('INVESTMENTS_HOLDING_NAME_REQUIRED'));
     }
     const symbol = dto.symbol ? this.normalizeSymbol(dto.symbol) : null;
     const holding = this.holdingRepository.create({
@@ -198,12 +208,28 @@ export class InvestmentsService {
     await this.writeSnapshot(userId, workspaceId, holding.accountId);
   }
 
+  /** Workspaces holding something that has a price to fetch. */
+  async workspacesWithPricedHoldings(): Promise<string[]> {
+    const rows = await this.holdingRepository
+      .createQueryBuilder('holding')
+      .select('DISTINCT holding.workspaceId', 'workspaceId')
+      .where('holding.symbol IS NOT NULL')
+      // A past version is a frozen copy: repricing it would rewrite its history.
+      .andWhere(notInVersionWorkspace('holding.workspaceId'))
+      .getRawMany<{ workspaceId: string }>();
+    return rows.map(row => row.workspaceId);
+  }
+
   /**
    * Fetches a price for every holding with a symbol (stocks and funds from
    * Stooq) and rewrites the snapshots of the accounts that changed. Returns how
    * many holdings got a price. Coins are not here: they live in `crypto_wallets`.
    */
-  async refreshPrices(userId: string, workspaceId: string, onlyIds?: string[]): Promise<number> {
+  async refreshPrices(
+    userId: string | null,
+    workspaceId: string,
+    onlyIds?: string[],
+  ): Promise<number> {
     const holdings = await this.holdingRepository.find({
       where: onlyIds ? { workspaceId, id: In(onlyIds) } : { workspaceId },
     });
@@ -233,58 +259,19 @@ export class InvestmentsService {
     return updated;
   }
 
-  /**
-   * Marks an expense as money moved into an investment account. The row
-   * becomes a one-leg transfer of kind `investment`: it leaves every spending
-   * aggregate, and the account's holdings carry the money from here on.
-   */
-  async linkContribution(
-    workspaceId: string,
-    transactionId: string,
-    accountId: string,
-  ): Promise<Transaction> {
-    await this.requireAccount(workspaceId, accountId);
-    const transaction = await this.transactionRepository.findOne({
-      where: { id: transactionId, workspaceId },
-    });
-    if (!transaction) throw new NotFoundException('Transaction not found');
-    if (transaction.transactionType !== TransactionType.EXPENSE) {
-      throw new BadRequestException('Only an expense can be a contribution');
-    }
-    if (
-      transaction.transferPairId &&
-      transaction.transferPairKind !== TransferPairKind.INVESTMENT
-    ) {
-      throw new BadRequestException('This row is already linked as a transfer');
-    }
-    transaction.investmentAccountId = accountId;
-    transaction.transferPairId = transaction.id;
-    transaction.transferPairSource = TransferPairSource.MANUAL;
-    transaction.transferPairKind = TransferPairKind.INVESTMENT;
-    return this.transactionRepository.save(transaction);
-  }
-
-  async unlinkContribution(workspaceId: string, transactionId: string): Promise<Transaction> {
-    const transaction = await this.transactionRepository.findOne({
-      where: { id: transactionId, workspaceId },
-    });
-    if (!transaction) throw new NotFoundException('Transaction not found');
-    if (transaction.transferPairKind !== TransferPairKind.INVESTMENT) {
-      throw new BadRequestException('This row is not a contribution');
-    }
-    transaction.investmentAccountId = null;
-    transaction.transferPairId = null;
-    transaction.transferPairSource = null;
-    transaction.transferPairKind = null;
-    return this.transactionRepository.save(transaction);
-  }
-
   /** Holdings grouped by asset class, valued in the workspace currency; for net worth. */
-  async valueByAssetClass(workspaceId: string): Promise<Map<InvestmentAssetClass, number>> {
+  async valueByAssetClass(
+    workspaceId: string,
+    excludedAccountIds: Set<string> = new Set(),
+  ): Promise<Map<InvestmentAssetClass, number>> {
     const currency = await this.workspaceCurrency(workspaceId);
     const holdings = await this.holdingRepository.find({ where: { workspaceId } });
     const totals = new Map<InvestmentAssetClass, number>();
     for (const holding of holdings) {
+      // An account the page is not showing takes its holdings with it.
+      if (excludedAccountIds.has(holding.accountId)) {
+        continue;
+      }
       const view = await this.holdingView(holding, currency);
       totals.set(holding.assetClass, (totals.get(holding.assetClass) ?? 0) + view.value);
     }
@@ -323,7 +310,11 @@ export class InvestmentsService {
    * The account's value today, written where the balance sheet and net worth
    * read it. Public because the metals service keeps its own account the same way.
    */
-  async writeSnapshot(userId: string, workspaceId: string, accountId: string): Promise<void> {
+  async writeSnapshot(
+    userId: string | null,
+    workspaceId: string,
+    accountId: string,
+  ): Promise<void> {
     const currency = await this.workspaceCurrency(workspaceId);
     const holdings = await this.holdingRepository.find({ where: { workspaceId, accountId } });
     let total = 0;
@@ -337,47 +328,17 @@ export class InvestmentsService {
     });
   }
 
-  private async contributedByAccount(
-    workspaceId: string,
-    accountIds: string[],
-    currency: string,
-  ): Promise<Map<string, number>> {
-    const rows = await this.transactionRepository
-      .createQueryBuilder('t')
-      .select('t.investment_account_id', 'accountId')
-      .addSelect('t.currency', 'currency')
-      .addSelect('COALESCE(SUM(t.debit), 0)', 'total')
-      .where('t.workspace_id = :workspaceId', { workspaceId })
-      .andWhere('t.investment_account_id IN (:...accountIds)', { accountIds })
-      .andWhere('t.is_duplicate = false')
-      .andWhere(countedSql('t'))
-      .groupBy('t.investment_account_id')
-      .addGroupBy('t.currency')
-      .getRawMany<{ accountId: string; currency: string; total: string }>();
-    const result = new Map<string, number>();
-    for (const row of rows) {
-      const amount = await this.convert(
-        Number.parseFloat(row.total),
-        row.currency,
-        currency,
-        workspaceId,
-      );
-      result.set(row.accountId, (result.get(row.accountId) ?? 0) + amount);
-    }
-    return result;
-  }
-
   private async requireAccount(workspaceId: string, accountId: string): Promise<BalanceAccount> {
     const account = await this.accountRepository.findOne({ where: { id: accountId, workspaceId } });
     if (!account?.accountKind) {
-      throw new NotFoundException('Investment account not found');
+      throw new NotFoundException(appError('INVESTMENTS_ACCOUNT_NOT_FOUND'));
     }
     return account;
   }
 
   private async requireHolding(workspaceId: string, holdingId: string): Promise<InvestmentHolding> {
     const holding = await this.holdingRepository.findOne({ where: { id: holdingId, workspaceId } });
-    if (!holding) throw new NotFoundException('Holding not found');
+    if (!holding) throw new NotFoundException(appError('INVESTMENTS_HOLDING_NOT_FOUND'));
     return holding;
   }
 

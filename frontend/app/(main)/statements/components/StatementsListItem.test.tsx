@@ -1,6 +1,6 @@
 import React from 'react';
 import { act } from 'react';
-import { createRoot } from 'react-dom/client';
+import { createRoot, type Root } from 'react-dom/client';
 import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -61,6 +61,14 @@ type Statement = {
 
 describe('StatementsListItem', () => {
   let container: HTMLDivElement;
+  // Every root is unmounted after its test: a root left mounted let React run
+  // scheduled work after the environment was torn down ("window is not defined").
+  let roots: Root[] = [];
+  const mount = (): Root => {
+    const created = createRoot(container);
+    roots.push(created);
+    return created;
+  };
 
   beforeEach(() => {
     (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -72,12 +80,18 @@ describe('StatementsListItem', () => {
   });
 
   afterEach(() => {
+    act(() => {
+      for (const root of roots) {
+        root.unmount();
+      }
+    });
+    roots = [];
     container.remove();
     container = null as unknown as HTMLDivElement;
   });
 
   it('renders an emailed receipt using document layout', () => {
-    const root = createRoot(container);
+    const root = mount();
     const onView = vi.fn();
     const onIconClick = vi.fn();
 
@@ -131,7 +145,7 @@ describe('StatementsListItem', () => {
   });
 
   it('renders a stacked phone layout next to the column layout', () => {
-    const root = createRoot(container);
+    const root = mount();
 
     const statement: Statement = {
       id: 'statement-1',
@@ -181,7 +195,7 @@ describe('StatementsListItem', () => {
   });
 
   it('uses receipt thumbnail source for local receipts', async () => {
-    const root = createRoot(container);
+    const root = mount();
 
     const statement: Statement = {
       id: 'receipt-local-1',
@@ -250,7 +264,7 @@ describe('StatementsListItem', () => {
   });
 
   it('renders hover preview in portal without clipping', async () => {
-    const root = createRoot(container);
+    const root = mount();
 
     const statement: Statement = {
       id: 'statement-hover-preview',
@@ -299,7 +313,7 @@ describe('StatementsListItem', () => {
   });
 
   it('dismisses hover preview when the list scrolls', async () => {
-    const root = createRoot(container);
+    const root = mount();
 
     const statement: Statement = {
       id: 'statement-hover-scroll',
@@ -355,7 +369,7 @@ describe('StatementsListItem', () => {
   });
 
   it('opens from the unified column row overlay', () => {
-    const root = createRoot(container);
+    const root = mount();
     const onView = vi.fn();
 
     const statement: Statement = {
@@ -418,7 +432,7 @@ describe('StatementsListItem', () => {
   });
 
   it('renders payments icon for manual expense type', () => {
-    const root = createRoot(container);
+    const root = mount();
 
     const statement: Statement = {
       id: 'manual-1',
@@ -463,7 +477,7 @@ describe('StatementsListItem', () => {
   });
 
   it('names a receipt-scan statement by type beside the date, with no extra icon', () => {
-    const root = createRoot(container);
+    const root = mount();
 
     const statement: Statement = {
       id: 'receipt-scan-1',
@@ -518,7 +532,7 @@ describe('StatementsListItem', () => {
   });
 
   it('badges a needs_review statement distinctly from a completed one', () => {
-    const root = createRoot(container);
+    const root = mount();
 
     const statement: Statement = {
       id: 'statement-needs-review',
@@ -560,7 +574,7 @@ describe('StatementsListItem', () => {
   });
 
   it('does not call onView when view is disabled', () => {
-    const root = createRoot(container);
+    const root = mount();
     const onView = vi.fn();
 
     const statement: Statement = {
@@ -619,7 +633,7 @@ describe('StatementsListItem', () => {
   });
 
   it('renders amount loader instead of zero while statement parsing is in progress', () => {
-    const root = createRoot(container);
+    const root = mount();
 
     const statement: Statement = {
       id: 'statement-loading-amount',
@@ -661,7 +675,7 @@ describe('StatementsListItem', () => {
   });
 
   it('sets the currency apart from the figure', () => {
-    const root = createRoot(container);
+    const root = mount();
 
     const statement: Statement = {
       id: 'statement-dark-amount',
@@ -707,7 +721,7 @@ describe('StatementsListItem', () => {
   });
 
   it('marks the amount for privacy mode on desktop and on the phone', () => {
-    const root = createRoot(container);
+    const root = mount();
 
     const statement: Statement = {
       id: 'statement-private-amount',
@@ -753,7 +767,7 @@ describe('StatementsListItem', () => {
   });
 
   it('marks a duplicate with a caption, a line on the left and a Review link', () => {
-    const root = createRoot(container);
+    const root = mount();
 
     const statement: Statement = {
       id: 'duplicate-1',
@@ -810,7 +824,7 @@ describe('StatementsListItem', () => {
   });
 
   it('runs the duplicate line through the middle of a group', () => {
-    const root = createRoot(container);
+    const root = mount();
     const statement: Statement = {
       id: 'duplicate-2',
       source: 'statement',
@@ -853,7 +867,7 @@ describe('StatementsListItem', () => {
   });
 
   it('honors desktop column visibility and keeps hidden action rows clickable', () => {
-    const root = createRoot(container);
+    const root = mount();
     const onView = vi.fn();
 
     const statement: Statement = {
@@ -913,7 +927,7 @@ describe('StatementsListItem', () => {
   });
 
   it('renders optional summary columns with fallbacks from statement data', () => {
-    const root = createRoot(container);
+    const root = mount();
 
     const statement = {
       id: 'column-optional-values',
@@ -969,13 +983,19 @@ describe('StatementsListItem', () => {
     ) as HTMLDivElement | null;
     expect(desktopContainer?.textContent).toContain('Software');
     expect(desktopContainer?.textContent).toContain('SaaS');
+    expect(desktopContainer?.querySelector('[data-testid="LocalOfferIcon"]')).not.toBeNull();
+    // Like the category, the tag opens its row of the By tag report on the statement's month.
+    expect(
+      desktopContainer?.querySelector('a[href="/reports?tab=cash-flow&month=2026-01&focus=tag%3Asaas"]')
+        ?.textContent,
+    ).toBe('SaaS');
     expect(desktopContainer?.textContent).toContain('Cloud subscription');
     expect(desktopContainer?.textContent).toContain('1 USD = 512.34 KZT');
     expect(desktopContainer?.textContent).toContain('Corporate card');
   });
 
   it('uses the current USD exchange rate for non-USD statement rows', () => {
-    const root = createRoot(container);
+    const root = mount();
 
     const statement = {
       id: 'column-usd-rate',
@@ -1019,7 +1039,7 @@ describe('StatementsListItem', () => {
   });
 
   it('falls back to the default target currency when workspace currency is missing', () => {
-    const root = createRoot(container);
+    const root = mount();
     // Цель без валюты воркспейса — FALLBACK_CURRENCY (USD или NEXT_PUBLIC_DEFAULT_CURRENCY).
     const fallbackRateLabel = `1 KZT = 0.002 ${FALLBACK_CURRENCY}`;
 
@@ -1063,7 +1083,7 @@ describe('StatementsListItem', () => {
   });
 
   it('normalizes NIS workspace currency to ILS for current exchange rates', () => {
-    const root = createRoot(container);
+    const root = mount();
 
     const statement = {
       id: 'column-usd-rate-nis-currency',
@@ -1104,12 +1124,12 @@ describe('StatementsListItem', () => {
     expect(desktopContainer?.textContent).toContain('1 USD = 3.72 ILS');
   });
 
-  it('says a one-purchase document has no category yet, but leaves a multi-row statement blank', () => {
+  it('says a one-purchase document has no category yet, and a statement how many rows wait', () => {
     const renderCategory = (
       statement: Partial<StatementsListItemProps['statement']>,
       props: Partial<StatementsListItemProps> = {},
     ): HTMLElement | null => {
-      const root = createRoot(container);
+      const root = mount();
       act(() => {
         root.render(
           <StatementsListItem
@@ -1153,17 +1173,66 @@ describe('StatementsListItem', () => {
         '[data-testid="no-category-badge"]',
       ),
     ).toBeTruthy();
-    // A bank statement's category is only the majority of its rows'.
-    const multiRow = renderCategory(
-      { source: 'statement', fileType: 'pdf' },
+    // A bank statement has no category of its own; its rows do.
+    const onToggleExpand = vi.fn();
+    const waiting = renderCategory(
+      { source: 'statement', fileType: 'pdf', transactionSummary: { uncategorizedCount: 7 } },
+      { isReceipt: false, transactionCount: 24, onToggleExpand },
+    );
+    expect(waiting?.querySelector('[data-testid="no-category-badge"]')).toBeNull();
+    expect(waiting?.textContent).toBe('7 uncategorized');
+    const done = renderCategory(
+      { source: 'statement', fileType: 'pdf', transactionSummary: { uncategorizedCount: 0 } },
       { isReceipt: false, transactionCount: 24 },
     );
-    expect(multiRow?.querySelector('[data-testid="no-category-badge"]')).toBeNull();
-    expect(multiRow?.textContent).toBe('—');
+    expect(done?.textContent).toBe('All categorized');
+  });
+
+  it('opens a statement\'s rows from its uncategorized count without opening the document', () => {
+    const root = mount();
+    const onView = vi.fn();
+    const onToggleExpand = vi.fn();
+    act(() => {
+      root.render(
+        <StatementsListItem
+          statement={
+            {
+              id: 'rows-waiting',
+              source: 'statement',
+              fileName: 'statement.pdf',
+              status: 'completed',
+              createdAt: '2026-02-05T00:00:00Z',
+              bankName: 'other',
+              fileType: 'pdf',
+              transactionSummary: { uncategorizedCount: 3 },
+            } as StatementsListItemProps['statement']
+          }
+          viewLabel="View"
+          isReceipt={false}
+          isProcessing={false}
+          merchantLabel="Example Bank"
+          amountLabel="120.00 USD"
+          dateLabel="02/05/2026"
+          transactionCount={12}
+          onView={onView}
+          onIconClick={() => undefined}
+          onToggleExpand={onToggleExpand}
+          columns={[{ id: 'category', label: 'Category', visible: true, order: 0 }]}
+        />,
+      );
+    });
+    act(() => {
+      (
+        container.querySelector('[data-testid="statement-rows-uncategorized"]') as HTMLElement
+      ).click();
+    });
+    expect(onToggleExpand).toHaveBeenCalledTimes(1);
+    expect(onView).not.toHaveBeenCalled();
+    act(() => root.unmount());
   });
 
   it('opens the category drawer from "Add category" without opening the document', () => {
-    const root = createRoot(container);
+    const root = mount();
     const onView = vi.fn();
     const onAddCategory = vi.fn();
     act(() => {
@@ -1203,7 +1272,7 @@ describe('StatementsListItem', () => {
   });
 
   it('links the category chip to that category on the Top categories leaderboard', () => {
-    const root = createRoot(container);
+    const root = mount();
 
     const statement = {
       id: 'column-category-link',
@@ -1247,7 +1316,7 @@ describe('StatementsListItem', () => {
   });
 
   it('treats a category chip click as a row click until the chip lights up', () => {
-    const root = createRoot(container);
+    const root = mount();
     const onView = vi.fn();
 
     const statement = {
@@ -1306,8 +1375,72 @@ describe('StatementsListItem', () => {
     expect(onView).toHaveBeenCalledTimes(1);
   });
 
-  it('opens a multi-row statement under its line instead of opening the statement', () => {
+  it('gives each tag its own link that acts as a row click until it lights up', () => {
     const root = createRoot(container);
+    const onView = vi.fn();
+    const statement = {
+      id: 'column-tag-link-click',
+      source: 'statement',
+      fileName: 'Summary.pdf',
+      status: 'completed',
+      totalDebit: 1200,
+      totalCredit: 0,
+      createdAt: '2026-02-05T00:00:00Z',
+      bankName: 'kaspi',
+      fileType: 'pdf',
+      currency: 'KZT',
+      tags: [
+        { id: 'tag-1', name: 'Team Trip', color: null },
+        { id: 'tag-2', name: 'Office Move', color: null },
+      ],
+    } as StatementsListItemProps['statement'];
+
+    act(() => {
+      root.render(
+        <StatementsListItem
+          statement={statement}
+          viewLabel="View"
+          isReceipt={false}
+          isProcessing={false}
+          merchantLabel="Kaspi"
+          amountLabel="1,200 KZT"
+          dateLabel="02/05/2026"
+          onView={onView}
+          onIconClick={() => undefined}
+          onToggleSelect={() => undefined}
+          columns={[{ id: 'tag', label: 'Tag', visible: true, order: 0 }]}
+        />,
+      );
+    });
+
+    const links = Array.from(container.querySelectorAll<HTMLAnchorElement>('a.seneca-stmt-tag-link'));
+    expect(links.map(link => link.getAttribute('href'))).toEqual([
+      '/reports?tab=cash-flow&month=2026-02&focus=tag%3Ateam+trip',
+      '/reports?tab=cash-flow&month=2026-02&focus=tag%3Aoffice+move',
+    ]);
+    container.addEventListener('click', event => event.preventDefault(), true);
+
+    const beforeDwell = new MouseEvent('click', { bubbles: true, cancelable: true });
+    act(() => {
+      links[1].dispatchEvent(beforeDwell);
+    });
+    expect(onView).toHaveBeenCalledTimes(1);
+    expect(beforeDwell.defaultPrevented).toBe(true);
+
+    act(() => {
+      links[1].dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+    });
+    expect(links[1].className).toContain('seneca-stmt-category-link--lit');
+    expect(links[0].className).not.toContain('seneca-stmt-category-link--lit');
+
+    act(() => {
+      links[1].dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+    expect(onView).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens a multi-row statement under its line instead of opening the statement', () => {
+    const root = mount();
     const onView = vi.fn();
     const onToggleExpand = vi.fn();
     const statement: Statement = {
@@ -1366,7 +1499,7 @@ describe('StatementsListItem', () => {
   });
 
   const renderApprovedCell = (status: string, isReceipt: boolean, pendingReview: number) => {
-    const root = createRoot(container);
+    const root = mount();
     act(() => {
       root.render(
         <StatementsListItem
@@ -1411,7 +1544,7 @@ describe('StatementsListItem', () => {
 
   it("shows a system category in the reader's language and links it by its stored name", () => {
     appLocale.current = 'ru';
-    const root = createRoot(container);
+    const root = mount();
     act(() => {
       root.render(
         <StatementsListItem

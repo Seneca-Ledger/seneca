@@ -2,9 +2,8 @@ import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Cache } from 'cache-manager';
-import type { Repository } from 'typeorm';
+import { In, type Repository } from 'typeorm';
 import { payeeKeyOf } from '../../../common/utils/payee-key.util';
-import { OWNER_SHARED } from '../../../common/utils/transaction-owner.util';
 import {
   DEFAULT_PROCESSING_SETTINGS,
   readProcessingSettings,
@@ -28,6 +27,7 @@ import { AuditService } from '../../audit/audit.service';
 import { UNCATEGORIZED_CATEGORY_NAME } from '../../categories/uncategorized-category';
 import { decidePayeeCategory } from '../engine/payee-category.matcher';
 import { onlyPayeeEvidence } from '../engine/payee-evidence';
+import { matchesConditions } from '../engine/rule-conditions';
 import {
   type ClassificationCondition,
   type ClassificationRule,
@@ -105,47 +105,34 @@ export class ClassificationService {
     // default, so it must not overwrite one.
     let ruleSetOwner = false;
 
-    // Get classification rules for user
-    const rules = (await this.getClassificationRules(userId, workspaceId)) ?? [];
-
-    // Apply rules in priority order
-    for (const rule of rules.sort((a, b) => b.priority - a.priority)) {
-      if (this.matchesRule(transaction, rule.conditions)) {
-        // A rule saved before its targets were checked may still name another
-        // workspace's category, branch or wallet: it is passed over, not applied.
-        if (
-          workspaceId &&
-          !(await workspaceOwnsRefs(this.walletRepository.manager, workspaceId, rule.result))
-        ) {
-          continue;
-        }
-        matchedRule = rule;
-        // Apply rule result
-        if (rule.result.categoryId) {
-          classification.categoryId = rule.result.categoryId;
-          classification.categorySource = TransactionCategorySource.RULE;
-          classification.categoryReason = rule.name;
-        }
-        if (rule.result.branchId) {
-          classification.branchId = rule.result.branchId;
-        }
-        if (rule.result.walletId) {
-          classification.walletId = rule.result.walletId;
-        }
-        if (rule.result.ownerMemberId !== undefined) {
-          classification.ownerMemberId = rule.result.ownerMemberId;
-          ruleSetOwner = true;
-        }
-        if (rule.result.article) {
-          classification.article = rule.result.article;
-        }
-        if (rule.result.activityType) {
-          classification.activityType = rule.result.activityType;
-        }
-
-        // Stop at first matching rule (highest priority)
-        break;
+    // The workspace's rules, whoever wrote them: a rule is a decision about the
+    // workspace's money, so it applies to every member's imports.
+    const rules = await this.getClassificationRules(workspaceId);
+    const rule = await this.firstApplicableRule(rules, transaction, workspaceId);
+    if (rule) {
+      matchedRule = rule;
+      if (rule.result.categoryId) {
+        classification.categoryId = rule.result.categoryId;
+        classification.categorySource = TransactionCategorySource.RULE;
+        classification.categoryReason = rule.name;
       }
+      if (rule.result.branchId) {
+        classification.branchId = rule.result.branchId;
+      }
+      if (rule.result.walletId) {
+        classification.walletId = rule.result.walletId;
+      }
+      if (rule.result.ownerMemberId !== undefined) {
+        classification.ownerMemberId = rule.result.ownerMemberId;
+        ruleSetOwner = true;
+      }
+      if (rule.result.article) {
+        classification.article = rule.result.article;
+      }
+      if (rule.result.activityType) {
+        classification.activityType = rule.result.activityType;
+      }
+      await this.recordRuleMatch(rule.id, workspaceId);
     }
 
     // Auto-classify category if not set
@@ -161,10 +148,9 @@ export class ClassificationService {
       classification.categoryReason = match?.reason ?? null;
     }
 
-    // Auto-determine wallet if not set
-    if (!classification.walletId) {
-      classification.walletId = await this.autoDetermineWallet(transaction, userId, workspaceId);
-    }
+    // No guessing of the account: a row lands in one only through a rule, its
+    // statement's account or the user's own choice. A fallback to "the oldest
+    // wallet" put every row of every bank into the first account created.
 
     // Auto-determine branch if not set
     if (!classification.branchId) {
@@ -235,9 +221,10 @@ export class ClassificationService {
       credit: input.transactionType === TransactionType.INCOME ? (input.amount ?? null) : null,
     } as Transaction;
 
-    const rules = (await this.getClassificationRules(input.userId, input.workspaceId)) ?? [];
-    const rule = rules.find(candidate => this.matchesRule(transaction, candidate.conditions));
+    const rules = await this.getClassificationRules(input.workspaceId);
+    const rule = await this.firstApplicableRule(rules, transaction, input.workspaceId);
     if (rule?.result.categoryId) {
+      await this.recordRuleMatch(rule.id, input.workspaceId);
       return {
         categoryId: rule.result.categoryId,
         source: TransactionCategorySource.RULE,
@@ -249,68 +236,43 @@ export class ClassificationService {
   }
 
   matchesRule(transaction: Transaction, conditions: ClassificationCondition[]): boolean {
-    return conditions.every(condition => {
-      const fieldValue = this.getFieldValue(transaction, condition.field);
-      return this.evaluateCondition(fieldValue, condition);
-    });
+    return matchesConditions(transaction, conditions);
   }
 
-  private getFieldValue(transaction: Transaction, field: string): string | number | null {
-    switch (field) {
-      case 'counterparty_name':
-        return transaction.counterpartyName;
-      case 'payment_purpose':
-        return transaction.paymentPurpose;
-      case 'amount':
-        return transaction.amount || transaction.debit || transaction.credit || 0;
-      case 'counterparty_bin':
-        return transaction.counterpartyBin || null;
-      case 'document_number':
-        return transaction.documentNumber || null;
-      // `shared` rather than null: the condition evaluator treats null as "no
-      // value" and refuses to match, so a rule about shared rows needs a word.
-      case 'owner':
-        return transaction.ownerMemberId ?? OWNER_SHARED;
-      default:
-        return null;
+  /**
+   * The highest-priority rule that matches and names only this workspace's
+   * category, branch and wallet. A rule saved before its targets were checked
+   * may still name another workspace's: it is passed over, not applied.
+   */
+  private async firstApplicableRule(
+    rules: ClassificationRule[],
+    transaction: Transaction,
+    workspaceId: string | null,
+  ): Promise<ClassificationRule | null> {
+    for (const rule of [...rules].sort((a, b) => b.priority - a.priority)) {
+      if (!this.matchesRule(transaction, rule.conditions)) {
+        continue;
+      }
+      if (
+        workspaceId &&
+        !(await workspaceOwnsRefs(this.walletRepository.manager, workspaceId, rule.result))
+      ) {
+        continue;
+      }
+      return rule;
     }
+    return null;
   }
 
-  private evaluateCondition(
-    fieldValue: string | number | null,
-    condition: ClassificationCondition,
-  ): boolean {
-    if (fieldValue === null || fieldValue === undefined) {
-      return false;
+  /** Keeps the "matched N times, last on …" line on the rules page true. */
+  async recordRuleMatch(ruleId: string | undefined, workspaceId: string | null, count = 1) {
+    if (!(ruleId && workspaceId) || count < 1) {
+      return;
     }
-
-    const conditionValue = condition.value;
-    const fieldStr = String(fieldValue).toLowerCase();
-    const conditionStr = String(conditionValue).toLowerCase();
-
-    switch (condition.operator) {
-      case 'contains':
-        return fieldStr.includes(conditionStr);
-      case 'equals':
-        return fieldStr === conditionStr;
-      case 'starts_with':
-        return fieldStr.startsWith(conditionStr);
-      case 'ends_with':
-        return fieldStr.endsWith(conditionStr);
-      case 'regex':
-        try {
-          const regex = new RegExp(conditionValue as string, 'i');
-          return regex.test(fieldStr);
-        } catch {
-          return false;
-        }
-      case 'greater_than':
-        return Number(fieldValue) > Number(conditionValue);
-      case 'less_than':
-        return Number(fieldValue) < Number(conditionValue);
-      default:
-        return false;
-    }
+    await this.categorizationRuleRepository.update(
+      { id: ruleId, workspaceId },
+      { matchCount: () => `match_count + ${Math.trunc(count)}`, lastMatchedAt: new Date() },
+    );
   }
 
   private async autoClassifyCategory(
@@ -375,47 +337,70 @@ export class ClassificationService {
     workspaceId: string,
     payeeId: string,
   ): Promise<AutoCategoryMatch | undefined> {
-    const settings = await this.getProcessingSettings(workspaceId);
-    if (!settings.merchantLearning) {
-      return undefined;
-    }
-
-    const payee = await this.payeeRepository.findOne({ where: { id: payeeId, workspaceId } });
-    if (!payee) {
-      return undefined;
-    }
-
-    const newestFirst = await this.payeeHistoryQuery(workspaceId, payeeId).getMany();
-    const decision = decidePayeeCategory({
-      // The matcher replays history forward; the query hands back the newest first.
-      history: [...newestFirst].reverse().map(row => ({ categoryId: row.categoryId as string })),
-      override: { mode: payee.mode, categoryId: payee.categoryId },
-    });
-
-    if (!decision) {
-      return undefined;
-    }
-
-    return {
-      categoryId: decision.categoryId,
-      source:
-        decision.basis === 'payee-pinned'
-          ? TransactionCategorySource.LEARNED
-          : TransactionCategorySource.HISTORY,
-      reason: payee.name,
-    };
+    return (await this.categoriesForPayees(workspaceId, [payeeId])).get(payeeId);
   }
 
-  private payeeHistoryQuery(workspaceId: string, payeeId: string) {
-    const query = this.transactionRepository
-      .createQueryBuilder('transaction')
-      .select(['transaction.id', 'transaction.categoryId'])
-      .where('transaction.workspaceId = :workspaceId', { workspaceId })
-      .andWhere('transaction.payeeId = :payeeId', { payeeId });
-    return onlyPayeeEvidence(query, 'transaction')
-      .orderBy('transaction.transactionDate', 'DESC')
-      .addOrderBy('transaction.createdAt', 'DESC')
-      .take(PAYEE_HISTORY_DEPTH);
+  /**
+   * `categoryForPayee` for a page of payees at once: the settings, the payees
+   * and their recent decided rows in three queries instead of three per payee.
+   */
+  async categoriesForPayees(
+    workspaceId: string,
+    payeeIds: readonly string[],
+  ): Promise<Map<string, AutoCategoryMatch>> {
+    const result = new Map<string, AutoCategoryMatch>();
+    if (payeeIds.length === 0) {
+      return result;
+    }
+    const settings = await this.getProcessingSettings(workspaceId);
+    if (!settings.merchantLearning) {
+      return result;
+    }
+
+    const ids = [...new Set(payeeIds)];
+    const [payees, evidence] = await Promise.all([
+      this.payeeRepository.find({ where: { id: In(ids), workspaceId } }),
+      onlyPayeeEvidence(
+        this.transactionRepository
+          .createQueryBuilder('transaction')
+          .select(['transaction.id', 'transaction.payeeId', 'transaction.categoryId'])
+          .where('transaction.workspaceId = :workspaceId', { workspaceId })
+          .andWhere('transaction.payeeId IN (:...ids)', { ids }),
+        'transaction',
+      )
+        .orderBy('transaction.transactionDate', 'DESC')
+        .addOrderBy('transaction.createdAt', 'DESC')
+        .getMany(),
+    ]);
+
+    // Newest first per payee, the most recent PAYEE_HISTORY_DEPTH of them.
+    const historyOf = new Map<string, Array<{ categoryId: string }>>();
+    for (const row of evidence) {
+      const history = historyOf.get(row.payeeId as string) ?? [];
+      if (history.length < PAYEE_HISTORY_DEPTH) {
+        history.push({ categoryId: row.categoryId as string });
+      }
+      historyOf.set(row.payeeId as string, history);
+    }
+
+    for (const payee of payees) {
+      const decision = decidePayeeCategory({
+        // The matcher replays history forward; the query hands back the newest first.
+        history: [...(historyOf.get(payee.id) ?? [])].reverse(),
+        override: { mode: payee.mode, categoryId: payee.categoryId },
+      });
+      if (decision) {
+        result.set(payee.id, {
+          categoryId: decision.categoryId,
+          source:
+            decision.basis === 'payee-pinned'
+              ? TransactionCategorySource.LEARNED
+              : TransactionCategorySource.HISTORY,
+          reason: payee.name,
+        });
+      }
+    }
+    return result;
   }
 
   private ownerScope(userId: string, workspaceId: string | null) {
@@ -442,44 +427,6 @@ export class ClassificationService {
     return wallet?.ownerMemberId ?? null;
   }
 
-  private async autoDetermineWallet(
-    transaction: Transaction,
-    userId: string,
-    workspaceId: string | null,
-  ): Promise<string | undefined> {
-    const scope = this.ownerScope(userId, workspaceId);
-    // Try to match by account number if available
-    if (transaction.counterpartyAccount) {
-      const wallet = await this.walletRepository.findOne({
-        where: {
-          ...scope,
-          accountNumber: transaction.counterpartyAccount,
-        },
-      });
-
-      if (wallet) {
-        return wallet.id;
-      }
-    }
-
-    // Match by wallet name presence in purpose/counterparty
-    const wallets = await this.walletRepository.find({ where: scope });
-    const searchText =
-      `${transaction.counterpartyName} ${transaction.paymentPurpose}`.toLowerCase();
-    const walletMatch = wallets.find(w => searchText.includes((w.name || '').toLowerCase()));
-    if (walletMatch) {
-      return walletMatch.id;
-    }
-
-    // Get default wallet for user
-    const defaultWallet = await this.walletRepository.findOne({
-      where: scope,
-      order: { createdAt: 'ASC' },
-    });
-
-    return defaultWallet?.id;
-  }
-
   private async autoDetermineBranch(
     transaction: Transaction,
     userId: string,
@@ -496,17 +443,14 @@ export class ClassificationService {
     return (matched || branches[0])?.id;
   }
 
-  private async getClassificationRules(
-    userId: string,
-    workspaceId: string | null = null,
-  ): Promise<ClassificationRule[]> {
-    // Load user-defined categorization rules from database
+  async getClassificationRules(workspaceId: string | null): Promise<ClassificationRule[]> {
+    // Without a workspace there is nothing to scope by, and an empty `where`
+    // would read every workspace's rules.
+    if (!workspaceId) {
+      return [];
+    }
     const userRules = await this.categorizationRuleRepository.find({
-      where: {
-        userId,
-        ...(workspaceId ? { workspaceId } : {}),
-        isActive: true,
-      },
+      where: { workspaceId, isActive: true },
       order: {
         priority: 'DESC',
       },
@@ -599,117 +543,10 @@ export class ClassificationService {
     return category?.id;
   }
 
-  /**
-   * Determine majority category for a statement based on parsed transactions.
-   * Returns existing category if found, otherwise creates one with generated color.
-   */
-  async determineMajorityCategory(
-    transactions: Array<{
-      debit?: number | null;
-      credit?: number | null;
-      paymentPurpose?: string;
-      counterpartyName?: string;
-    }>,
-    userId: string,
-    workspaceId: string | null = null,
-  ): Promise<{ categoryId?: string; type: CategoryType }> {
-    const totalDebit = transactions.reduce((sum, t) => sum + (t.debit ?? 0), 0);
-    const totalCredit = transactions.reduce((sum, t) => sum + (t.credit ?? 0), 0);
-    const type = totalDebit >= totalCredit ? CategoryType.EXPENSE : CategoryType.INCOME;
-
-    const relevant = transactions.filter(t =>
-      type === CategoryType.EXPENSE ? (t.debit ?? 0) > 0 : (t.credit ?? 0) > 0,
-    );
-
-    const keyword = this.extractDominantKeyword(relevant);
-    const name =
-      keyword && keyword.length > 0
-        ? `${type === CategoryType.EXPENSE ? 'Расходы' : 'Доходы'}: ${keyword}`
-        : type === CategoryType.EXPENSE
-          ? 'Расходы'
-          : 'Доходы';
-
-    const color = this.pickColor(name);
-    const categoryId = await this.ensureCategory(userId, name, type, color, workspaceId);
-    return { categoryId, type };
-  }
-
   private async invalidateWorkspaceCategoriesCache(workspaceId: string): Promise<void> {
     await this.cacheManager.del(`categories:${workspaceId}:all`);
     await this.cacheManager.del(`categories:${workspaceId}:${CategoryType.INCOME}`);
     await this.cacheManager.del(`categories:${workspaceId}:${CategoryType.EXPENSE}`);
-  }
-
-  private extractDominantKeyword(
-    transactions: Array<{ paymentPurpose?: string; counterpartyName?: string }>,
-  ): string {
-    const text = transactions
-      .map(t =>
-        `${t.paymentPurpose || ''} ${t.counterpartyName || ''}`
-          .replace(/[.,;:()/\\\-\d]+/g, ' ')
-          .toLowerCase(),
-      )
-      .join(' ');
-
-    const stopWords = new Set([
-      'оплата',
-      'платеж',
-      'платежа',
-      'перевод',
-      'перечисление',
-      'за',
-      'и',
-      'в',
-      'на',
-      'по',
-      'заказ',
-      'товар',
-      'услуга',
-      'услуг',
-      'казахстан',
-      'тариф',
-      'счета',
-      'счет',
-      'номер',
-      'период',
-      'месяц',
-      'год',
-      'указано',
-      'указан',
-      'указана',
-    ]);
-
-    const words = text.split(/\s+/).filter(w => w.length >= 4 && !stopWords.has(w));
-
-    const freq = new Map<string, number>();
-    for (const w of words) {
-      freq.set(w, (freq.get(w) || 0) + 1);
-    }
-    const top = Array.from(freq.entries()).sort((a, b) => b[1] - a[1])[0];
-    if (!top) {
-      return '';
-    }
-    return top[0].charAt(0).toUpperCase() + top[0].slice(1);
-  }
-
-  private pickColor(key: string): string {
-    const palette = [
-      '#4F46E5', // indigo
-      '#0EA5E9', // sky
-      '#10B981', // emerald
-      '#F59E0B', // amber
-      '#EF4444', // red
-      '#8B5CF6', // violet
-      '#EC4899', // pink
-      '#22C55E', // green
-      '#F97316', // orange
-      '#14B8A6', // teal
-    ];
-    let hash = 0;
-    for (let i = 0; i < key.length; i++) {
-      hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
-    }
-    return palette[hash % palette.length];
   }
 
   /**

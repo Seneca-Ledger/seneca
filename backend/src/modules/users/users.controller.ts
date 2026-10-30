@@ -5,11 +5,9 @@ import {
   Get,
   HttpCode,
   HttpStatus,
-  Param,
   Patch,
   Post,
   Put,
-  Query,
   Res,
   UploadedFile,
   UseGuards,
@@ -18,44 +16,45 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Throttle } from '@nestjs/throttler';
 import type { Response } from 'express';
-import * as fs from 'fs';
-import { diskStorage } from 'multer';
-import * as path from 'path';
 import { SkipCsrf } from '../../common/decorators/skip-csrf.decorator';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
+import { SchemaParams, SchemaQuery } from '../../common/effect/schema-query';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { toEnum } from '../../common/effect/to-enum';
 import { Permission } from '../../common/enums/permissions.enum';
 import { appError } from '../../common/errors/app-error';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { TimezonesService } from '../../common/services/timezones.service';
-import {
-  isAllowedAvatarMime,
-  resolveAvatarContentType,
-  sanitizeAvatarFilename,
-} from '../../common/utils/avatar-filename.util';
 import { removeUploadedFile, validateImageSignature } from '../../common/utils/file-validator.util';
 import { deletedResponse } from '../../common/utils/responses.util';
-import { resolveUploadsDir } from '../../common/utils/uploads.util';
 import {
   AddPermissionBody,
+  AdminUser,
   AdminUserList,
+  AvatarFileParams,
   ChangeEmailBody,
   ChangePasswordBody,
   CompleteOnboardingBody,
   ConfirmEmailChangeBody,
   DeleteMyAccountBody,
+  DisclaimerAccepted,
   DisclaimerStatus,
+  EmailChangeConfirmed,
   MessageResult,
   PageHintsSeen,
   PageHintsSeenBody,
   RemovePermissionBody,
+  TimeZoneList,
   UpdateMyPreferencesBody,
   UpdatePermissionsBody,
   UpdateUserBody,
+  UserIdParams,
   UserPermissions,
+  UserPermissionsUpdate,
+  UserProfile,
+  UsersQuery,
   UserUpdateResponse,
   WelcomeTutorialSeen,
 } from '../../contracts';
@@ -63,6 +62,7 @@ import { type User, UserRole } from '../../entities/user.entity';
 import { toCurrentUser } from '../auth/current-user.view';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Public } from '../auth/decorators/public.decorator';
+import { avatarUploadOptions, sendAvatarFile } from './avatar-file.util';
 import { CURRENT_DISCLAIMER_VERSION } from './disclaimer.constant';
 import { AccountDataService } from './services/account-data.service';
 import { EmailChangeService } from './services/email-change.service';
@@ -88,21 +88,26 @@ export class UsersController {
   @Get()
   @WorkspaceAuth(Permission.USER_VIEW_ALL)
   @SchemaResponse(AdminUserList)
-  async findAll(@WorkspaceId() workspaceId: string, @Query('limit') limit?: string) {
-    return this.usersService.findAll(workspaceId, limit ? Number.parseInt(limit) : 20);
+  async findAll(@WorkspaceId() workspaceId: string, @SchemaQuery(UsersQuery) query: UsersQuery) {
+    return this.usersService.findAll(workspaceId, query.limit ?? 20);
   }
 
   @Get('me')
-  async getProfile(@CurrentUser() user: User): Promise<User> {
-    return this.usersService.getProfile(user.id);
+  @SchemaResponse(UserProfile)
+  async getProfile(@CurrentUser() user: User) {
+    // The row the auth guard loaded, as `GET /auth/me` answers it.
+    const { disclaimerAcceptedAt, disclaimerVersion } = user;
+    return { ...toCurrentUser(user), disclaimerAcceptedAt, disclaimerVersion };
   }
 
   @Get('timezones')
+  @SchemaResponse(TimeZoneList)
   async getTimeZones() {
     return { timeZones: this.timezonesService.listTimeZones() };
   }
 
   @Patch('me/onboarding')
+  @SchemaResponse(UserUpdateResponse)
   async completeOnboarding(
     @CurrentUser() currentUser: User,
     @SchemaBody(CompleteOnboardingBody) dto: CompleteOnboardingBody,
@@ -118,6 +123,7 @@ export class UsersController {
   }
 
   @Delete('me')
+  @SchemaResponse(MessageResult)
   async deleteMyAccount(
     @CurrentUser() currentUser: User,
     @SchemaBody(DeleteMyAccountBody) dto: DeleteMyAccountBody,
@@ -132,12 +138,11 @@ export class UsersController {
    * when, which is the part that has to be auditable.
    */
   @Post('me/disclaimer')
+  @SchemaResponse(DisclaimerAccepted)
   async acceptDisclaimer(@CurrentUser() currentUser: User) {
-    const updatedUser = await this.usersService.acceptDisclaimer(currentUser.id);
-    return {
-      user: toCurrentUser(updatedUser),
-      version: CURRENT_DISCLAIMER_VERSION,
-    };
+    await this.usersService.acceptDisclaimer(currentUser.id);
+    // The acceptance changes no field of the profile, so the guard's full row answers it.
+    return { user: toCurrentUser(currentUser), version: CURRENT_DISCLAIMER_VERSION };
   }
 
   @Get('me/disclaimer')
@@ -194,33 +199,16 @@ export class UsersController {
 
   @Public()
   @Get('avatars/:fileName')
-  getAvatar(@Param('fileName') fileName: string, @Res() res: Response) {
-    const uploadsDir = resolveUploadsDir();
-    const safeFileName = path.basename(fileName);
-    const filePath = path.join(uploadsDir, 'user-avatars', safeFileName);
-
-    if (!fs.existsSync(filePath)) {
-      return res.status(404).send('Avatar not found');
-    }
-
-    // Pin the Content-Type to the image type the extension maps to instead of
-    // letting sendFile infer it: an inferred text/html here would execute on
-    // this origin. Unknown extensions predate the allowlist above — serve them
-    // as an opaque download rather than guessing a type for them.
-    const contentType = resolveAvatarContentType(safeFileName);
-
-    return res.sendFile(filePath, {
-      headers: {
-        'Cache-Control': 'public, max-age=86400',
-        'X-Content-Type-Options': 'nosniff',
-        'Content-Type': contentType ?? 'application/octet-stream',
-        ...(contentType ? {} : { 'Content-Disposition': 'attachment' }),
-      },
-    });
+  getAvatar(@SchemaParams(AvatarFileParams) { fileName }: AvatarFileParams, @Res() res: Response) {
+    return sendAvatarFile(res, fileName);
   }
 
   @Get(':id')
-  async findOne(@Param('id') id: string, @CurrentUser() currentUser: User): Promise<User> {
+  @SchemaResponse(AdminUser)
+  async findOne(
+    @SchemaParams(UserIdParams) { id }: UserIdParams,
+    @CurrentUser() currentUser: User,
+  ): Promise<User> {
     // Users can only view their own profile unless they're admin
     if (currentUser.role !== UserRole.ADMIN && currentUser.id !== id) {
       return this.usersService.getProfile(currentUser.id);
@@ -230,8 +218,9 @@ export class UsersController {
   }
 
   @Put(':id')
+  @SchemaResponse(AdminUser)
   async update(
-    @Param('id') id: string,
+    @SchemaParams(UserIdParams) { id }: UserIdParams,
     @SchemaBody(UpdateUserBody) updateUserDto: UpdateUserBody,
     @CurrentUser() currentUser: User,
   ): Promise<User> {
@@ -240,8 +229,9 @@ export class UsersController {
 
   @Delete(':id')
   @WorkspaceAuth(Permission.USER_MANAGE)
+  @SchemaResponse(MessageResult)
   async remove(
-    @Param('id') id: string,
+    @SchemaParams(UserIdParams) { id }: UserIdParams,
     @CurrentUser() currentUser: User,
   ): Promise<{ message: string }> {
     await this.usersService.remove(id, currentUser);
@@ -251,7 +241,10 @@ export class UsersController {
   @Get(':id/permissions')
   @WorkspaceAuth(Permission.USER_MANAGE)
   @SchemaResponse(UserPermissions)
-  async getUserPermissions(@Param('id') id: string, @WorkspaceId() workspaceId: string) {
+  async getUserPermissions(
+    @SchemaParams(UserIdParams) { id }: UserIdParams,
+    @WorkspaceId() workspaceId: string,
+  ) {
     const user = await this.permissionsService.findUserInWorkspace(id, workspaceId);
     const permissions = this.permissionsService.getUserPermissions(user);
     return {
@@ -264,8 +257,9 @@ export class UsersController {
 
   @Put(':id/permissions')
   @WorkspaceAuth(Permission.USER_MANAGE)
+  @SchemaResponse(UserPermissionsUpdate)
   async updatePermissions(
-    @Param('id') id: string,
+    @SchemaParams(UserIdParams) { id }: UserIdParams,
     @SchemaBody(UpdatePermissionsBody) dto: UpdatePermissionsBody,
     @CurrentUser() currentUser: User,
     @WorkspaceId() workspaceId: string,
@@ -285,8 +279,9 @@ export class UsersController {
 
   @Post(':id/permissions/add')
   @WorkspaceAuth(Permission.USER_MANAGE)
+  @SchemaResponse(UserPermissionsUpdate)
   async addPermission(
-    @Param('id') id: string,
+    @SchemaParams(UserIdParams) { id }: UserIdParams,
     @SchemaBody(AddPermissionBody) dto: AddPermissionBody,
     @CurrentUser() currentUser: User,
     @WorkspaceId() workspaceId: string,
@@ -306,8 +301,9 @@ export class UsersController {
 
   @Post(':id/permissions/remove')
   @WorkspaceAuth(Permission.USER_MANAGE)
+  @SchemaResponse(UserPermissionsUpdate)
   async removePermission(
-    @Param('id') id: string,
+    @SchemaParams(UserIdParams) { id }: UserIdParams,
     @SchemaBody(RemovePermissionBody) dto: RemovePermissionBody,
     @WorkspaceId() workspaceId: string,
     @CurrentUser() currentUser: User,
@@ -327,8 +323,9 @@ export class UsersController {
 
   @Post(':id/permissions/reset')
   @WorkspaceAuth(Permission.USER_MANAGE)
+  @SchemaResponse(UserPermissionsUpdate)
   async resetPermissions(
-    @Param('id') id: string,
+    @SchemaParams(UserIdParams) { id }: UserIdParams,
     @WorkspaceId() workspaceId: string,
     @CurrentUser() currentUser: User,
   ) {
@@ -363,6 +360,7 @@ export class UsersController {
   @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Post('me/email/confirm')
   @HttpCode(HttpStatus.OK)
+  @SchemaResponse(EmailChangeConfirmed)
   async confirmEmailChange(@SchemaBody(ConfirmEmailChangeBody) dto: ConfirmEmailChangeBody) {
     const { email } = await this.emailChangeService.confirmEmailChange(dto.token);
     return { email, message: 'Email address confirmed.' };
@@ -391,41 +389,8 @@ export class UsersController {
   }
 
   @Post('me/avatar')
-  @UseInterceptors(
-    FileInterceptor('avatar', {
-      storage: diskStorage({
-        destination: (_req, _file, cb) => {
-          const uploadsDir = resolveUploadsDir();
-          const targetDir = path.join(uploadsDir, 'user-avatars');
-          if (!fs.existsSync(targetDir)) {
-            fs.mkdirSync(targetDir, { recursive: true });
-          }
-          cb(null, targetDir);
-        },
-        filename: (_req, file, cb) => {
-          try {
-            cb(null, sanitizeAvatarFilename(file.originalname, file.mimetype));
-          } catch {
-            // Unreachable while fileFilter runs first, but the filename callback
-            // must not surface an unsupported type as a 500.
-            cb(new BadRequestException('Unsupported avatar type'), '');
-          }
-        },
-      }),
-      fileFilter: (_req, file, cb) => {
-        // Allowlist, not `startsWith('image/')`: the declared type decides the
-        // stored extension, so anything outside this set must be rejected here.
-        if (!isAllowedAvatarMime(file.mimetype)) {
-          return cb(
-            new BadRequestException('Only JPEG, PNG, WebP and GIF images are allowed'),
-            false,
-          );
-        }
-        cb(null, true);
-      },
-      limits: { fileSize: 2_000_000 },
-    }),
-  )
+  @UseInterceptors(FileInterceptor('avatar', avatarUploadOptions))
+  @SchemaResponse(UserUpdateResponse)
   async uploadMyAvatar(
     @CurrentUser() currentUser: User,
     @UploadedFile() file: MulterFile | undefined,

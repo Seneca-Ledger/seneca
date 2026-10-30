@@ -1,4 +1,6 @@
+import { NotFoundException } from '@nestjs/common';
 import type { Permission } from '../../../common/enums/permissions.enum';
+import { appError } from '../../../common/errors/app-error';
 
 export function getCurrentPermissions(user: { permissions?: string[] | null }): Permission[] {
   return (user.permissions || []) as Permission[];
@@ -14,7 +16,7 @@ export function withCurrentPermissions<TUser extends { permissions?: string[] | 
 export async function findUserOrThrow<TUser>(userPromise: Promise<TUser | null>): Promise<TUser> {
   const user = await userPromise;
   if (!user) {
-    throw new Error('User not found');
+    throw new NotFoundException(appError('USER_NOT_FOUND'));
   }
 
   return user;

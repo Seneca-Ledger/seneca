@@ -10,7 +10,6 @@ import {
 import type { Wire } from '../common/wire';
 import { InvoiceStatus } from '../invoices/invoices';
 import { JournalEntrySource } from '../ledger/ledger';
-import { PayableDirection, PayableSource, PayableStatus } from '../payables/payables';
 import { ReviewInboxKind } from '../review/review-inbox';
 import { NoteTargetInput } from './notes';
 import { TaxReturnPeriodBody } from './tax';
@@ -51,16 +50,6 @@ export type CashFlowQuery = Wire<typeof CashFlowQuery>;
 /** `GET /dashboard/cash-flow/entries`. */
 export const CashFlowEntriesQuery = Schema.Struct({ month: Month });
 export type CashFlowEntriesQuery = Wire<typeof CashFlowEntriesQuery>;
-
-/** `GET /reports/net-worth`. */
-export const NetWorthQuery = Schema.Struct({
-  range: Schema.optional(Schema.Literals(['30d', '90d', '180d', 'ytd', '1y', '3y', '5y', 'all'])),
-  /** Measure the same net worth in troy ounces of this metal as well. */
-  denominate: Schema.optional(Schema.Literals(['XAU', 'XAG', 'XPT', 'XPD'])),
-  /** `YYYY-MM-DD`: the window ends on this day instead of today (a later day reads as today). */
-  to: Schema.optional(IsoDateString),
-});
-export type NetWorthQuery = Wire<typeof NetWorthQuery>;
 
 /** `GET /forecast`. */
 export const ForecastQuery = Schema.Struct({
@@ -107,15 +96,6 @@ export type BalanceQuery = Wire<typeof BalanceQuery>;
 /** `GET /budgets`: spending is measured for the period this day falls in (today when absent). */
 export const BudgetListQuery = Schema.Struct({ date: Schema.optional(IsoDateString) });
 export type BudgetListQuery = Wire<typeof BudgetListQuery>;
-
-/** `GET /budgets/impact`: what an expense would do to its budget. */
-export const BudgetImpactQuery = Schema.Struct({
-  categoryId: Uuid,
-  amount: AtLeastZero,
-  currency: Schema.optional(Schema.String),
-  date: Schema.optional(IsoDateString),
-});
-export type BudgetImpactQuery = Wire<typeof BudgetImpactQuery>;
 
 /** `GET /balance/export`. */
 export const ExportBalanceQuery = Schema.Struct({
@@ -223,25 +203,6 @@ export const InvoicesQuery = Schema.Struct({
   clientId: Schema.optional(Uuid),
 });
 export type InvoicesQuery = Wire<typeof InvoicesQuery>;
-
-/** `GET /payables`, its summary and its export. */
-export const PayablesQuery = Schema.Struct({
-  /** Defaults to `payable` so existing clients keep seeing only what the workspace owes. */
-  direction: Schema.optional(PayableDirection),
-  page: Schema.optional(NumericInput.check(Schema.isGreaterThanOrEqualTo(1))),
-  limit: Schema.optional(between(1, 100)),
-  search: Schema.optional(Schema.String),
-  status: Schema.optional(PayableStatus),
-  source: Schema.optional(PayableSource),
-  dueDateFrom: Schema.optional(IsoDateString),
-  dueDateTo: Schema.optional(IsoDateString),
-  minAmount: Schema.optional(AtLeastZero),
-  maxAmount: Schema.optional(AtLeastZero),
-  includeArchived: Schema.optional(BooleanInput),
-  sort: Schema.optional(Schema.Literals(['dueDateAsc', 'dueDateDesc', 'amountDesc', 'vendorAsc'])),
-  format: Schema.optional(Schema.Literals(['excel', 'csv'])),
-});
-export type PayablesQuery = Wire<typeof PayablesQuery>;
 
 /** `GET /review-inbox`. */
 export const ReviewInboxQuery = Schema.Struct({
@@ -387,7 +348,11 @@ export const CashFlowMapQuery = Schema.Struct({
   dateFrom: Schema.optional(IsoDateString),
   dateTo: Schema.optional(IsoDateString),
   compare: Schema.optional(BooleanInput),
+  /** The earlier window `compare` holds the period against: just before it, or a year back. */
+  compareTo: Schema.optional(Schema.Literals(['previous', 'year'])),
   includeTransfers: Schema.optional(BooleanInput),
+  /** Money back into an expense category lowers that category instead of counting as income. */
+  netRefunds: Schema.optional(BooleanInput),
   categories: Schema.optional(StringListInput),
   format: Schema.optional(Schema.Literals(['json', 'csv'])),
   owner: Schema.optional(Schema.String),
@@ -400,7 +365,7 @@ export const SpendFlowQuery = Schema.Struct({
   dateTo: Schema.optional(IsoDateString),
   type: Schema.optional(Schema.Literals(['income', 'expense'])),
   groupBy: Schema.optional(
-    Schema.Literals(['category-merchant', 'category-subcategory', 'merchant']),
+    Schema.Literals(['category-merchant', 'category-subcategory', 'merchant', 'tag']),
   ),
   statuses: Schema.optional(Schema.String),
   bankNames: Schema.optional(Schema.String),

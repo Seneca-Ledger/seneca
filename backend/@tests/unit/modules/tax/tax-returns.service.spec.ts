@@ -14,6 +14,8 @@ describe('TaxReturnsService', () => {
   let adoption: { getCurrentJurisdiction: Mock };
   let exchangeRates: { getRateOrNull: Mock };
   let auditService: { createEvent: Mock };
+  // What the last save wrote: the service answers the row read back after saving.
+  let stored: unknown = null;
 
   const KZ = { id: 'j-kz', code: 'KZ', currency: 'KZT' };
 
@@ -35,7 +37,8 @@ describe('TaxReturnsService', () => {
     transactionRepo.find.mockResolvedValue([]);
     returnRepo.findOne.mockResolvedValue(null);
     returnRepo.create.mockImplementation((input: unknown) => input);
-    returnRepo.save.mockImplementation(async (input: unknown) => input);
+    returnRepo.save.mockImplementation(async (input: unknown) => (stored = input));
+    Object.assign(returnRepo, { findOneByOrFail: vi.fn(async () => stored) });
     adoption = { getCurrentJurisdiction: vi.fn().mockResolvedValue(KZ) };
     exchangeRates = { getRateOrNull: vi.fn().mockResolvedValue(1) };
     auditService = { createEvent: vi.fn().mockResolvedValue(undefined) };
@@ -229,7 +232,7 @@ describe('TaxReturnsService', () => {
 
   describe('file', () => {
     const manager = {
-      save: vi.fn(async (_entity: unknown, row: unknown) => row),
+      save: vi.fn(async (_entity: unknown, row: unknown) => (stored = row)),
       createQueryBuilder: vi.fn(),
     };
 
@@ -347,7 +350,7 @@ describe('TaxReturnsService', () => {
 
   describe('reopen', () => {
     const manager = {
-      save: vi.fn(async (_entity: unknown, row: unknown) => row),
+      save: vi.fn(async (_entity: unknown, row: unknown) => (stored = row)),
       createQueryBuilder: vi.fn(),
     };
 

@@ -16,14 +16,14 @@ describe('MCP connection snippets', () => {
 
   it('gives Claude Code the HTTP transport and the key header', () => {
     expect(claudeCodeCommand('https://x/api/v1/mcp', 'lum_abc')).toBe(
-      'claude mcp add --transport http seneca https://x/api/v1/mcp --header "X-Api-Key: lum_abc"',
+      'claude mcp add --transport http stoic-budget https://x/api/v1/mcp --header "X-Api-Key: lum_abc"',
     );
   });
 
   it('writes a JSON config other clients read', () => {
     expect(JSON.parse(mcpJsonConfig('https://x/api/v1/mcp', 'lum_abc'))).toEqual({
       mcpServers: {
-        seneca: { type: 'http', url: 'https://x/api/v1/mcp', headers: { 'X-Api-Key': 'lum_abc' } },
+        'stoic-budget': { type: 'http', url: 'https://x/api/v1/mcp', headers: { 'X-Api-Key': 'lum_abc' } },
       },
     });
   });

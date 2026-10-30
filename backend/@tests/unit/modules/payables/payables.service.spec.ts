@@ -9,6 +9,7 @@ import {
   PayableStatus,
 } from '@/entities/payable.entity';
 import { PayablePayment } from '@/entities/payable-payment.entity';
+import { Tag } from '@/entities/tag.entity';
 import { Workspace } from '@/entities/workspace.entity';
 import { ExchangeRatesService } from '@/modules/exchange-rates/exchange-rates.service';
 import { NotificationsService } from '@/modules/notifications/notifications.service';
@@ -59,6 +60,7 @@ describe('PayablesService', () => {
   let transactionRepository: Repository<Transaction>;
   let statementRepository: Repository<Statement>;
   let workspaceRepository: Repository<Workspace>;
+  let tagRepository: Repository<Tag>;
   let exchangeRatesService: { getRate: Mock };
 
   const transactionEntity = {
@@ -116,6 +118,10 @@ describe('PayablesService', () => {
           useValue: createRepositoryMock<Workspace>(),
         },
         {
+          provide: getRepositoryToken(Tag),
+          useValue: createRepositoryMock<Tag>(),
+        },
+        {
           provide: ExchangeRatesService,
           useValue: {
             getRate: vi.fn(),
@@ -141,6 +147,7 @@ describe('PayablesService', () => {
     transactionRepository = testingModule.get(getRepositoryToken(Transaction));
     statementRepository = testingModule.get(getRepositoryToken(Statement));
     workspaceRepository = testingModule.get(getRepositoryToken(Workspace));
+    tagRepository = testingModule.get(getRepositoryToken(Tag));
     exchangeRatesService = testingModule.get(ExchangeRatesService);
     notificationsService = testingModule.get(NotificationsService);
     exportService = testingModule.get(PayablesExportService);
@@ -150,6 +157,8 @@ describe('PayablesService', () => {
     vi.clearAllMocks();
     vi.spyOn(workspaceRepository, 'findOne').mockResolvedValue({ currency: 'KZT' } as Workspace);
     exchangeRatesService.getRate.mockResolvedValue(1);
+    // The list reads the tags of its page with `find`.
+    vi.spyOn(payableRepository, 'find').mockResolvedValue([]);
   });
 
   afterAll(async () => {
@@ -179,6 +188,40 @@ describe('PayablesService', () => {
           source: PayableSource.MANUAL,
         }),
       );
+    });
+
+    it('attaches the workspace tags it is given', async () => {
+      const travel = { id: 'tag-1', name: 'Travel', color: null } as Tag;
+      vi.spyOn(tagRepository, 'find').mockResolvedValue([travel]);
+      vi.spyOn(payableRepository, 'save').mockResolvedValue(payableEntity);
+
+      await service.create('workspace-1', 'user-1', {
+        vendor: 'Acme LLC',
+        amount: 1000,
+        tagIds: [travel.id, travel.id],
+      });
+
+      expect(tagRepository.find).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ workspaceId: 'workspace-1' }),
+        }),
+      );
+      expect(payableRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({ tags: [travel] }),
+      );
+    });
+
+    it('refuses a tag that is not in the workspace', async () => {
+      vi.spyOn(tagRepository, 'find').mockResolvedValue([]);
+
+      await expect(
+        service.create('workspace-1', 'user-1', {
+          vendor: 'Acme LLC',
+          amount: 1000,
+          tagIds: ['tag-of-another-workspace'],
+        }),
+      ).rejects.toThrow(BadRequestException);
+      expect(payableRepository.save).not.toHaveBeenCalled();
     });
 
     it('rejects linked transaction from another workspace', async () => {
@@ -269,6 +312,37 @@ describe('PayablesService', () => {
       });
     });
 
+    it('narrows to a tag and answers each row with its tags', async () => {
+      const travel = { id: 'tag-1', name: 'Travel', color: null } as Tag;
+      const office = { id: 'tag-2', name: 'Office', color: '#336699' } as Tag;
+      const queryBuilder = {
+        where: vi.fn().mockReturnThis(),
+        andWhere: vi.fn().mockReturnThis(),
+        orderBy: vi.fn().mockReturnThis(),
+        skip: vi.fn().mockReturnThis(),
+        take: vi.fn().mockReturnThis(),
+        getManyAndCount: vi.fn().mockResolvedValue([[{ ...payableEntity }], 1]),
+      };
+      vi.spyOn(payableRepository, 'createQueryBuilder').mockReturnValue(queryBuilder as never);
+      vi
+        .spyOn(payableRepository, 'find')
+        .mockResolvedValue([{ id: payableEntity.id, tags: [travel, office] } as Payable]);
+
+      const result = await service.findAll('workspace-1', { tagId: travel.id });
+
+      expect(queryBuilder.andWhere).toHaveBeenCalledWith(
+        expect.stringContaining('payable_tags'),
+        { tagId: travel.id },
+      );
+      expect(payableRepository.find).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ workspaceId: 'workspace-1' }),
+        }),
+      );
+      // Sorted by name, like everywhere else tags are listed.
+      expect(result.data[0].tags).toEqual([office, travel]);
+    });
+
     it('searches both vendor and comment fields', async () => {
       const queryBuilder = {
         where: vi.fn().mockReturnThis(),
@@ -316,6 +390,24 @@ describe('PayablesService', () => {
       });
 
       expect(result.vendor).toBe('New Vendor');
+    });
+
+    it('replaces the tags only when a tag list is sent', async () => {
+      const travel = { id: 'tag-1', name: 'Travel', color: null } as Tag;
+      const office = { id: 'tag-2', name: 'Office', color: null } as Tag;
+      vi.spyOn(payableRepository, 'findOne').mockResolvedValue({ ...payableEntity, tags: [travel] });
+      vi.spyOn(tagRepository, 'find').mockResolvedValue([office]);
+
+      await service.update('payable-1', 'workspace-1', 'user-1', { vendor: 'New Vendor' });
+      expect(payableRepository.save).toHaveBeenLastCalledWith(
+        expect.objectContaining({ tags: [travel] }),
+      );
+
+      vi.spyOn(payableRepository, 'findOne').mockResolvedValue({ ...payableEntity, tags: [travel] });
+      await service.update('payable-1', 'workspace-1', 'user-1', { tagIds: [office.id] });
+      const saved = (payableRepository.save as Mock).mock.lastCall[0];
+      expect(saved.tags).toEqual([office]);
+      expect(saved).not.toHaveProperty('tagIds');
     });
 
     // An open bill turns paid only through a payment (see the integration test);

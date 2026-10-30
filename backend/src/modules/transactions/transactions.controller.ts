@@ -6,11 +6,8 @@ import {
   Get,
   HttpCode,
   HttpStatus,
-  Param,
-  ParseUUIDPipe,
   Post,
   Put,
-  Query,
   Res,
   UploadedFile,
   UseInterceptors,
@@ -20,9 +17,10 @@ import type { Response } from 'express';
 import { WorkspaceId, WorkspaceMemberId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
-import { SchemaQuery } from '../../common/effect/schema-query';
+import { SchemaParams, SchemaQuery } from '../../common/effect/schema-query';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
+import { appError } from '../../common/errors/app-error';
 import { buildContentDisposition } from '../../common/utils/http-file.util';
 import { deletedResponse } from '../../common/utils/responses.util';
 import { parseOwnerFilter } from '../../common/utils/transaction-owner.util';
@@ -30,23 +28,31 @@ import { redactPrivate, redactPrivateRows } from '../../common/utils/transaction
 import type { BulkUpdateItemInput } from '../../contracts';
 import {
   BulkUpdateRequestBody,
-  DetectTransfersBody,
+  DuplicateDetectQuery,
   DuplicateGroups,
   DuplicatesMarked,
-  LinkReimbursementBody,
-  LinkTransferBody,
   MarkDuplicatesBody,
   MergeDuplicatesBody,
+  MessageResult,
   SetTransactionTagsBody,
   SplitTransactionBody,
   StorageTagList,
+  TransactionAttachment,
   TransactionAttachmentList,
-  TransactionCandidates,
+  TransactionAttachmentParams,
   TransactionListPage,
+  TransactionListQuery,
+  TransactionParams,
   TransactionsOverview,
   TransactionsOverviewQuery,
   UpdateTransactionBody,
 } from '../../contracts';
+import {
+  DuplicatesMerged,
+  DuplicateUnmarked,
+  TransactionRecord,
+  TransactionRecordList,
+} from '../../contracts/transactions/transaction-record';
 import { EntityType } from '../../entities/audit-event.entity';
 import type { User } from '../../entities/user.entity';
 import { Audit } from '../audit/decorators/audit.decorator';
@@ -55,7 +61,6 @@ import { CrossStatementDeduplicationService } from './services/cross-statement-d
 import { TransactionAttachmentsService } from './services/transaction-attachments.service';
 import { TransactionTagsService } from './services/transaction-tags.service';
 import { TransactionsOverviewService } from './services/transactions-overview.service';
-import { TransferPairingService } from './services/transfer-pairing.service';
 import { TransactionsService } from './transactions.service';
 
 /**
@@ -75,7 +80,6 @@ export class TransactionsController {
     private readonly deduplicationService: CrossStatementDeduplicationService,
     private readonly transactionTagsService: TransactionTagsService,
     private readonly transactionAttachmentsService: TransactionAttachmentsService,
-    private readonly transferPairingService: TransferPairingService,
     private readonly overviewService: TransactionsOverviewService,
   ) {}
 
@@ -86,57 +90,38 @@ export class TransactionsController {
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
     @WorkspaceMemberId() selfMemberId: string | null,
-    // Accept both snake_case and camelCase for backward compatibility
-    @Query('statement_id') statementIdSnake?: string,
-    @Query('statementId') statementIdCamel?: string,
-    @Query('date_from') dateFromSnake?: string,
-    @Query('startDate') startDateCamel?: string,
-    @Query('date_to') dateToSnake?: string,
-    @Query('endDate') endDateCamel?: string,
-    @Query('type') type?: string,
-    @Query('category_id') categoryIdSnake?: string,
-    @Query('categoryId') categoryIdCamel?: string,
-    @Query('page') page?: string,
-    @Query('limit') limit?: string,
-    @Query('currency') currency?: string,
-    @Query('convert_to') convertTo?: string,
-    @Query('owner') owner?: string,
-    @Query('running_balance') runningBalance?: string,
+    @SchemaQuery(TransactionListQuery) query: TransactionListQuery,
   ) {
     // Prefer snake_case for backward compatibility, fall back to camelCase
-    const statementId = statementIdSnake || statementIdCamel;
-    const dateFrom = dateFromSnake || startDateCamel;
-    const dateTo = dateToSnake || endDateCamel;
-    const categoryId = categoryIdSnake || categoryIdCamel;
+    const dateFrom = query.date_from || query.startDate;
+    const dateTo = query.date_to || query.endDate;
 
     const result = await this.transactionsService.findAll(
       workspaceId,
       {
-        statementId,
+        statementId: query.statement_id || query.statementId,
+        walletId: query.walletId,
+        payeeId: query.payeeId,
         dateFrom: dateFrom ? new Date(dateFrom) : undefined,
         dateTo: dateTo ? new Date(dateTo) : undefined,
-        type,
-        categoryId,
-        currency,
-        convertTo,
-        owner: parseOwnerFilter(owner, selfMemberId),
-        page: page ? Number.parseInt(page) : 1,
-        limit: limit ? Number.parseInt(limit) : 50,
+        type: query.type,
+        categoryId: query.category_id || query.categoryId,
+        currency: query.currency,
+        convertTo: query.convert_to,
+        owner: parseOwnerFilter(query.owner, selfMemberId),
+        page: query.page ?? 1,
+        limit: query.limit ?? 50,
       },
       selfMemberId,
     );
 
     const data =
-      runningBalance === '1'
+      query.running_balance === '1'
         ? await this.overviewService.withLedger(workspaceId, result.data)
         : result.data;
 
     // Include 'items' field for backward compatibility
-    return {
-      ...result,
-      data,
-      items: data,
-    };
+    return { ...result, data, items: data };
   }
 
   @Get('overview')
@@ -161,8 +146,9 @@ export class TransactionsController {
 
   @Get(':id')
   @WorkspaceAuth(Permission.TRANSACTION_VIEW)
+  @SchemaResponse(TransactionRecord)
   async findOne(
-    @Param('id') id: string,
+    @SchemaParams(TransactionParams) { id }: TransactionParams,
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
     @WorkspaceMemberId() selfMemberId: string | null,
@@ -172,32 +158,24 @@ export class TransactionsController {
 
   @Put(':id')
   @WorkspaceAuth(Permission.TRANSACTION_EDIT)
+  @SchemaResponse(TransactionRecord)
   async update(
-    @Param('id') id: string,
+    @SchemaParams(TransactionParams) { id }: TransactionParams,
     @SchemaBody(UpdateTransactionBody) updateDto: UpdateTransactionBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
     @WorkspaceMemberId() selfMemberId: string | null,
   ) {
-    // Editing a row is not reading it: someone else's private row comes back
-    // as redacted as the list shows it.
-    return redactPrivate(
-      await this.transactionsService.update(
-        id,
-        workspaceId,
-        user.id,
-        updateDto,
-        null,
-        selfMemberId,
-      ),
-      selfMemberId,
-    );
+    await this.transactionsService.update(id, workspaceId, user.id, updateDto, null, selfMemberId);
+    // Read back as stored, and as redacted as the list shows someone else's private row.
+    return this.transactionsService.findOneFor(id, workspaceId, selfMemberId);
   }
 
   @Get(':id/split')
   @WorkspaceAuth(Permission.TRANSACTION_VIEW)
+  @SchemaResponse(TransactionRecordList)
   async getSplitParts(
-    @Param('id') id: string,
+    @SchemaParams(TransactionParams) { id }: TransactionParams,
     @WorkspaceId() workspaceId: string,
     @WorkspaceMemberId() selfMemberId: string | null,
   ) {
@@ -212,38 +190,38 @@ export class TransactionsController {
   @Post(':id/split')
   @HttpCode(HttpStatus.OK)
   @WorkspaceAuth(Permission.TRANSACTION_EDIT)
+  @SchemaResponse(TransactionRecordList)
   async split(
-    @Param('id') id: string,
+    @SchemaParams(TransactionParams) { id }: TransactionParams,
     @SchemaBody(SplitTransactionBody) splitDto: SplitTransactionBody,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
     @WorkspaceMemberId() selfMemberId: string | null,
   ) {
-    return redactPrivateRows(
-      await this.transactionsService.split(id, workspaceId, user.id, splitDto),
-      selfMemberId,
-    );
+    await this.transactionsService.split(id, workspaceId, user.id, splitDto);
+    // The parts as stored, with their relations: the same answer as GET :id/split.
+    return this.getSplitParts({ id }, workspaceId, selfMemberId);
   }
 
   // No @Audit here: see the note on split() above — unsplit audits itself too.
   @Post(':id/unsplit')
   @HttpCode(HttpStatus.OK)
   @WorkspaceAuth(Permission.TRANSACTION_EDIT)
+  @SchemaResponse(TransactionRecord)
   async unsplit(
-    @Param('id') id: string,
+    @SchemaParams(TransactionParams) { id }: TransactionParams,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
     @WorkspaceMemberId() selfMemberId: string | null,
   ) {
-    return redactPrivate(
-      await this.transactionsService.unsplit(id, workspaceId, user.id),
-      selfMemberId,
-    );
+    const merged = await this.transactionsService.unsplit(id, workspaceId, user.id);
+    return this.transactionsService.findOneFor(merged.id, workspaceId, selfMemberId);
   }
 
   @Post('bulk-update')
   @HttpCode(HttpStatus.OK)
   @WorkspaceAuth(Permission.TRANSACTION_BULK_UPDATE)
+  @SchemaResponse(TransactionRecordList)
   async bulkUpdate(
     @SchemaBody(BulkUpdateRequestBody) body: BulkUpdateRequestBody,
     @CurrentUser() user: User,
@@ -261,14 +239,18 @@ export class TransactionsController {
     } else {
       // BadRequestException, not Error: a plain Error leaves the exception
       // filter with nothing to map and the client gets a 500 for bad input.
-      throw new BadRequestException(
-        'Invalid bulk update format. Expected {items} or {ids, updates}',
-      );
+      throw new BadRequestException(appError('TRANSACTION_BULK_UPDATE_FORMAT'));
     }
 
-    return redactPrivateRows(
-      await this.transactionsService.bulkUpdate(workspaceId, user.id, items, selfMemberId),
+    const updated = await this.transactionsService.bulkUpdate(
+      workspaceId,
+      user.id,
+      items,
       selfMemberId,
+    );
+    // Each row read back as stored, redacted for whoever does not own it.
+    return Promise.all(
+      updated.map(row => this.transactionsService.findOneFor(row.id, workspaceId, selfMemberId)),
     );
   }
 
@@ -276,7 +258,7 @@ export class TransactionsController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @WorkspaceAuth(Permission.TRANSACTION_DELETE)
   async remove(
-    @Param('id') id: string,
+    @SchemaParams(TransactionParams) { id }: TransactionParams,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -290,13 +272,12 @@ export class TransactionsController {
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
     @WorkspaceMemberId() selfMemberId: string | null,
-    @Query('statement_id') statementId?: string,
-    @Query('threshold') threshold?: string,
+    @SchemaQuery(DuplicateDetectQuery) query: DuplicateDetectQuery,
   ) {
     const duplicateGroups = await this.deduplicationService.findDuplicates(
       workspaceId,
-      statementId,
-      threshold ? Number.parseFloat(threshold) : 0.85,
+      query.statement_id,
+      query.threshold ?? 0.85,
       selfMemberId,
     );
 
@@ -354,6 +335,7 @@ export class TransactionsController {
   @Post('duplicates/merge')
   @HttpCode(HttpStatus.OK)
   @WorkspaceAuth(Permission.TRANSACTION_EDIT)
+  @SchemaResponse(DuplicatesMerged)
   async mergeDuplicates(
     @SchemaBody(MergeDuplicatesBody) body: MergeDuplicatesBody,
     @CurrentUser() _user: User,
@@ -379,8 +361,9 @@ export class TransactionsController {
   @Post(':id/unmark-duplicate')
   @HttpCode(HttpStatus.OK)
   @WorkspaceAuth(Permission.TRANSACTION_EDIT)
+  @SchemaResponse(DuplicateUnmarked)
   async unmarkDuplicate(
-    @Param('id') id: string,
+    @SchemaParams(TransactionParams) { id }: TransactionParams,
     @CurrentUser() _user: User,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -395,97 +378,13 @@ export class TransactionsController {
     };
   }
 
-  /** Pairs the legs of transfers between the user's own accounts and writes them. */
-  @Post('transfers/detect')
-  @HttpCode(HttpStatus.OK)
-  @WorkspaceAuth(Permission.TRANSACTION_EDIT)
-  async detectTransfers(
-    @SchemaBody(DetectTransfersBody) body: DetectTransfersBody,
-    @CurrentUser() _user: User,
-    @WorkspaceId() workspaceId: string,
-  ) {
-    return this.transferPairingService.detectAndApply(workspaceId, body.statementId ?? undefined);
-  }
-
-  @Get(':id/transfer-candidates')
-  @WorkspaceAuth(Permission.TRANSACTION_VIEW)
-  @SchemaResponse(TransactionCandidates)
-  async transferCandidates(
-    @Param('id', ParseUUIDPipe) id: string,
-    @CurrentUser() _user: User,
-    @WorkspaceId() workspaceId: string,
-    @WorkspaceMemberId() selfMemberId: string | null,
-  ) {
-    const data = await this.transferPairingService.candidates(workspaceId, id);
-    return { data: redactPrivateRows(data, selfMemberId) };
-  }
-
-  @Post(':id/link-transfer')
-  @HttpCode(HttpStatus.OK)
-  @WorkspaceAuth(Permission.TRANSACTION_EDIT)
-  async linkTransfer(
-    @Param('id', ParseUUIDPipe) id: string,
-    @SchemaBody(LinkTransferBody) body: LinkTransferBody,
-    @CurrentUser() _user: User,
-    @WorkspaceId() workspaceId: string,
-  ) {
-    const transferPairId = await this.transferPairingService.link(workspaceId, id, body.otherId);
-    return { transferPairId };
-  }
-
-  @Post(':id/unlink-transfer')
-  @HttpCode(HttpStatus.OK)
-  @WorkspaceAuth(Permission.TRANSACTION_EDIT)
-  async unlinkTransfer(
-    @Param('id', ParseUUIDPipe) id: string,
-    @CurrentUser() _user: User,
-    @WorkspaceId() workspaceId: string,
-  ) {
-    await this.transferPairingService.unlink(workspaceId, id);
-    return { unlinked: true };
-  }
-
-  @Get(':id/reimbursement-candidates')
-  @WorkspaceAuth(Permission.TRANSACTION_VIEW)
-  @SchemaResponse(TransactionCandidates)
-  async reimbursementCandidates(
-    @Param('id', ParseUUIDPipe) id: string,
-    @CurrentUser() _user: User,
-    @WorkspaceId() workspaceId: string,
-    @WorkspaceMemberId() selfMemberId: string | null,
-  ) {
-    const data = await this.transferPairingService.reimbursementCandidates(workspaceId, id);
-    return { data: redactPrivateRows(data, selfMemberId) };
-  }
-
-  @Post(':id/link-reimbursement')
-  @HttpCode(HttpStatus.OK)
-  @WorkspaceAuth(Permission.TRANSACTION_EDIT)
-  async linkReimbursement(
-    @Param('id', ParseUUIDPipe) id: string,
-    @SchemaBody(LinkReimbursementBody) body: LinkReimbursementBody,
-    @CurrentUser() _user: User,
-    @WorkspaceId() workspaceId: string,
-  ) {
-    return this.transferPairingService.linkReimbursement(workspaceId, id, body.expenseId);
-  }
-
-  @Post(':id/unlink-reimbursement')
-  @HttpCode(HttpStatus.OK)
-  @WorkspaceAuth(Permission.TRANSACTION_EDIT)
-  async unlinkReimbursement(
-    @Param('id', ParseUUIDPipe) id: string,
-    @CurrentUser() _user: User,
-    @WorkspaceId() workspaceId: string,
-  ) {
-    await this.transferPairingService.unlinkReimbursement(workspaceId, id);
-    return { unlinked: true };
-  }
-
   @Get(':id/tags')
   @WorkspaceAuth(Permission.TRANSACTION_VIEW)
   @SchemaResponse(StorageTagList)
-  async getTags(@Param('id', new ParseUUIDPipe()) id: string, @WorkspaceId() workspaceId: string) {
+  async getTags(
+    @SchemaParams(TransactionParams) { id }: TransactionParams,
+    @WorkspaceId() workspaceId: string,
+  ) {
     return this.transactionTagsService.getTags(id, workspaceId);
   }
 
@@ -494,7 +393,7 @@ export class TransactionsController {
   @Audit({ entityType: EntityType.TRANSACTION, includeDiff: true })
   @SchemaResponse(StorageTagList)
   async setTags(
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @SchemaParams(TransactionParams) { id }: TransactionParams,
     @SchemaBody(SetTransactionTagsBody) dto: SetTransactionTagsBody,
     @WorkspaceId() workspaceId: string,
   ) {
@@ -505,7 +404,7 @@ export class TransactionsController {
   @WorkspaceAuth(Permission.TRANSACTION_VIEW)
   @SchemaResponse(TransactionAttachmentList)
   async listAttachments(
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @SchemaParams(TransactionParams) { id }: TransactionParams,
     @WorkspaceId() workspaceId: string,
   ) {
     return this.transactionAttachmentsService.list(id, workspaceId);
@@ -515,8 +414,9 @@ export class TransactionsController {
   @WorkspaceAuth(Permission.TRANSACTION_EDIT)
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_ATTACHMENT_BYTES } }))
   @Audit({ entityType: EntityType.TRANSACTION })
+  @SchemaResponse(TransactionAttachment)
   async uploadAttachment(
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @SchemaParams(TransactionParams) { id }: TransactionParams,
     @UploadedFile() file: MulterFile,
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -527,7 +427,7 @@ export class TransactionsController {
   @Get('attachments/:attachmentId/download')
   @WorkspaceAuth(Permission.TRANSACTION_VIEW)
   async downloadAttachment(
-    @Param('attachmentId', new ParseUUIDPipe()) attachmentId: string,
+    @SchemaParams(TransactionAttachmentParams) { attachmentId }: TransactionAttachmentParams,
     @WorkspaceId() workspaceId: string,
     @Res() res: Response,
   ) {
@@ -542,8 +442,9 @@ export class TransactionsController {
   @Delete('attachments/:attachmentId')
   @WorkspaceAuth(Permission.TRANSACTION_EDIT)
   @Audit({ entityType: EntityType.TRANSACTION })
+  @SchemaResponse(MessageResult)
   async removeAttachment(
-    @Param('attachmentId', new ParseUUIDPipe()) attachmentId: string,
+    @SchemaParams(TransactionAttachmentParams) { attachmentId }: TransactionAttachmentParams,
     @WorkspaceId() workspaceId: string,
   ) {
     await this.transactionAttachmentsService.remove(attachmentId, workspaceId);

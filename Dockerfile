@@ -1,8 +1,8 @@
 # Bun only installs packages (from package-lock.json); Node runs the app.
-FROM oven/bun:1.4.4-alpine AS bun
+FROM oven/bun:1.4.4-alpine@sha256:4cf82f5686b196504fe119db3fcd9185b191f82ece82c40680e597228ec6070a AS bun
 
 # Build stage
-FROM node:24-alpine AS builder
+FROM node:24-alpine@sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53 AS builder
 
 WORKDIR /app
 COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
@@ -31,8 +31,8 @@ ARG API_PROXY_TARGET=http://127.0.0.1:${API_PORT}
 ENV API_PROXY_TARGET=${API_PROXY_TARGET}
 ENV NEXT_PUBLIC_API_URL=/api/v1
 # Product name; the frontend bakes it in, the backend reads APP_NAME at runtime
-ARG APP_NAME=Seneca
-ENV NEXT_PUBLIC_APP_NAME=${APP_NAME}
+ARG APP_NAME="Stoic Budget"
+ENV NEXT_PUBLIC_APP_NAME="${APP_NAME}"
 RUN npm run build --prefix frontend
 
 # Build backend
@@ -45,7 +45,7 @@ RUN --mount=type=cache,target=/root/.bun/install/cache \
 WORKDIR /app
 
 # Runtime image
-FROM node:24-alpine AS runner
+FROM node:24-alpine@sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53 AS runner
 
 WORKDIR /app
 ENV NODE_ENV=production
@@ -61,32 +61,33 @@ ENV PIP_BREAK_SYSTEM_PACKAGES=1
 COPY backend/requirements.txt ./backend/requirements.txt
 RUN apk upgrade --no-cache && \
     apk add --no-cache python3 py3-pip poppler-utils && \
-    pip3 install --no-cache-dir --break-system-packages -r ./backend/requirements.txt
+    pip3 install --no-cache-dir --break-system-packages --require-hashes -r ./backend/requirements.txt
 
 # The runtime only runs `node`. npm and corepack, with npm's bundled tar,
 # sigstore and pacote, would only add image-scan findings.
 RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
     /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack
 
+# Non-root runtime user. Files are copied in already owned by it: a `chown -R`
+# after the copies would store every file a second time in its own layer.
+RUN addgroup -S app && adduser -S app -G app && chown -R app:app /app
+
 # Backend runtime dependencies (already pruned)
-COPY --from=builder /app/backend/package*.json ./backend/
-COPY --from=builder /app/backend/node_modules ./backend/node_modules
+COPY --chown=app:app --from=builder /app/backend/package*.json ./backend/
+COPY --chown=app:app --from=builder /app/backend/node_modules ./backend/node_modules
 
 # Backend runtime files
-COPY --from=builder /app/backend/dist ./backend/dist
-COPY --from=builder /app/backend/scripts ./backend/scripts
+COPY --chown=app:app --from=builder /app/backend/dist ./backend/dist
+COPY --chown=app:app --from=builder /app/backend/scripts ./backend/scripts
 
 # Frontend standalone output (vinext); static files, public/ included, live in dist/client
-COPY --from=builder /app/frontend/dist/standalone/server.js /app/frontend/dist/standalone/package.json ./frontend/
-COPY --from=builder /app/frontend/dist/standalone/dist ./frontend/dist
-COPY --from=builder /app/frontend/dist/standalone/node_modules ./frontend/node_modules
+COPY --chown=app:app --from=builder /app/frontend/dist/standalone/server.js /app/frontend/dist/standalone/package.json ./frontend/
+COPY --chown=app:app --from=builder /app/frontend/dist/standalone/dist ./frontend/dist
+COPY --chown=app:app --from=builder /app/frontend/dist/standalone/node_modules ./frontend/node_modules
 
 # Startup script to run both servers
-COPY scripts/start.sh ./scripts/start.sh
-RUN chmod +x ./scripts/start.sh
+COPY --chown=app:app --chmod=755 scripts/start.sh ./scripts/start.sh
 
-# Use non-root user for runtime
-RUN addgroup -S app && adduser -S app -G app && chown -R app:app /app
 USER app
 
 EXPOSE 3000

@@ -1,8 +1,8 @@
 # Bun only installs packages (from package-lock.json); Node runs the app.
-FROM oven/bun:1.4.4-alpine AS bun
+FROM oven/bun:1.4.4-alpine@sha256:4cf82f5686b196504fe119db3fcd9185b191f82ece82c40680e597228ec6070a AS bun
 
 # --- Deps: node_modules keyed only by the lockfile ---
-FROM node:24-alpine AS deps
+FROM node:24-alpine@sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53 AS deps
 
 # Not /app: the project has an app/ folder, and with the root at /app Vite reads
 # an absolute /app/lib/x as root-relative, resolving lib/ files into app/lib/.
@@ -60,7 +60,7 @@ ENV API_PROXY_TARGET=${API_PROXY_TARGET}
 RUN npm run build
 
 # Production stage (standalone output)
-FROM node:24-alpine AS runner
+FROM node:24-alpine@sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53 AS runner
 
 WORKDIR /app
 
@@ -75,15 +75,17 @@ ENV PORT=3000
 # vinext binds to HOST (HOSTNAME is the container name on Linux)
 ENV HOST="0.0.0.0"
 
+# Non-root runtime user. Files are copied in already owned by it: a `chown -R`
+# after the copies would store every file a second time in its own layer.
+RUN addgroup -S app && adduser -S app -G app && chown app:app /app
+
 # vinext standalone output: server.js, the build (static files are served from
 # dist/client, public/ included) and the minimal runtime node_modules. Its own
 # public/ copy is never read, so it stays out of the image.
-COPY --from=builder /build/dist/standalone/server.js /build/dist/standalone/package.json ./
-COPY --from=builder /build/dist/standalone/dist ./dist
-COPY --from=builder /build/dist/standalone/node_modules ./node_modules
+COPY --chown=app:app --from=builder /build/dist/standalone/server.js /build/dist/standalone/package.json ./
+COPY --chown=app:app --from=builder /build/dist/standalone/dist ./dist
+COPY --chown=app:app --from=builder /build/dist/standalone/node_modules ./node_modules
 
-# Use non-root user for runtime
-RUN addgroup -S app && adduser -S app -G app && chown -R app:app /app
 USER app
 
 # Expose port

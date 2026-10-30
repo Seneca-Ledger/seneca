@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "predev": "intlayer build && node scripts/build-locale-packs.mjs",
     "dev": "vite dev",
     "postinstall": "intlayer build && node scripts/build-locale-packs.mjs --if-present",
     "prebuild": "intlayer build && node scripts/build-locale-packs.mjs",
@@ -25,7 +26,8 @@
     "defu": "^6.1.7",
     "webpack-dev-server": "^5.2.6",
     "@ai-sdk/provider-utils": "^4.0.46",
-    "zod": "$zod"
+    "zod": "$zod",
+    "fflate": "^0.7.5"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -89,7 +91,6 @@
     "next": "^16.4.3",
     "oxc-transform-react": "^0.152.0",
     "playwright-core": "^1.63.0",
-    "react-scan": "^0.5.7",
     "sass": "^1.99.0",
     "stylelint": "^17.16.0",
     "stylelint-config-recommended-scss": "^17.0.1",

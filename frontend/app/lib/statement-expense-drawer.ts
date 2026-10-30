@@ -6,6 +6,22 @@ export type ManualStep = 'amount' | 'details';
 
 export const STATEMENTS_OPEN_EXPENSE_DRAWER_EVENT = 'statements:open-expense-drawer';
 export const ALWAYS_ALLOW_STATEMENT_DUPLICATES = true;
+
+/**
+ * What the scan takes: receipts and invoices (photos, PDF, e-invoice XML) and
+ * bank statements (PDF, spreadsheets, bank export formats). The server tells
+ * a statement from a receipt.
+ */
+export const SCAN_FILE_ACCEPT = 'image/*,.pdf,.xml,.csv,.xlsx,.xls,.ofx,.qfx,.qif,.mt940,.sta,.940';
+
+/** A dropped file the scan takes; browsers leave the type of bank exports empty, so the name decides. */
+export function isScanFile(file: { name: string; type: string }): boolean {
+  if (file.type.startsWith('image/')) {
+    return true;
+  }
+  const extension = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
+  return SCAN_FILE_ACCEPT.split(',').includes(extension);
+}
 export type OpenExpenseDrawerEventDetail = {
   mode?: StatementExpenseMode | string | null;
 };
@@ -30,6 +46,8 @@ export type ManualExpenseDraft = {
   merchant: string;
   categoryId: string;
   taxRateId: string;
+  /** The account the money left; unset keeps the expense off every account. */
+  walletId?: string;
 };
 
 export type TaxRateOption = {

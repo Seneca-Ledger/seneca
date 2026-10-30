@@ -46,3 +46,26 @@ export const EntityImportResult = Schema.Struct({
   createdIds: Schema.Array(Schema.String),
 });
 export type EntityImportResult = Wire<typeof EntityImportResult>;
+
+/** `DELETE /entity-imports/:batchId`: rows the batch created removed, rows it updated put back. */
+export const EntityImportUndone = Schema.Struct({
+  undone: Schema.Literal(true),
+  removed: Schema.Number,
+  restored: Schema.Number,
+});
+export type EntityImportUndone = Wire<typeof EntityImportUndone>;
+
+/** `PUT /entity-imports/mapping-profiles`: column roles remembered for one header row. */
+export const ImportMappingProfile = Schema.Struct({
+  id: Schema.String,
+  target: ImportTarget,
+  /** Target field → column index. */
+  mapping: Schema.Record(Schema.String, Schema.Number),
+});
+export type ImportMappingProfile = Wire<typeof ImportMappingProfile>;
+
+/** `POST /entity-imports/mapping-profiles/match`: the remembered mapping, or null. */
+export const ImportMappingProfileMatch = Schema.Struct({
+  profile: Schema.NullOr(ImportMappingProfile),
+});
+export type ImportMappingProfileMatch = Wire<typeof ImportMappingProfileMatch>;

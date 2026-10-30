@@ -145,3 +145,16 @@ export const TaxReturnRecord = Schema.Struct({
   createdAt: Timestamp,
 });
 export type TaxReturnRecord = Wire<typeof TaxReturnRecord>;
+
+/** `GET /tax/returns`: every saved return of the workspace. */
+export const TaxReturnRecordList = Schema.Array(TaxReturnRecord);
+export type TaxReturnRecordList = Wire<typeof TaxReturnRecordList>;
+
+/** `PUT /tax/settings/jurisdiction`: the country taken over, and how many rates moved. */
+export const JurisdictionAdoption = Schema.Struct({
+  jurisdictionCode: Schema.String,
+  adopted: Schema.Number,
+  retired: Schema.Number,
+  effectiveFrom: DateOnly,
+});
+export type JurisdictionAdoption = Wire<typeof JurisdictionAdoption>;

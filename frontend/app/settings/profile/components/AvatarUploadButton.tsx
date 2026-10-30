@@ -1,7 +1,6 @@
 'use client';
 
 import Box from '@mui/material/Box';
-import { alpha } from '@mui/material/styles';
 import type React from 'react';
 import type { ChangeEvent, RefObject } from 'react';
 import { Pencil } from '@/app/components/icons';
@@ -10,7 +9,9 @@ import { tokens } from '@/lib/theme-tokens';
 type Props = {
   avatarUrl: string | null | undefined;
   displayName: string;
-  initials: string;
+  initial: string;
+  /** Background of the letter when there is no photo. */
+  tone: string;
   showImage: boolean;
   disabled: boolean;
   inputRef: RefObject<HTMLInputElement | null>;
@@ -22,7 +23,8 @@ type Props = {
 export function AvatarUploadButton({
   avatarUrl,
   displayName,
-  initials,
+  initial,
+  tone,
   showImage,
   disabled,
   inputRef,
@@ -45,10 +47,10 @@ export function AvatarUploadButton({
           justifyContent: 'center',
           overflow: 'hidden',
           borderRadius: tokens.radius.full,
-          bgcolor: theme => alpha(theme.palette.primary.main, 0.16),
-          color: 'primary.main',
-          fontSize: 16,
-          fontWeight: 600,
+          bgcolor: tone,
+          color: 'var(--foreground)',
+          fontSize: { xs: 26, sm: 32 },
+          fontWeight: 500,
           cursor: 'pointer',
           border: 'none',
           p: 0,
@@ -62,7 +64,7 @@ export function AvatarUploadButton({
             onError={onImageError}
           />
         ) : (
-          initials
+          initial
         )}
       </Box>
       <Box

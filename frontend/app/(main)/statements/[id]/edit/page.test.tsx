@@ -190,6 +190,10 @@ vi.mock('react-hot-toast', () => ({
   },
 }));
 
+vi.mock('./components/StatementDetailsFields', () => ({
+  StatementDetailsFields: () => <div data-testid="statement-tags" />,
+}));
+
 vi.mock('@/app/components/notes/NotesPanel', () => ({
   NotesPanel: () => <div data-testid="statement-notes" />,
 }));
@@ -254,6 +258,7 @@ describe('EditStatementPage locale', () => {
             totalTransactions: 1,
             currency: 'KZT',
             categoryId: 'cat-1',
+            walletId: null,
             statementDateFrom: '2026-03-01',
             statementDateTo: '2026-03-17',
             balanceStart: '100.00',

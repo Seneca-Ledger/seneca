@@ -4,6 +4,9 @@ import { createRoot } from 'react-dom/client';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const fetchAuditEvents = vi.hoisted(() => vi.fn());
+const auth = vi.hoisted(() => ({ user: { role: 'user' } as { role: string } | null }));
+
+vi.mock('@/app/hooks/useAuth', () => ({ useAuth: () => auth }));
 
 vi.mock('@/lib/api/audit', async importOriginal => ({
   ...(await importOriginal<typeof import('@/lib/api/audit')>()),
@@ -74,5 +77,25 @@ describe('AdminPage audit log', () => {
     act(() => {
       root.unmount();
     });
+  });
+
+  it('links the server administrator, and no one else, to parser health', async () => {
+    fetchAuditEvents.mockResolvedValue({ data: [], total: 0, page: 1, limit: 50 });
+    const rendered = async (role: string) => {
+      auth.user = { role };
+      const container = document.createElement('div');
+      const root = createRoot(container);
+      await act(async () => {
+        root.render(<AdminPage />);
+      });
+      const link = container.querySelector('a[href="/admin/parsing"]');
+      act(() => {
+        root.unmount();
+      });
+      return link;
+    };
+
+    expect(await rendered('admin')).toBeTruthy();
+    expect(await rendered('user')).toBeNull();
   });
 });

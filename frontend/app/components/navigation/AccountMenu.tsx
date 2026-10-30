@@ -17,22 +17,22 @@ import {
   Moon,
   Plug,
   Puzzle,
+  ScrollText,
   Settings,
-  Sparkles,
-  User,
 } from '@/app/components/icons';
 import { openAppPanel } from '@/app/components/panels/app-panels-store';
 import { useAuth } from '@/app/hooks/useAuth';
 import { usePermissions } from '@/app/hooks/usePermissions';
 import { useIntlayer } from '@/app/i18n';
 import { normalizeAvatarUrl } from '@/app/lib/avatar-url';
+import { avatarInitial, avatarTone } from '@/app/lib/initial-avatar';
 import { setPrivacyMode, usePrivacyMode } from '@/app/lib/privacy-mode';
 import { useThemePreference } from './hooks/useThemePreference';
 
 /**
  * The account entry at the foot of the sidebar: avatar, name, and the short menu
  * of everything that used to sit in the top bar. Entries that need room of their
- * own (notifications, plugins, integrations, what's new) open the right-hand
+ * own (notifications, plugins, integrations) open the right-hand
  * panel the rest of the app already uses, so nothing escapes the sidebar.
  */
 export function AccountMenu({
@@ -70,6 +70,8 @@ export function AccountMenu({
   const isDark = resolvedTheme === 'dark';
   // The same permission the integrations and plugins links have always carried.
   const canOpenApps = hasPermission('telegram.connect');
+  // The admin page's audit log, which the /admin link has always required.
+  const canOpenAdmin = hasPermission('audit_log.view');
 
   /** Dismissing the menu leaves the drawer around it alone. */
   const dismiss = (): void => {
@@ -117,7 +119,7 @@ export function AccountMenu({
         aria-expanded={Boolean(anchor)}
         data-tour-id={variant === 'sidebar' ? 'user-menu-trigger' : undefined}
       >
-        <span className="seneca-account__avatar">
+        <span className="seneca-account__avatar" style={{ background: avatarTone(user.email) }}>
           {avatarUrl && !avatarError ? (
             <img
               src={avatarUrl}
@@ -127,7 +129,7 @@ export function AccountMenu({
               }}
             />
           ) : (
-            <User size={14} />
+            avatarInitial(user.name || user.email)
           )}
         </span>
         <span className="seneca-account__name">{user.name}</span>
@@ -207,16 +209,19 @@ export function AccountMenu({
           </MenuItem>
         ) : null}
 
-        <MenuItem
-          onClick={() => {
-            openPanel('whatsNew');
-          }}
-        >
-          <ListItemIcon>
-            <Sparkles size={18} />
-          </ListItemIcon>
-          <ListItemText>{userMenu.whatsNew}</ListItemText>
-        </MenuItem>
+        {canOpenAdmin ? (
+          <MenuItem
+            onClick={() => {
+              pick();
+              router.push('/admin');
+            }}
+          >
+            <ListItemIcon>
+              <ScrollText size={18} />
+            </ListItemIcon>
+            <ListItemText>{userMenu.admin}</ListItemText>
+          </MenuItem>
+        ) : null}
 
         <MenuItem
           onClick={() => {

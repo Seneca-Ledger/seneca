@@ -44,6 +44,13 @@ export const InvestmentAccount = Schema.Struct({
   value: Schema.Number,
   /** Sum of the expenses linked to this account as contributions. */
   contributed: Schema.Number,
+  /** Money taken back out of the account to the user's own cash. */
+  withdrawn: Schema.Number,
+  /** Dividends and interest the account paid out. */
+  income: Schema.Number,
+  /** Contributed less withdrawn: what the user still has in it. */
+  netInvested: Schema.Number,
+  /** Value less net invested, plus what it paid out. */
   gain: Schema.Number,
   holdings: Schema.Array(InvestmentHolding),
 });
@@ -51,3 +58,15 @@ export type InvestmentAccount = Wire<typeof InvestmentAccount>;
 
 export const InvestmentAccountList = Schema.Array(InvestmentAccount);
 export type InvestmentAccountList = Wire<typeof InvestmentAccountList>;
+
+/**
+ * `POST /investments/contributions` and `DELETE /investments/contributions/:transactionId`:
+ * the expense row with its link to the account, set or cleared.
+ */
+export const InvestmentContribution = Schema.Struct({
+  id: Schema.String,
+  investmentAccountId: Schema.NullOr(Schema.String),
+  transferPairId: Schema.NullOr(Schema.String),
+  transferPairKind: Schema.NullOr(Schema.Literals(['transfer', 'reimbursement', 'investment'])),
+});
+export type InvestmentContribution = Wire<typeof InvestmentContribution>;

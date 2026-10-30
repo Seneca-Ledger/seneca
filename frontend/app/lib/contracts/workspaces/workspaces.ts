@@ -148,3 +148,28 @@ export const WorkspaceBackground = Schema.Struct({
   backgroundSourceUrl: Schema.NullOr(Schema.String),
 });
 export type WorkspaceBackground = Wire<typeof WorkspaceBackground>;
+
+const { id, email, role, permissions, status, expiresAt, createdAt } = WorkspaceInvitation.fields;
+const invitationRowFields = { id, email, role, permissions, status, expiresAt, createdAt };
+
+/** `GET /workspaces/:id/invitations`: the pending invitations, without their links. */
+export const WorkspaceInvitationList = Schema.Array(Schema.Struct(invitationRowFields));
+export type WorkspaceInvitationList = Wire<typeof WorkspaceInvitationList>;
+
+/** `POST /workspaces/:id/invitations`: the invitation sent (or renewed) and its link. */
+export const InvitationSent = Schema.Struct({
+  invitation: Schema.Struct({ ...invitationRowFields, token: Schema.String }),
+  invitationLink: Schema.String,
+});
+export type InvitationSent = Wire<typeof InvitationSent>;
+
+/** `PATCH /workspaces/:id/members/:userId/role`. */
+export const MemberRoleUpdated = Schema.Struct({ message: Schema.String, role: WorkspaceRole });
+export type MemberRoleUpdated = Wire<typeof MemberRoleUpdated>;
+
+/** `PATCH /workspaces/:id/members/:userId/permissions`. */
+export const MemberPermissionsUpdated = Schema.Struct({
+  message: Schema.String,
+  permissions: Schema.NullOr(WorkspaceMemberPermissions),
+});
+export type MemberPermissionsUpdated = Wire<typeof MemberPermissionsUpdated>;

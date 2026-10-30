@@ -5,6 +5,10 @@ import { Timestamp, type Wire } from '../common/wire';
 export const MessageResult = Schema.Struct({ message: Schema.String });
 export type MessageResult = Wire<typeof MessageResult>;
 
+/** A write that answers only that it went through: deletes and reorders. */
+export const OkResult = Schema.Struct({ ok: Schema.Literal(true) });
+export type OkResult = Wire<typeof OkResult>;
+
 /** `POST /investments/refresh-prices` and `POST /metals/refresh-prices`. */
 export const PriceRefreshResult = Schema.Struct({ updated: Schema.Number });
 export type PriceRefreshResult = Wire<typeof PriceRefreshResult>;
@@ -38,6 +42,7 @@ export type RevaluationResult = Wire<typeof RevaluationResult>;
 /** `GET /dashboard/setup-progress`: which first steps the workspace has taken. */
 export const SetupProgress = Schema.Struct({
   hasUpload: Schema.Boolean,
+  hasWallet: Schema.Boolean,
   hasCustomCategories: Schema.Boolean,
   hasBudget: Schema.Boolean,
   hasGoal: Schema.Boolean,

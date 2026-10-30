@@ -1,5 +1,11 @@
 import * as Schema from 'effect/Schema';
-import { IsoDateString, isAtMostTwoDecimals, optionalNullable } from '../common/requests';
+import {
+  IsoDateString,
+  isAtMostTwoDecimals,
+  NumericInput,
+  optionalNullable,
+  PageInput,
+} from '../common/requests';
 import type { Wire } from '../common/wire';
 
 export const UpdateTransactionBody = Schema.Struct({
@@ -108,6 +114,16 @@ export const LinkTransferBody = Schema.Struct({
 });
 export type LinkTransferBody = Wire<typeof LinkTransferBody>;
 
+/**
+ * `POST /transactions/:id/transfer-to-account`: the row moved money to (or
+ * from) another of the user's accounts. Its other leg there is linked, or
+ * booked when the account has none (cash taken out at an ATM).
+ */
+export const TransferToAccountBody = Schema.Struct({
+  walletId: Schema.String.check(Schema.isUUID()),
+});
+export type TransferToAccountBody = Wire<typeof TransferToAccountBody>;
+
 export const LinkReimbursementBody = Schema.Struct({
   /** The expense this incoming transaction pays back. */
   expenseId: Schema.String.check(Schema.isUUID()),
@@ -119,3 +135,56 @@ export const SetTransactionTagsBody = Schema.Struct({
   tagIds: Schema.Array(Schema.String.check(Schema.isUUID())).check(Schema.isMaxLength(50)),
 });
 export type SetTransactionTagsBody = Wire<typeof SetTransactionTagsBody>;
+
+const Uuid = Schema.String.check(Schema.isUUID());
+
+/** `/transactions/:id…`: a transaction's uuid. */
+export const TransactionParams = Schema.Struct({ id: Uuid });
+export type TransactionParams = Wire<typeof TransactionParams>;
+
+/** `/transactions/attachments/:attachmentId…`. */
+export const TransactionAttachmentParams = Schema.Struct({ attachmentId: Uuid });
+export type TransactionAttachmentParams = Wire<typeof TransactionAttachmentParams>;
+
+/** `/transactions/:id/history/:eventId/undo`. */
+export const TransactionHistoryEventParams = Schema.Struct({ id: Uuid, eventId: Uuid });
+export type TransactionHistoryEventParams = Wire<typeof TransactionHistoryEventParams>;
+
+/**
+ * `GET /transactions`. Snake and camel spellings of the same filter both stay
+ * accepted; the snake one wins when both are sent.
+ */
+export const TransactionListQuery = Schema.Struct({
+  statement_id: Schema.optional(Uuid),
+  statementId: Schema.optional(Uuid),
+  date_from: Schema.optional(IsoDateString),
+  startDate: Schema.optional(IsoDateString),
+  date_to: Schema.optional(IsoDateString),
+  endDate: Schema.optional(IsoDateString),
+  type: Schema.optional(Schema.Literals(['income', 'expense', 'transfer'])),
+  category_id: Schema.optional(Uuid),
+  categoryId: Schema.optional(Uuid),
+  page: Schema.optional(PageInput),
+  limit: Schema.optional(PageInput),
+  currency: Schema.optional(Schema.String),
+  convert_to: Schema.optional(Schema.String),
+  /** `me`, `shared` or a membership id. */
+  owner: Schema.optional(Schema.Union([Schema.Literals(['me', 'shared']), Uuid])),
+  /** `1` adds each row's running wallet balance. */
+  running_balance: Schema.optional(Schema.Literals(['0', '1'])),
+  /** Only the rows of this account. */
+  walletId: Schema.optional(Uuid),
+  /** Only the rows of this payee. */
+  payeeId: Schema.optional(Uuid),
+});
+export type TransactionListQuery = Wire<typeof TransactionListQuery>;
+
+/** `GET /transactions/duplicates/detect`. */
+export const DuplicateDetectQuery = Schema.Struct({
+  statement_id: Schema.optional(Uuid),
+  /** Similarity a pair needs, 0 to 1 (default 0.85). */
+  threshold: Schema.optional(
+    NumericInput.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(1)),
+  ),
+});
+export type DuplicateDetectQuery = Wire<typeof DuplicateDetectQuery>;

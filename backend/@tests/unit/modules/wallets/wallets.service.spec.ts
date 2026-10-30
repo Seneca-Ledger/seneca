@@ -1,5 +1,8 @@
 import { createRepoMock } from '../../../helpers/create-repo-mock';
+import { Statement } from '@/entities/statement.entity';
+import { Transaction } from '@/entities/transaction.entity';
 import { Wallet } from '@/entities/wallet.entity';
+import { ExchangeRatesService } from '@/modules/exchange-rates/exchange-rates.service';
 import { WorkspaceMember } from '@/entities/workspace-member.entity';
 import { WalletsService } from '@/modules/wallets/wallets.service';
 import { NotFoundException } from '@nestjs/common';
@@ -36,6 +39,9 @@ describe('WalletsService', () => {
           provide: getRepositoryToken(WorkspaceMember),
           useValue: { ...createRepoMock<WorkspaceMember>(), exists: vi.fn(async () => true) },
         },
+        { provide: getRepositoryToken(Transaction), useValue: createRepoMock<Transaction>() },
+        { provide: getRepositoryToken(Statement), useValue: createRepoMock<Statement>() },
+        { provide: ExchangeRatesService, useValue: { getRateOrNull: vi.fn(async () => null) } },
         workspaceCurrencyProvider('EUR'),
       ],
     }).compile();

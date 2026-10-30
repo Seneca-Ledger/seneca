@@ -2,6 +2,8 @@
 
 import clsx from 'clsx';
 import { useRouter } from 'next/navigation';
+import { useState } from 'react';
+import StatementCategoryDrawer from '@/app/(main)/statements/[id]/edit/StatementCategoryDrawer';
 import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, ChevronDown } from '@/app/components/icons';
 import { Checkbox } from '@/app/components/ui/checkbox';
 import {
@@ -61,32 +63,36 @@ export function AllTransactionsTable({
   const someSelected = !allSelected && rows.some(row => selected.has(row.id));
   const choices = categories.filter(category => category.isEnabled);
   const money = (value: number, currency: string) => formatMoney(value, currency, locale);
+  const [pickingCategory, setPickingCategory] = useState(false);
 
   return (
     <div className="seneca-all-tx__table-wrap">
       {selected.size > 0 ? (
         <div className="seneca-all-tx__bulk" role="status">
           <span>{t.selected.value.replace('{count}', String(selected.size))}</span>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button type="button" className="seneca-all-tx__menu-button">
-                {t.setCategory}
-                <ChevronDown size={16} aria-hidden />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="seneca-all-tx__category-menu">
-              {choices.map(category => (
-                <DropdownMenuItem
-                  key={category.id}
-                  onClick={() => onSetCategory([...selected], category.id)}
-                >
-                  {categoryName(category.name)}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {/* The category drawer every other place uses, not a menu of its own. */}
+          <button
+            type="button"
+            className="seneca-all-tx__menu-button"
+            onClick={() => setPickingCategory(true)}
+          >
+            {t.setCategory}
+            <ChevronDown size={16} aria-hidden />
+          </button>
         </div>
       ) : null}
+      <StatementCategoryDrawer
+        open={pickingCategory}
+        onClose={() => setPickingCategory(false)}
+        categories={choices}
+        selectedCategoryId=""
+        onSelect={categoryId => {
+          setPickingCategory(false);
+          if (categoryId) {
+            onSetCategory([...selected], categoryId);
+          }
+        }}
+      />
       <table className="seneca-all-tx__table">
         <thead>
           <tr>

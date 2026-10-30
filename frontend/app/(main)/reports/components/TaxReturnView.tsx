@@ -5,7 +5,6 @@ import {
   Box,
   Button,
   Chip,
-  CircularProgress,
   Stack,
   Table,
   TableBody,
@@ -19,6 +18,7 @@ import type React from 'react';
 import { useState } from 'react';
 import CustomDatePicker from '@/app/components/CustomDatePicker';
 import { PRIVATE_CLASS } from '@/app/components/ui/private-amount';
+import { SnapshotSkeleton } from '@/app/components/ui/snapshot-skeleton/SnapshotSkeleton';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
@@ -282,12 +282,8 @@ export function TaxReturnView(): React.ReactElement {
         </Stack>
       ) : null}
 
-      {returnQuery.isPending ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-          <CircularProgress size={24} />
-        </Box>
-      ) : (
-        // Фоновая перезагрузка после смены периода или подачи только приглушает.
+      {/* Фоновая перезагрузка после смены периода или подачи только приглушает. */}
+      <SnapshotSkeleton id="reports-tax-return" loading={returnQuery.isPending} fallback="cards">
         <Box
           sx={{
             opacity: returnQuery.isFetching ? 0.6 : 1,
@@ -437,7 +433,7 @@ export function TaxReturnView(): React.ReactElement {
             <Typography sx={{ fontSize: 14, color: 'text.secondary' }}>{t.noLines}</Typography>
           )}
         </Box>
-      )}
+      </SnapshotSkeleton>
 
       <Typography
         sx={{

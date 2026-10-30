@@ -1,9 +1,15 @@
+import type { Mock } from 'vitest';
 import { Between, In, IsNull } from 'typeorm';
 import { PayableStatus } from '../../../../src/entities/payable.entity';
 import { ReceiptSource, ReceiptStatus } from '../../../../src/entities/receipt.entity';
 import { BankName, StatementStatus } from '../../../../src/entities/statement.entity';
 import { TransactionType } from '../../../../src/entities/transaction.entity';
 import { WorkspaceRole } from '../../../../src/entities/workspace-member.entity';
+import {
+  awaitingCategorySql,
+  UNCATEGORIZED_SQL_PARAMS,
+} from '../../../../src/modules/categories/uncategorized-category';
+import { CashFlowEntriesService } from '../../../../src/modules/dashboard/cash-flow-entries.service';
 import { DashboardService } from '../../../../src/modules/dashboard/dashboard.service';
 
 const createRepoMock = () =>
@@ -63,6 +69,8 @@ const formatDateOnly = (date: Date) => {
 describe('DashboardService', () => {
   let service: DashboardService;
   const transactionRepo = createRepoMock();
+  // Raw queries: the account count for the opening balance (none unless a test says so).
+  (transactionRepo as any).query = vi.fn(async () => [{ count: 0 }]);
   const statementRepo = createRepoMock();
   const payableRepo = createRepoMock();
   const walletRepo = createRepoMock();
@@ -74,11 +82,14 @@ describe('DashboardService', () => {
     getRate: vi.fn(),
     coverageForWorkspace: vi.fn(async () => []),
   };
+  const budgetsService = { withinLimitSpending: vi.fn() };
 
   beforeEach(() => {
     vi.resetAllMocks();
     workspaceRepo.findOne.mockResolvedValue({ currency: 'KZT' });
     exchangeRatesService.getRate.mockResolvedValue(1);
+    (transactionRepo as any).query.mockResolvedValue([{ count: 0 }]);
+    budgetsService.withinLimitSpending.mockResolvedValue([]);
     service = new DashboardService(
       transactionRepo,
       statementRepo,
@@ -88,6 +99,7 @@ describe('DashboardService', () => {
       workspaceRepo,
       subscriptionRepo,
       exchangeRatesService as any,
+      budgetsService as any,
     );
   });
 
@@ -539,7 +551,10 @@ describe('DashboardService', () => {
     await (service as any).getUncategorizedCount('ws-1', null);
 
     expect(query.andWhere).not.toHaveBeenCalledWith('t.isVerified = true');
-    expect(query.andWhere).toHaveBeenCalledWith('t.categoryId IS NULL');
+    expect(query.andWhere).toHaveBeenCalledWith(
+      awaitingCategorySql('t'),
+      UNCATEGORIZED_SQL_PARAMS,
+    );
     // A receipt is counted as its row or as a receipt to review, never on its own.
     expect(receiptRepo.createQueryBuilder).not.toHaveBeenCalled();
   });
@@ -711,9 +726,9 @@ describe('DashboardService', () => {
     );
 
     expect(result).toEqual([
-      { date: '2026-02-01', income: 100, expense: 50 },
-      { date: '2026-02-02', income: 0, expense: 25 },
-      { date: '2026-02-03', income: 0, expense: 0 },
+      { date: '2026-02-01', income: 100, expense: 50, budgeted: 0 },
+      { date: '2026-02-02', income: 0, expense: 25, budgeted: 0 },
+      { date: '2026-02-03', income: 0, expense: 0, budgeted: 0 },
     ]);
     expect(cashFlowQb.andWhere).toHaveBeenCalledWith(expect.stringContaining('unread.status IN'));
     expect(cashFlowQb.andWhere).toHaveBeenCalledWith('t.isDuplicate = false');
@@ -737,10 +752,92 @@ describe('DashboardService', () => {
     // Verify the query builder was called (weekly grouping used IYYY-IW format)
     expect(cashFlowQb.select).toHaveBeenCalledWith("TO_CHAR(t.transactionDate, 'IYYY-IW')", 'date');
     expect(result).toEqual([
-      { date: '2026-05', income: 500, expense: 200 },
-      { date: '2026-06', income: 300, expense: 100 },
-      { date: '2026-07', income: 0, expense: 0 },
+      { date: '2026-05', income: 500, expense: 200, budgeted: 0 },
+      { date: '2026-06', income: 300, expense: 100, budgeted: 0 },
+      { date: '2026-07', income: 0, expense: 0, budgeted: 0 },
     ]);
+  });
+
+  it("getCashFlow adds each day's budgeted share, converted and never above its spending", async () => {
+    const month = createExpectedMonthWindow('2026-10-15');
+    vi.spyOn(service as any, 'sumCashFlowByBucket').mockResolvedValue(
+      new Map([
+        ['2026-10-03', { date: '2026-10-03', income: 0, expense: 60, budgeted: 0 }],
+        ['2026-10-09', { date: '2026-10-09', income: 500, expense: 70, budgeted: 0 }],
+      ]),
+    );
+    const rate = 2;
+    exchangeRatesService.getRate.mockResolvedValue(rate);
+    budgetsService.withinLimitSpending.mockResolvedValue([
+      { date: '2026-10-03', currency: 'EUR', amount: 10 },
+      { date: '2026-10-03', currency: 'EUR', amount: 15 },
+      // More than the day spent, as the budgets count rows a little differently.
+      { date: '2026-10-09', currency: 'EUR', amount: 50 },
+    ]);
+
+    const points: Array<{ date: string; expense: number; budgeted: number }> = await (
+      service as any
+    ).getCashFlow('ws-1', month.since, month.endDate, 31);
+
+    expect(budgetsService.withinLimitSpending).toHaveBeenCalledWith(
+      'ws-1',
+      month.since,
+      month.endDate,
+    );
+    const byDay = Object.fromEntries(points.map(point => [point.date, point.budgeted]));
+    expect(byDay['2026-10-03']).toBe((10 + 15) * rate);
+    expect(byDay['2026-10-09']).toBe(70);
+    expect(byDay['2026-10-04']).toBe(0);
+    expect(points).toHaveLength(31);
+  });
+
+  it("names each spend's budgeted part for the cash-flow tooltip", async () => {
+    const row = (id: string, transactionType: TransactionType, amount: string) => ({
+      id,
+      date: '2026-10-16',
+      counterpartyName: `ACME ${id}`,
+      fileName: null,
+      transactionType,
+      debit: transactionType === TransactionType.EXPENSE ? amount : null,
+      credit: transactionType === TransactionType.INCOME ? amount : null,
+      currency: 'KZT',
+      isPrivate: false,
+      ownerMemberId: null,
+    });
+    transactionRepo.createQueryBuilder.mockReturnValue(
+      createQueryBuilderMock([
+        row('pay', TransactionType.EXPENSE, '11'),
+        row('market', TransactionType.EXPENSE, '70'),
+        row('sale', TransactionType.INCOME, '1125'),
+      ]),
+    );
+    budgetsService.withinLimitSpending.mockResolvedValue([
+      { transactionId: 'pay', date: '2026-10-16', currency: 'KZT', amount: 11 },
+      { transactionId: 'market', date: '2026-10-16', currency: 'KZT', amount: 40 },
+    ]);
+
+    const entriesService = new CashFlowEntriesService(
+      transactionRepo as any,
+      service,
+      budgetsService as any,
+    );
+    const { entries } = await entriesService.getCashFlowEntries('ws-1', '2026-10', null);
+
+    const budgeted = Object.fromEntries(entries.map(entry => [entry.name, entry.budgeted]));
+    expect(budgeted).toEqual({ 'ACME pay': 11, 'ACME market': 40, 'ACME sale': 0 });
+  });
+
+  it('getCashFlow leaves weekly buckets without a budgeted share', async () => {
+    const window = createExpectedWindow(90, '2026-10-15');
+    vi
+      .spyOn(service as any, 'sumCashFlowByBucket')
+      .mockResolvedValue(
+        new Map([['2026-W40', { date: '2026-W40', income: 0, expense: 60, budgeted: 0 }]]),
+      );
+
+    await (service as any).getCashFlow('ws-1', window.since, window.endDate, 90);
+
+    expect(budgetsService.withinLimitSpending).not.toHaveBeenCalled();
   });
 
   it('getTransactionGroupFormat switches to weekly buckets for 90-day ranges', () => {
@@ -1141,6 +1238,25 @@ describe('DashboardService', () => {
         createQueryBuilderMock([{ currency: 'KZT', balance }]),
       );
     };
+
+    it('starts from the everyday accounts and the banks no account holds, once there are accounts', async () => {
+      const query = (transactionRepo as any).query as Mock;
+      query
+        .mockResolvedValueOnce([{ count: 2 }])
+        .mockResolvedValueOnce([
+          { currency: 'KZT', balance: '700' },
+          { currency: 'KZT', balance: '-200' },
+          { currency: 'KZT', balance: '150' },
+        ]);
+      payableRepo.find.mockResolvedValue([]);
+      subscriptionRepo.find.mockResolvedValue([]);
+
+      const result = await service.getCommitments('ws-1', 10);
+
+      expect(result.openingBalance).toBe(650);
+      expect(query.mock.calls[1][1]).toEqual(['ws-1', ['checking', 'cash', 'credit_card']]);
+      expect(transactionRepo.createQueryBuilder).not.toHaveBeenCalled();
+    });
 
     it('pulls overdue payables to today and keeps undated ones off the curve', async () => {
       primeBalance('1000');

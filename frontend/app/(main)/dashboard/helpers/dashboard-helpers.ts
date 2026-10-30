@@ -25,8 +25,10 @@ export function text(value: unknown): string {
   if (typeof value === 'string') {
     return value;
   }
-  if (value && typeof value === 'object' && 'value' in value) {
-    const tokenValue = (value as { value?: string }).value;
+  // An intlayer node is a proxy over a React element: `.value` is answered by
+  // the proxy, not held by the element, so `'value' in node` is false for it.
+  if (value && typeof value === 'object') {
+    const tokenValue = (value as { value?: unknown }).value;
     if (typeof tokenValue === 'string') {
       return tokenValue;
     }

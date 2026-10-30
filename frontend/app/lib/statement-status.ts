@@ -10,9 +10,11 @@ type StatementParsingDetails = {
     source?: string | null;
     merchant?: string | null;
   } | null;
+  metadataExtracted?: { institution?: string | null } | null;
 };
 
 type StatementLike = {
+  bankName?: string | null;
   parsingDetails?: StatementParsingDetails | null;
 };
 
@@ -45,5 +47,10 @@ export const getStatementDisplayMerchant = (
   fallbackMerchant: string,
 ): string => {
   const manualMerchant = statement.parsingDetails?.importPreview?.merchant?.trim();
-  return manualMerchant && manualMerchant.length > 0 ? manualMerchant : fallbackMerchant;
+  if (manualMerchant) {
+    return manualMerchant;
+  }
+  // A bank no parser knows goes by the name its statement prints (taught by the user).
+  const institution = statement.parsingDetails?.metadataExtracted?.institution?.trim();
+  return statement.bankName === 'other' && institution ? institution : fallbackMerchant;
 };

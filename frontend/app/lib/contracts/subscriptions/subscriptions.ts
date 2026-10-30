@@ -94,6 +94,9 @@ export const SubscriptionMonthStatus = Schema.Struct({
   paidCount: Schema.Number,
   unpaidAmount: Schema.Number,
   unpaidCount: Schema.Number,
+  /** The paid and the still-to-pay parts in the currencies the subscriptions are in, unconverted. */
+  paidByCurrency: Schema.Array(Schema.Struct({ currency: Schema.String, amount: Schema.Number })),
+  unpaidByCurrency: Schema.Array(Schema.Struct({ currency: Schema.String, amount: Schema.Number })),
   /** Each subscription charged this month, still to pay first, then by next charge date. */
   items: Schema.Array(
     Schema.Struct({
@@ -205,3 +208,33 @@ export const SubscriptionDetail = Schema.Struct({
   ),
 });
 export type SubscriptionDetail = Wire<typeof SubscriptionDetail>;
+
+/**
+ * The answer of a write to one subscription (create, update, owner, decision,
+ * confirm): the row as `GET /subscriptions` has it, without the usage figure.
+ */
+export const SubscriptionRecord = SubscriptionItem.mapFields(Struct.omit(['costPerUse']));
+export type SubscriptionRecord = Wire<typeof SubscriptionRecord>;
+
+/** `GET /subscriptions/sinking-funds`: big charges and the monthly set-aside that covers them. */
+export const SinkingFundList = Schema.Array(
+  Schema.Struct({
+    subscriptionId: Schema.String,
+    vendorName: Schema.String,
+    amount: Schema.Number,
+    currency: Schema.String,
+    frequency: SubscriptionFrequency,
+    nextChargeDate: Schema.NullOr(DateOnly),
+    monthlySetAside: Schema.Number,
+    goalId: Schema.NullOr(Schema.String),
+  }),
+);
+export type SinkingFundList = Wire<typeof SinkingFundList>;
+
+/** `POST /subscriptions/:id/sinking-fund`: the savings goal, created now or before. */
+export const SinkingFundResult = Schema.Struct({
+  goalId: Schema.String,
+  monthlySetAside: Schema.Number,
+  created: Schema.Boolean,
+});
+export type SinkingFundResult = Wire<typeof SinkingFundResult>;

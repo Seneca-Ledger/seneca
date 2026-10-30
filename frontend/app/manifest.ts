@@ -17,9 +17,9 @@ export default function manifest(): MetadataRoute.Manifest {
     start_url: '/dashboard',
     display: 'standalone',
     // biome-ignore lint/style/useNamingConvention: key name is fixed by the web app manifest spec
-    background_color: '#ffffff',
+    background_color: '#ebe7df',
     // biome-ignore lint/style/useNamingConvention: key name is fixed by the web app manifest spec
-    theme_color: '#0584c7',
+    theme_color: '#ebe7df',
     icons: [
       {
         src: '/images/favicon-new.png',

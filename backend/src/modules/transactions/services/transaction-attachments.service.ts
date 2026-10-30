@@ -4,6 +4,7 @@ import * as path from 'node:path';
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
+import { appError } from '../../../common/errors/app-error';
 import { validateFile } from '../../../common/utils/file-validator.util';
 import { resolveUploadsDir } from '../../../common/utils/uploads.util';
 import { Transaction } from '../../../entities/transaction.entity';
@@ -78,7 +79,7 @@ export class TransactionAttachmentsService {
     const absolutePath = this.resolveStoredPath(attachment.storedFileName);
 
     if (!fs.existsSync(absolutePath)) {
-      throw new NotFoundException('Attachment file is missing from storage');
+      throw new NotFoundException(appError('TRANSACTION_ATTACHMENT_FILE_MISSING'));
     }
 
     return { absolutePath, fileName: attachment.fileName, mimeType: attachment.mimeType };
@@ -107,7 +108,7 @@ export class TransactionAttachmentsService {
     });
 
     if (!attachment) {
-      throw new NotFoundException('Attachment not found');
+      throw new NotFoundException(appError('TRANSACTION_ATTACHMENT_NOT_FOUND'));
     }
 
     return attachment;
@@ -122,7 +123,7 @@ export class TransactionAttachmentsService {
     });
 
     if (!exists) {
-      throw new NotFoundException('Transaction not found');
+      throw new NotFoundException(appError('TRANSACTION_NOT_FOUND'));
     }
   }
 

@@ -3,7 +3,7 @@ title: Supported Banks
 description: Statement format support matrix
 ---
 
-Seneca includes bank-specific parsers plus generic fallbacks. The app shows the same list on the **Supported
+Stoic Budget includes bank-specific parsers plus generic fallbacks. The app shows the same list on the **Supported
 banks** page (`/supported-banks`).
 
 ## Native PDF support

@@ -61,3 +61,38 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 ---
 
 These guidelines are working if: fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
+
+---
+
+## 5. Code Structure
+
+- Maximum of 300 lines per file (ideally 150–250).
+- One component per file.
+- Move logic into custom hooks (`/hooks`).
+- Pure functions and utilities—place them in `/lib` or `/utils`.
+- If a file is getting too large, break it down into helpers or hooks yourself until the task is complete.
+- Avoid “monoliths”—prefer composition of small modules.
+
+
+## Documentation and Responses
+
+For user documentation and critical procedures (imports, calculations, migrations), use a style similar to ASD-STE100:
+- short sentences (preferably up to 20 words)
+- active voice
+- unambiguous terms
+- avoid using synonyms for the same concepts
+
+For code, comments, and standard agent responses, use clear, everyday language.
+
+## Project Context (Stoic Budget)
+
+Detailed policy lives in `.claude/rules/*.md` (security, database, idempotency, api-standards, clean-architecture, frontend-perf, observability, best-practices, effect, design-tokens). Read those before changes in those domains.
+
+**Styling:** every colour, size and weight follows the light and dark theme tokens; no raw hex, MUI colour defaults or Tailwind palette classes. See `.claude/rules/design-tokens.md`.
+
+**Test fixtures:** invented, never lifted from real statements, receipts, the dev DB or the user's data. Keep the shape that matters to the case and make up the content: `'Alza - AirPods Pro'` → `'ACME Store - Wireless Buds'` (same hyphen, two words, a product inside). Same for people, e-mails, domains and IBANs (`Member One`, `member-1@example.com`, `example.co.il`). Name the value once and derive expectations from it.
+
+<!-- entire-agent:begin -->
+Read .entire/agent-guide.md for this repository's workflow, source inspection, and verification guidance.
+@.entire/agent-guide.md
+<!-- entire-agent:end -->

@@ -8,10 +8,12 @@ import { SchemaQuery } from '../../common/effect/schema-query';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import {
+  BulkConversion,
   BulkConvertBody,
   ExchangeRateCoverage,
   ExchangeRateQuery,
   ExchangeRateQuote,
+  ManualExchangeRate,
   ManualRateBody,
 } from '../../contracts';
 import { Workspace } from '../../entities/workspace.entity';
@@ -72,6 +74,7 @@ export class ExchangeRatesController {
   /** A rate entered by hand for one day; wins over the provider for that day, in this workspace. */
   @Post('manual')
   @WorkspaceAuth(Permission.WORKSPACE_SETTINGS_MANAGE)
+  @SchemaResponse(ManualExchangeRate)
   async setManual(
     @WorkspaceId() workspaceId: string,
     @SchemaBody(ManualRateBody) dto: ManualRateBody,
@@ -87,6 +90,7 @@ export class ExchangeRatesController {
 
   @Post('convert')
   @WorkspaceAuth(Permission.TRANSACTION_VIEW)
+  @SchemaResponse(BulkConversion)
   async bulkConvert(
     @WorkspaceId() workspaceId: string,
     @SchemaBody(BulkConvertBody) dto: BulkConvertBody,

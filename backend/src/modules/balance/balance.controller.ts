@@ -1,15 +1,39 @@
-import { Controller, Delete, Get, HttpCode, Param, Patch, Post, Put, Res } from '@nestjs/common';
+import {
+  BadRequestException,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  Patch,
+  Post,
+  Put,
+  Res,
+  UploadedFile,
+  UseInterceptors,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
 import { WorkspaceId } from '../../common/decorators/workspace.decorator';
 import { WorkspaceAuth } from '../../common/decorators/workspace-auth.decorator';
 import { SchemaBody } from '../../common/effect/schema-body';
-import { SchemaQuery } from '../../common/effect/schema-query';
+import { SchemaParams, SchemaQuery } from '../../common/effect/schema-query';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
+import { appError } from '../../common/errors/app-error';
 import { buildContentDisposition } from '../../common/utils/http-file.util';
 import {
+  BalanceAccountClassification,
+  BalanceAccountCreated,
+  BalanceAccountHistory,
+  BalanceAccountParams,
+  BalanceAccountsTree,
+  BalanceHistoryImported,
+  BalanceHistoryPointDeleted,
+  BalanceHistoryPointParams,
+  BalancePersonalLayoutApplied,
   BalanceQuery,
   BalanceSheetResponse,
+  BalanceSnapshotSaved,
   CreateBalanceAccountBody,
   ExportBalanceQuery,
   UpdateAccountClassificationBody,
@@ -18,6 +42,14 @@ import {
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { BalanceService } from './balance.service';
+import { BalanceHistoryService } from './balance-history.service';
+import { readBalanceHistoryFile } from './balance-history-file';
+import { BalancePersonalLayoutService } from './balance-personal-layout.service';
+
+type MulterFile = Express.Multer.File;
+
+/** A balance history is a column of dates and amounts; two megabytes is years of it. */
+const MAX_HISTORY_FILE_BYTES = 2 * 1024 * 1024;
 
 /**
  * Reading the balance sheet is a report; changing it changes what the workspace owns and owes, so the
@@ -25,7 +57,11 @@ import { BalanceService } from './balance.service';
  */
 @Controller('reports/balance')
 export class BalanceController {
-  constructor(private readonly balanceService: BalanceService) {}
+  constructor(
+    private readonly balanceService: BalanceService,
+    private readonly historyService: BalanceHistoryService,
+    private readonly personalLayoutService: BalancePersonalLayoutService,
+  ) {}
 
   @Get('sheet')
   @WorkspaceAuth(Permission.REPORT_VIEW)
@@ -44,6 +80,7 @@ export class BalanceController {
 
   @Get('accounts')
   @WorkspaceAuth(Permission.REPORT_VIEW)
+  @SchemaResponse(BalanceAccountsTree)
   async getAccounts(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -58,6 +95,7 @@ export class BalanceController {
 
   @Put('snapshot')
   @WorkspaceAuth(Permission.WALLET_EDIT)
+  @SchemaResponse(BalanceSnapshotSaved)
   async updateSnapshot(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -66,8 +104,54 @@ export class BalanceController {
     return this.balanceService.updateSnapshot(user.id, workspaceId, dto);
   }
 
+  @Post('personal-layout')
+  @WorkspaceAuth(Permission.WALLET_EDIT)
+  @SchemaResponse(BalancePersonalLayoutApplied)
+  async applyPersonalLayout(@CurrentUser() user: User, @WorkspaceId() workspaceId: string) {
+    return this.personalLayoutService.applyPersonalLayout(user.id, workspaceId);
+  }
+
+  @Get('accounts/:id/history')
+  @WorkspaceAuth(Permission.REPORT_VIEW)
+  @SchemaResponse(BalanceAccountHistory)
+  async getAccountHistory(
+    @WorkspaceId() workspaceId: string,
+    @SchemaParams(BalanceAccountParams) { id }: BalanceAccountParams,
+  ) {
+    return this.historyService.getAccountHistory(workspaceId, id);
+  }
+
+  @Delete('accounts/:id/history/:date')
+  @WorkspaceAuth(Permission.WALLET_EDIT)
+  @SchemaResponse(BalanceHistoryPointDeleted)
+  async deleteAccountHistoryPoint(
+    @CurrentUser() user: User,
+    @WorkspaceId() workspaceId: string,
+    @SchemaParams(BalanceHistoryPointParams) { id, date }: BalanceHistoryPointParams,
+  ) {
+    return this.historyService.deleteSnapshot(user.id, workspaceId, id, date);
+  }
+
+  @Post('accounts/:id/history')
+  @WorkspaceAuth(Permission.WALLET_EDIT)
+  @SchemaResponse(BalanceHistoryImported)
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_HISTORY_FILE_BYTES } }))
+  async importAccountHistory(
+    @CurrentUser() user: User,
+    @WorkspaceId() workspaceId: string,
+    @SchemaParams(BalanceAccountParams) { id }: BalanceAccountParams,
+    @UploadedFile() file: MulterFile | undefined,
+  ) {
+    if (!file?.buffer) {
+      throw new BadRequestException(appError('FILE_NOT_PROVIDED'));
+    }
+    const rows = readBalanceHistoryFile(file.buffer);
+    return this.historyService.importAccountHistory(user.id, workspaceId, id, rows);
+  }
+
   @Post('accounts')
   @WorkspaceAuth(Permission.WALLET_CREATE)
+  @SchemaResponse(BalanceAccountCreated)
   async createAccount(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
@@ -82,17 +166,18 @@ export class BalanceController {
   async deleteAccount(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id') id: string,
+    @SchemaParams(BalanceAccountParams) { id }: BalanceAccountParams,
   ): Promise<void> {
     await this.balanceService.deleteCustomAccount(user.id, workspaceId, id);
   }
 
   @Patch('accounts/:id/classification')
   @WorkspaceAuth(Permission.WALLET_EDIT)
+  @SchemaResponse(BalanceAccountClassification)
   async updateClassification(
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
-    @Param('id') id: string,
+    @SchemaParams(BalanceAccountParams) { id }: BalanceAccountParams,
     @SchemaBody(UpdateAccountClassificationBody) dto: UpdateAccountClassificationBody,
   ) {
     return this.balanceService.updateAccountClassification(user.id, workspaceId, id, dto);

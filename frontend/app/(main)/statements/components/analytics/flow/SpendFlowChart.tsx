@@ -246,7 +246,7 @@ export function SpendFlowChart({
     // The placeholder kept from the other flow (spend vs income) is not this
     // chart: skeleton until the real answer lands, so it mounts fresh.
     if (!(data && option) || data.type !== type) {
-      return <SpendFlowSkeleton columns={groupBy === 'merchant' ? 2 : 3} />;
+      return <SpendFlowSkeleton columns={groupBy === 'merchant' || groupBy === 'tag' ? 2 : 3} />;
     }
     if (data.links.length === 0) {
       return (

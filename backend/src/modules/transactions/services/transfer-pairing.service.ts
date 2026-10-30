@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, type Repository } from 'typeorm';
+import { appError } from '../../../common/errors/app-error';
 import {
   Transaction,
   TransactionType,
@@ -26,11 +27,11 @@ import {
 } from './transfer-pairing.matcher';
 
 /** The manual picker looks further than the matcher: a fee or a slow bank is exactly what it is for. */
-const CANDIDATE_WINDOW_DAYS = 7;
+export const CANDIDATE_WINDOW_DAYS = 7;
 /** Expense reports get paid back weeks later. */
 const REIMBURSEMENT_WINDOW_DAYS = 45;
 const CANDIDATE_LIMIT = 10;
-const DAY_MS = 24 * 60 * 60 * 1000;
+export const DAY_MS = 24 * 60 * 60 * 1000;
 
 export interface TransferPairingResult {
   /** Pairs the matcher proposed. */
@@ -58,15 +59,17 @@ export class TransferPairingService {
    * came from. Rows the user unlinked stay out of automatic runs but remain
    * available to the manual picker: that is the one place they belong.
    */
-  private unpairedQuery(workspaceId: string, options: { includeRejected?: boolean } = {}) {
+  unpairedQuery(workspaceId: string, options: { includeRejected?: boolean } = {}) {
     const query = this.transactionRepository
       .createQueryBuilder('t')
       .leftJoin('t.statement', 's')
-      .addSelect(['s.id', 's.accountNumber'])
+      .addSelect(['s.id', 's.accountNumber', 's.walletId'])
       .where('t.workspaceId = :workspaceId', { workspaceId })
       .andWhere('t.isDuplicate = false')
       .andWhere('t.splitGroupId IS NULL')
-      .andWhere('t.transferPairId IS NULL')
+      // A dividend is linked to its investment account without a pair: it is
+      // income, and pairing it with some transfer would make it vanish.
+      .andWhere('t.transferPairId IS NULL AND t.investmentAccountId IS NULL')
       .andWhere('t.reimbursementOfId IS NULL')
       .andWhere('(t.statementId IS NULL OR s.deletedAt IS NULL)');
     if (!options.includeRejected) {
@@ -177,24 +180,24 @@ export class TransferPairingService {
   /** Links two rows by hand. Amounts may differ (a fee), directions may not. */
   async link(workspaceId: string, id: string, otherId: string): Promise<string> {
     if (id === otherId) {
-      throw new BadRequestException('A transfer needs two different transactions');
+      throw new BadRequestException(appError('TRANSACTION_TRANSFER_SAME_LEG'));
     }
     const [a, b] = await Promise.all([
       this.findOwned(workspaceId, id),
       this.findOwned(workspaceId, otherId),
     ]);
     if (a.transactionType === b.transactionType) {
-      throw new BadRequestException('The two legs of a transfer must go in opposite directions');
+      throw new BadRequestException(appError('TRANSACTION_TRANSFER_SAME_DIRECTION'));
     }
     for (const leg of [a, b]) {
       if (leg.isDuplicate) {
-        throw new BadRequestException(`Transaction ${leg.id} is marked as a duplicate`);
+        throw new BadRequestException(appError('TRANSACTION_LEG_DUPLICATE', { id: leg.id }));
       }
       if (leg.splitGroupId) {
-        throw new BadRequestException(`Transaction ${leg.id} is part of a split`);
+        throw new BadRequestException(appError('TRANSACTION_LEG_SPLIT', { id: leg.id }));
       }
       if (leg.transferPairId) {
-        throw new ConflictException(`Transaction ${leg.id} is already part of a transfer`);
+        throw new ConflictException(appError('TRANSACTION_LEG_TRANSFERRED', { id: leg.id }));
       }
     }
 
@@ -208,7 +211,7 @@ export class TransferPairingService {
         { transferPairId },
         { transferPairId: null, transferPairSource: null },
       );
-      throw new ConflictException('One of the transactions was paired in the meantime');
+      throw new ConflictException(appError('TRANSACTION_PAIRED_MEANWHILE'));
     }
     return transferPairId;
   }
@@ -217,7 +220,7 @@ export class TransferPairingService {
   async unlink(workspaceId: string, id: string): Promise<void> {
     const row = await this.findOwned(workspaceId, id);
     if (!row.transferPairId) {
-      throw new BadRequestException('Transaction is not part of a transfer');
+      throw new BadRequestException(appError('TRANSACTION_NOT_TRANSFER'));
     }
     await this.transactionRepository.update(
       { workspaceId, transferPairId: row.transferPairId },
@@ -238,7 +241,7 @@ export class TransferPairingService {
   async reimbursementCandidates(workspaceId: string, incomeId: string): Promise<Transaction[]> {
     const income = await this.findOwned(workspaceId, incomeId);
     if (income.transactionType !== TransactionType.INCOME) {
-      throw new BadRequestException('Only an incoming transaction can be a reimbursement');
+      throw new BadRequestException(appError('TRANSACTION_REIMBURSEMENT_NOT_INCOMING'));
     }
     const at = new Date(income.transactionDate).getTime();
     const rows = await this.transactionRepository
@@ -280,31 +283,31 @@ export class TransferPairingService {
     expenseId: string,
   ): Promise<{ full: boolean; transferPairId: string | null }> {
     if (incomeId === expenseId) {
-      throw new BadRequestException('A reimbursement needs two different transactions');
+      throw new BadRequestException(appError('TRANSACTION_REIMBURSEMENT_SAME_LEG'));
     }
     const [income, expense] = await Promise.all([
       this.findOwned(workspaceId, incomeId),
       this.findOwned(workspaceId, expenseId),
     ]);
     if (income.transactionType !== TransactionType.INCOME) {
-      throw new BadRequestException('The reimbursement must be an incoming transaction');
+      throw new BadRequestException(appError('TRANSACTION_REIMBURSEMENT_MUST_BE_INCOMING'));
     }
     if (expense.transactionType !== TransactionType.EXPENSE) {
-      throw new BadRequestException('A reimbursement can only pay back an expense');
+      throw new BadRequestException(appError('TRANSACTION_REIMBURSEMENT_NOT_EXPENSE'));
     }
     for (const leg of [income, expense]) {
       if (leg.isDuplicate) {
-        throw new BadRequestException(`Transaction ${leg.id} is marked as a duplicate`);
+        throw new BadRequestException(appError('TRANSACTION_LEG_DUPLICATE', { id: leg.id }));
       }
       if (leg.splitGroupId) {
-        throw new BadRequestException(`Transaction ${leg.id} is part of a split`);
+        throw new BadRequestException(appError('TRANSACTION_LEG_SPLIT', { id: leg.id }));
       }
       if (leg.transferPairId) {
-        throw new ConflictException(`Transaction ${leg.id} is already part of a transfer`);
+        throw new ConflictException(appError('TRANSACTION_LEG_TRANSFERRED', { id: leg.id }));
       }
     }
     if (income.reimbursementOfId) {
-      throw new ConflictException('This transaction already reimburses another one');
+      throw new ConflictException(appError('TRANSACTION_ALREADY_REIMBURSES'));
     }
 
     const sameCurrency =
@@ -328,7 +331,7 @@ export class TransferPairingService {
           { transferPairId },
           { transferPairId: null, transferPairSource: null, transferPairKind: null },
         );
-        throw new ConflictException('One of the transactions was paired in the meantime');
+        throw new ConflictException(appError('TRANSACTION_PAIRED_MEANWHILE'));
       }
     }
     await this.transactionRepository.update(
@@ -341,7 +344,7 @@ export class TransferPairingService {
   async unlinkReimbursement(workspaceId: string, incomeId: string): Promise<void> {
     const income = await this.findOwned(workspaceId, incomeId);
     if (!income.reimbursementOfId) {
-      throw new BadRequestException('Transaction is not a reimbursement');
+      throw new BadRequestException(appError('TRANSACTION_NOT_REIMBURSEMENT'));
     }
     if (income.transferPairId && income.transferPairKind === TransferPairKind.REIMBURSEMENT) {
       await this.transactionRepository.update(
@@ -355,7 +358,7 @@ export class TransferPairingService {
     );
   }
 
-  private async findOwned(workspaceId: string, id: string): Promise<Transaction> {
+  async findOwned(workspaceId: string, id: string): Promise<Transaction> {
     const row = await this.transactionRepository.findOne({
       where: { id, workspaceId },
       relations: {
@@ -363,7 +366,7 @@ export class TransferPairingService {
       },
     });
     if (!row) {
-      throw new NotFoundException('Transaction not found');
+      throw new NotFoundException(appError('TRANSACTION_NOT_FOUND'));
     }
     return row;
   }
