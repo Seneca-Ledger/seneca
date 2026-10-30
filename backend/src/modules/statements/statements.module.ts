@@ -11,12 +11,15 @@ import { ParsingModule } from '../parsing/parsing.module';
 import { ReceiptsModule } from '../receipts/receipts.module';
 import { TaxModule } from '../tax/tax.module';
 import { WorkspaceCurrencyModule } from '../workspaces/workspace-currency.module';
+import { DroppedSampleService } from './dropped-sample.service';
 import { ManualExpenseService } from './manual-expense.service';
 import { ReceiptStatementService } from './services/receipt-statement.service';
 import { ScanUploadService } from './services/scan-upload.service';
 import { StatementStageService } from './services/statement-stage.service';
 import { StatementFilesService } from './statement-files.service';
+import { StatementListService } from './statement-list.service';
 import { StatementTrashService } from './statement-trash.service';
+import { StatementUploadService } from './statement-upload.service';
 import { StatementUploadsController } from './statement-uploads.controller';
 import { StatementsController } from './statements.controller';
 import { StatementsService } from './statements.service';
@@ -45,6 +48,9 @@ import { StatementsService } from './statements.service';
     StatementFilesService,
     StatementTrashService,
     ManualExpenseService,
+    StatementUploadService,
+    DroppedSampleService,
+    StatementListService,
     ReceiptStatementService,
     ScanUploadService,
     StatementStageService,

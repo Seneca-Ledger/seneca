@@ -4,6 +4,8 @@ import { calculateFileHash } from '@/common/utils/file-hash.util';
 import { FileType } from '@/entities/statement.entity';
 import { StatementsService } from '@/modules/statements/statements.service';
 import { StatementFilesService } from '@/modules/statements/statement-files.service';
+import { StatementListService } from '@/modules/statements/statement-list.service';
+import { StatementUploadService } from '@/modules/statements/statement-upload.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { workspaceCurrencyStub } from '../../helpers/workspace-currency-stub';
 
@@ -69,26 +71,38 @@ describe('StatementsService', () => {
     statementRepository.createQueryBuilder = vi.fn(() => qb);
 
     statementFiles = new StatementFilesService(fileStorageService as any, cacheManager as any);
+    const wallets = { findOne: vi.fn(async () => null) } as any;
+    const parsingQueue = { enqueue: vi.fn() } as any;
     service = new StatementsService(
       statementRepository as any,
       transactionRepository as any,
       userRepository as any,
-      categoryRepository as any,
       workspaceMemberRepository as any,
-      { findOne: vi.fn(async () => null) } as any,
-      fileStorageService as any,
       statementProcessingService as any,
-      { enqueue: vi.fn() } as any,
+      parsingQueue,
       receiptStatementService as any,
-      cacheManager as any,
       auditService as any,
-      workspaceCurrencyStub() as never,
       statementFiles,
       {} as any,
       {} as any,
-      eventEmitter as any,
+      new StatementUploadService(
+        statementRepository as any,
+        workspaceMemberRepository as any,
+        wallets,
+        parsingQueue,
+        cacheManager as any,
+        auditService as any,
+        workspaceCurrencyStub() as never,
+        eventEmitter as any,
+      ),
+      {} as any,
+      new StatementListService(
+        statementRepository as any,
+        transactionRepository as any,
+        categoryRepository as any,
+        fileStorageService as any,
+      ),
     );
-    vi.spyOn(service as any, 'ensureCanEditStatements').mockResolvedValue(undefined);
   });
 
   it('orders by createdAt when listing statements', async () => {

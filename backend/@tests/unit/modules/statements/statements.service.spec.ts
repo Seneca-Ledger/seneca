@@ -21,6 +21,9 @@ import { StatementsService } from '@/modules/statements/statements.service';
 import { StatementFilesService } from '@/modules/statements/statement-files.service';
 import { StatementTrashService } from '@/modules/statements/statement-trash.service';
 import { ManualExpenseService } from '@/modules/statements/manual-expense.service';
+import { DroppedSampleService } from '@/modules/statements/dropped-sample.service';
+import { StatementListService } from '@/modules/statements/statement-list.service';
+import { StatementUploadService } from '@/modules/statements/statement-upload.service';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import {
   BadRequestException,
@@ -116,6 +119,9 @@ describe('StatementsService', () => {
         { provide: StatementFilesService, useValue: {} },
         StatementTrashService,
         { provide: ManualExpenseService, useValue: {} },
+        StatementUploadService,
+        DroppedSampleService,
+        StatementListService,
         StatementsService,
         workspaceCurrencyProvider(),
         {

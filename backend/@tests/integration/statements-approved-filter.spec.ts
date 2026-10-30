@@ -22,11 +22,11 @@ import {
   Transaction,
   TransactionType,
   User,
-  Wallet,
   Workspace,
   WorkspaceMember,
 } from '../../src/entities';
 import { StatementsService } from '../../src/modules/statements/statements.service';
+import { StatementListService } from '../../src/modules/statements/statement-list.service';
 
 const BASE_URL =
   process.env.DATABASE_URL || 'postgresql://finflow:finflow@localhost:5434/finflow';
@@ -125,14 +125,12 @@ describe('the Approved filter of the documents list (real Postgres)', () => {
     txRepo = dataSource.getRepository(Transaction);
 
     const unused = {} as never;
+    const files = { getFileAvailability: async () => ({ onDisk: true, inDb: false }) } as never;
     service = new StatementsService(
       dataSource.getRepository(Statement),
       txRepo,
       dataSource.getRepository(User),
-      dataSource.getRepository(Category),
       dataSource.getRepository(WorkspaceMember),
-      dataSource.getRepository(Wallet),
-      { getFileAvailability: async () => ({ onDisk: true, inDb: false }) } as never,
       unused,
       unused,
       unused,
@@ -142,6 +140,12 @@ describe('the Approved filter of the documents list (real Postgres)', () => {
       unused,
       unused,
       unused,
+      new StatementListService(
+        dataSource.getRepository(Statement),
+        txRepo,
+        dataSource.getRepository(Category),
+        files,
+      ),
     );
 
     const workspaces = dataSource.getRepository(Workspace);
