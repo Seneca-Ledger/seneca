@@ -143,13 +143,6 @@ export function buildNavItems(nav: {
       permission: 'transaction.view',
     },
     {
-      label: nav.rules as ReactNode,
-      path: '/rules',
-      group: 'transactions',
-      icon: React.createElement(Workflow, { size: 18 }),
-      permission: 'category.view',
-    },
-    {
       label: nav.review as ReactNode,
       path: '/review',
       icon: React.createElement(Inbox, { size: 18 }),
@@ -174,6 +167,13 @@ export function buildNavItems(nav: {
       group: 'classification',
       icon: React.createElement(Tag, { size: 18 }),
       permission: 'tag.view',
+    },
+    {
+      label: nav.rules as ReactNode,
+      path: '/rules',
+      group: 'classification',
+      icon: React.createElement(Workflow, { size: 18 }),
+      permission: 'category.view',
     },
     {
       label: nav.budgets as ReactNode,

@@ -123,13 +123,14 @@ describe('buildNavItems', () => {
     expect(items.find(item => item.path === '/forecast')?.permission).toBe('report.view');
   });
 
-  it('puts categories and tags together under classification, each behind its own view permission', () => {
+  it('puts categories, tags and rules together under classification, each behind its own view permission', () => {
     const items = buildNavItems(nav);
     const classification = items.filter(item => item.group === 'classification');
 
     expect(classification.map(item => [item.path, item.permission])).toEqual([
       ['/categories', 'category.view'],
       ['/tags', 'tag.view'],
+      ['/rules', 'category.view'],
     ]);
     expect(buildNavGroups({ transactions: '', classification: 'Classification', analytics: '', investments: '', business: '' })
       .map(group => group.id)).toContain('classification');
@@ -154,10 +155,10 @@ describe('groupNavItems', () => {
   it('keeps standalone pages as rows and puts each group where its first page was', () => {
     expect(rows(buildNavItems(nav))).toEqual([
       '/dashboard',
-      'transactions: /statements /statements/pay /statements/receive /statements/transactions /statements/payees /rules',
+      'transactions: /statements /statements/pay /statements/receive /statements/transactions /statements/payees',
       '/review',
       '/accounts',
-      'classification: /categories /tags',
+      'classification: /categories /tags /rules',
       '/budgets',
       '/goals',
       '/subscriptions',

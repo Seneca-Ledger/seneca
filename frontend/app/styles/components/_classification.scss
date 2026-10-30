@@ -94,12 +94,13 @@
 
   &__mark,
   &__uses,
-  &__description {
+  &__note {
     font-size: $seneca-font-size-sm;
     color: var(--text-muted);
   }
 
-  &__description {
+  &__note {
+    display: block;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

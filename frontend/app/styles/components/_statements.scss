@@ -5585,22 +5585,10 @@
     &[data-heat='4'] { background: color-mix(in srgb, #{$seneca-color-empty-icon} 34%, transparent); }
     &[data-heat='5'] { background: color-mix(in srgb, #{$seneca-color-empty-icon} 45%, transparent); }
 
-    // Another currency: a hairline instead of a shade, and a small mark.
+    // Another currency: a hairline instead of a shade.
     &--foreign {
-      position: relative;
       background: transparent;
       border-color: $seneca-color-hairline;
-
-      &::after {
-        content: '';
-        position: absolute;
-        top: 8px;
-        right: 8px;
-        width: 5px;
-        height: 5px;
-        border-radius: 50%;
-        background: var(--text-muted);
-      }
     }
 
     &--today {
