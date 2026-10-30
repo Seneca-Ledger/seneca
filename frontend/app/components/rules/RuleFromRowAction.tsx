@@ -8,8 +8,11 @@ import { useIntlayer } from '@/app/i18n';
 import { RuleFormDialog } from './RuleFormDialog';
 import type { RuleSeed } from './types';
 
+/** What a rule is drafted from: a row, or a receipt's vendor. */
+type RuleSource = Pick<Transaction, 'counterpartyName' | 'isPrivate'>;
+
 /** A rule draft from a row: its payee as written, and the category it has now. */
-function ruleSeedFrom(transaction: Transaction, categoryId: string): RuleSeed {
+function ruleSeedFrom(transaction: RuleSource, categoryId: string): RuleSeed {
   return {
     id: null,
     name: '',
@@ -26,7 +29,7 @@ export function RuleFromRowAction({
   transaction,
   categoryId,
 }: {
-  transaction: Transaction;
+  transaction: RuleSource;
   categoryId: string;
 }): React.JSX.Element | null {
   const tRules = useIntlayer('categorizationRules');

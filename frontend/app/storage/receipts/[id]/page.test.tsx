@@ -104,13 +104,29 @@ vi.mock('@/app/components/tags/RecordTagsField', () => ({
   ReceiptTagsField: () => <div data-testid="receipt-tags" />,
 }));
 
-// Both read the workspace and React Query; their own tests cover them.
+// These read the workspace and React Query; their own tests cover them.
 vi.mock('@/app/components/goals/GoalLinkField', () => ({
   GoalLinkField: () => <div data-testid="receipt-goal" />,
 }));
 
 vi.mock('@/app/components/receipts/ReceiptAccountField', () => ({
   ReceiptAccountField: () => <div data-testid="receipt-account" />,
+}));
+
+vi.mock('@/app/components/receipts/ReceiptBudgetLine', () => ({
+  ReceiptBudgetLine: () => <div data-testid="receipt-budget" />,
+}));
+
+vi.mock('@/app/components/rules/RuleFromRowAction', () => ({
+  RuleFromRowAction: () => <div data-testid="receipt-rule" />,
+}));
+
+vi.mock('@/app/components/receipts/ReceiptBillAction', () => ({
+  ReceiptBillAction: () => <div data-testid="receipt-bill" />,
+}));
+
+vi.mock('@/app/components/receipts/ReceiptReimbursementAction', () => ({
+  ReceiptReimbursementAction: () => <div data-testid="receipt-reimbursement" />,
 }));
 
 vi.mock('@/app/components/receipts/location/ReceiptLocationSection', () => ({
