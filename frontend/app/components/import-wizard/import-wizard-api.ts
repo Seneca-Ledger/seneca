@@ -114,9 +114,10 @@ export interface ImportRunPayload {
   target: ImportTarget;
   mapping: Record<string, number>;
   rows: string[][];
+  headers?: string[];
   fileName?: string;
   dryRun?: boolean;
-  options?: { currency?: string; categorize?: boolean };
+  options?: { currency?: string; categorize?: boolean; walletId?: string | null };
 }
 
 export const suggestImport = async (

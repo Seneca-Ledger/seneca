@@ -19,6 +19,10 @@ export interface ImportContext {
   currency: string;
   fileName: string | null;
   categorize: boolean;
+  /** Transactions only: the account named for the rows, or null to find it. */
+  walletId: string | null;
+  /** The sheet's header row; empty when the client sent none. */
+  headers: string[];
   /** Read a mapped cell of a row; '' when the field is not mapped. */
   cell(row: string[], field: string): string;
   /** Category by name, created on first use; null for a blank name. */
