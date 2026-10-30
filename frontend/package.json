@@ -55,7 +55,7 @@
     "intlayer": "^9.7.0",
     "leaflet": "^1.9.4",
     "next-intlayer": "^9.7.0",
-    "next-themes": "^0.2.1",
+    "next-themes": "^0.4.6",
     "pdfjs-dist": "^6.3.289",
     "pdfmake": "^0.2.23",
     "react": "^19.3.1",
