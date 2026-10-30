@@ -1,13 +1,18 @@
 'use client';
 
 import { type ChangeEvent, type ComponentType, useEffect, useRef, useState } from 'react';
-import { Download, MoreVertical, X } from '@/app/components/icons';
+import { MoreVertical, X } from '@/app/components/icons';
 import { SnapshotSkeleton } from '@/app/components/ui/snapshot-skeleton/SnapshotSkeleton';
 import { useIntlayer } from '@/app/i18n';
 import { apiBaseUrl } from '@/app/lib/api';
 import { hasSessionCookie } from '@/app/lib/csrf';
 import { getWorkspaceHeaders } from '@/app/lib/workspace-headers';
+import { downloadFile } from './pdf-preview/download-file';
+import { PreviewMenu } from './pdf-preview/PreviewMenu';
 import { configureBundledPdfWorker } from './pdf-preview/pdf-worker';
+import { TeachOverlay } from './pdf-teach/TeachOverlay';
+import { TeachToolbar } from './pdf-teach/TeachToolbar';
+import { useTeachMode } from './pdf-teach/useTeachSession';
 import { ModalShell } from './ui/modal-shell';
 
 type ReactPdfComponentProps = Record<string, unknown>;
@@ -32,6 +37,8 @@ interface PdfPreviewModalProps {
   allowAttachFile?: boolean;
   onFileAttached?: () => void;
   onParsingStarted?: () => void;
+  /** Marking mode: the user tags areas of a statement its parser could not read. */
+  teach?: boolean;
 }
 
 const isJsdomEnvironment = typeof navigator !== 'undefined' && /jsdom/i.test(navigator.userAgent);
@@ -57,8 +64,11 @@ export function PDFPreviewModal({
   allowAttachFile = false,
   onFileAttached,
   onParsingStarted,
+  teach = false,
 }: PdfPreviewModalProps) {
   const t = useIntlayer('pdfPreviewModal');
+  const teachText = useIntlayer('pdfTeach');
+  const { teaching, session, teachAgain } = useTeachMode(isOpen, teach, fileId);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -81,6 +91,8 @@ export function PDFPreviewModal({
   const PageComponent = pdfModule?.Page;
   const isImagePreview = Boolean(fileContentType?.startsWith('image/'));
   const isStoreReceiptImagePreview = isImagePreview && source === 'receipt';
+  const canTeachAgain =
+    source === 'statement' && Boolean(pdfObjectUrl) && !isImagePreview && !teaching;
 
   useEffect(() => {
     if (!isOpen) {
@@ -222,45 +234,13 @@ export function PDFPreviewModal({
     };
   }, [menuOpen]);
 
-  const handleDownload = async () => {
-    return await (async () => {
-      const headers = getWorkspaceHeaders();
-      if (!hasSessionCookie()) {
-        alert(t.errors.authRequired.value);
-        return;
-      }
-
-      const fileEndpoint = getFileEndpoint(source, fileId);
-
-      const response = await fetch(fileEndpoint, {
-        method: 'GET',
-        headers,
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        throw new Error(t.errors.downloadFailed.value);
-      }
-
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = fileName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    })().catch(async err => {
-      console.error('Error downloading PDF:', err);
-      alert(t.errors.downloadAlertFailed.value);
-    });
-  };
-
-  const handleDownloadFromMenu = () => {
-    setMenuOpen(false);
-    void handleDownload();
-  };
+  const handleDownload = () =>
+    downloadFile(
+      getFileEndpoint(source, fileId),
+      fileName,
+      { authRequired: t.errors.authRequired.value, failed: t.errors.downloadAlertFailed.value },
+      alert,
+    );
 
   const handleAttachClick = () => {
     attachInputRef.current?.click();
@@ -351,7 +331,9 @@ export function PDFPreviewModal({
     >
       <div className="seneca-pdf-preview-modal__body">
         <div className="seneca-pdf-preview-modal__header" ref={menuRef}>
-          <h2 className="seneca-pdf-preview-modal__title">{t.receiptTitle}</h2>
+          <h2 className="seneca-pdf-preview-modal__title">
+            {teaching ? teachText.title : t.receiptTitle}
+          </h2>
 
           <div className="seneca-pdf-preview-modal__header-actions">
             <button
@@ -373,16 +355,13 @@ export function PDFPreviewModal({
           </div>
 
           {menuOpen && (
-            <div className="seneca-pdf-preview-modal__dropdown-menu">
-              <button
-                type="button"
-                onClick={handleDownloadFromMenu}
-                className="seneca-pdf-preview-modal__dropdown-item"
-              >
-                <Download className="seneca-pdf-preview-modal__dropdown-icon" strokeWidth={2.3} />
-                <span className="seneca-pdf-preview-modal__dropdown-label">{t.download}</span>
-              </button>
-            </div>
+            <PreviewMenu
+              downloadLabel={t.download}
+              onDownload={handleDownload}
+              onClose={() => setMenuOpen(false)}
+              teachLabel={teachText.teachAgain}
+              onTeach={canTeachAgain ? teachAgain : undefined}
+            />
           )}
         </div>
 
@@ -514,7 +493,13 @@ export function PDFPreviewModal({
                         renderTextLayer={false}
                         renderAnnotationLayer={false}
                         className="seneca-pdf-preview-modal__pdf-page"
+                        onLoadSuccess={({ originalWidth }: { originalWidth: number }) =>
+                          session.setPageWidth(index + 1, originalWidth)
+                        }
                       />
+                      {teaching && (
+                        <TeachOverlay page={index + 1} width={pageWidth} session={session} />
+                      )}
                     </div>
                   ))}
                 </DocumentComponent>
@@ -522,6 +507,7 @@ export function PDFPreviewModal({
             </div>
           )}
         </div>
+        {teaching && <TeachToolbar session={session} onDone={onClose} />}
       </div>
     </ModalShell>
   );

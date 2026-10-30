@@ -100,6 +100,7 @@ export type StatementParsingDetails = ContractStatementParsingDetails;
 export interface Statement {
   id: string;
   fileName: string;
+  fileType: string;
   status: string;
   totalTransactions: number;
   categoryId?: string | null;
@@ -114,6 +115,9 @@ export interface Statement {
   statementDateTo?: string | null;
   balanceStart?: number | string | null;
   balanceEnd?: number | string | null;
+  currency?: string;
+  /** The account it belongs to. */
+  walletId?: string | null;
   parsingDetails?: StatementParsingDetails | null;
 }
 

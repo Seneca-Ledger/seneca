@@ -2,7 +2,6 @@ import { useIntlayer, useLocale } from '@/app/i18n';
 import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import { localizeStatementCategoryName } from '@/app/lib/statement-categories';
 import { DEFAULT_STATEMENT_COLUMNS } from '../columns/statement-columns';
-import { splitAmountLabel } from '../filters/amount-view';
 import { isDocumentApproved } from '../StatementsListView.utils';
 import {
   firstNonEmpty,
@@ -67,7 +66,6 @@ export function useStatementsListItemModel({
   const duplicateTooltipText = `${duplicateBadgeLabel ?? ''} — ${duplicateReason || listText.duplicateReasonSame.value}`;
   const reviewLabel = duplicateActionLabel || listText.review.value;
   const actionLabel = isPossibleDuplicate ? reviewLabel : viewLabel;
-  const { figure: amountFigure, currency: amountCurrency } = splitAmountLabel(amountLabel);
   const typeCaption = isManualExpense
     ? null
     : isReceipt
@@ -145,8 +143,6 @@ export function useStatementsListItemModel({
     duplicateTooltipText,
     reviewLabel,
     actionLabel,
-    amountFigure,
-    amountCurrency,
     typeCaption,
     handleView,
     renderedColumns,

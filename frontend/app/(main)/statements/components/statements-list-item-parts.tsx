@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import React from 'react';
 import { formatMonthParam } from '@/app/(main)/dashboard/helpers/dashboard-url-state';
-import { useIntlayer } from '@/app/i18n';
 import { tagReportHref } from '@/app/lib/category-report-href';
 import { resolveStatementSortDate } from './StatementsListView.utils';
 import { textCellStyle } from './statements-list-item.cells';
@@ -43,43 +42,4 @@ export function TagLink({
       </span>
     </Link>
   );
-}
-
-export function StatusBadge({
-  status,
-  isProcessing,
-  errorMessage,
-}: {
-  status: string;
-  isProcessing: boolean;
-  errorMessage?: string | null;
-}) {
-  const listText = useIntlayer('statementsListUi');
-  if (errorMessage || status === 'error') {
-    return (
-      <span className="seneca-stmt-badge seneca-stmt-badge--error">{listText.statusError}</span>
-    );
-  }
-  if (isProcessing || status === 'processing' || status === 'uploaded') {
-    return (
-      <span className="seneca-stmt-badge seneca-stmt-badge--pending">{listText.statusPending}</span>
-    );
-  }
-  // Parsed, but the balance did not reconcile: held out of analytics until a user
-  // confirms it on the statement page.
-  if (status === 'needs_review') {
-    return (
-      <span className="seneca-stmt-badge seneca-stmt-badge--review">
-        {listText.statusNeedsReview}
-      </span>
-    );
-  }
-  if (status === 'completed' || status === 'parsed' || status === 'validated') {
-    return (
-      <span className="seneca-stmt-badge seneca-stmt-badge--completed">
-        {listText.statusCompleted}
-      </span>
-    );
-  }
-  return null;
 }

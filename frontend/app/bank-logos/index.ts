@@ -1,4 +1,17 @@
-export type BankLogoKey = 'kaspi' | 'bereke' | 'hapoalim' | 'absa' | 'ally' | 'anz' | 'other';
+export type BankLogoKey =
+  | 'kaspi'
+  | 'bereke'
+  | 'hapoalim'
+  | 'absa'
+  | 'ally'
+  | 'anz'
+  | 'associated'
+  | 'atb'
+  | 'axis'
+  | 'banco_do_brasil'
+  | 'bank_of_china'
+  | 'bank_of_scotland'
+  | 'other';
 
 export type ResolvedBankLogo = {
   key: BankLogoKey;
@@ -14,6 +27,12 @@ const LOGO_SRC_BY_KEY: Record<BankLogoKey, string> = {
   absa: '/images/bank-logo/bank.png',
   ally: '/images/bank-logo/bank.png',
   anz: '/images/bank-logo/bank.png',
+  associated: '/images/bank-logo/bank.png',
+  atb: '/images/bank-logo/bank.png',
+  axis: '/images/bank-logo/bank.png',
+  banco_do_brasil: '/images/bank-logo/bank.png',
+  bank_of_china: '/images/bank-logo/bank.png',
+  bank_of_scotland: '/images/bank-logo/bank.png',
   other: '/images/bank-logo/bank.png',
 };
 
@@ -24,6 +43,12 @@ const DISPLAY_NAME_BY_KEY: Record<BankLogoKey, string> = {
   absa: 'Absa Bank',
   ally: 'Ally Bank',
   anz: 'ANZ',
+  associated: 'Associated Bank',
+  atb: 'ATB Financial',
+  axis: 'Axis Bank',
+  banco_do_brasil: 'Banco do Brasil',
+  bank_of_china: 'Bank of China (Hong Kong)',
+  bank_of_scotland: 'Bank of Scotland',
   other: 'Bank',
 };
 
@@ -58,6 +83,24 @@ const resolveKeyFromName = (bankName: string): BankLogoKey => {
   }
   if (n === 'anz' || n.startsWith('anz ')) {
     return 'anz';
+  }
+  if (n === 'associated' || n.startsWith('associated bank')) {
+    return 'associated';
+  }
+  if (n === 'atb' || n.startsWith('atb ')) {
+    return 'atb';
+  }
+  if (n === 'axis' || n.startsWith('axis bank')) {
+    return 'axis';
+  }
+  if (n === 'banco_do_brasil' || n.startsWith('banco do brasil')) {
+    return 'banco_do_brasil';
+  }
+  if (n === 'bank_of_china' || n.startsWith('bank of china')) {
+    return 'bank_of_china';
+  }
+  if (n === 'bank_of_scotland' || n.startsWith('bank of scotland')) {
+    return 'bank_of_scotland';
   }
   if (n === 'other') {
     return 'other';

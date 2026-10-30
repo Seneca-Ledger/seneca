@@ -14,6 +14,7 @@ import { WorkspaceCurrencyModule } from '../workspaces/workspace-currency.module
 import { ReceiptStatementService } from './services/receipt-statement.service';
 import { ScanUploadService } from './services/scan-upload.service';
 import { StatementStageService } from './services/statement-stage.service';
+import { StatementTeachController } from './statement-teach.controller';
 import { StatementUploadsController } from './statement-uploads.controller';
 import { StatementsController } from './statements.controller';
 import { StatementsService } from './statements.service';
@@ -36,7 +37,7 @@ import { StatementsService } from './statements.service';
     ReceiptsModule,
     WorkspaceCurrencyModule,
   ],
-  controllers: [StatementUploadsController, StatementsController],
+  controllers: [StatementUploadsController, StatementsController, StatementTeachController],
   providers: [
     StatementsService,
     ReceiptStatementService,

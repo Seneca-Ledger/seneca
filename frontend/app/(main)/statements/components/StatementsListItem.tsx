@@ -7,10 +7,10 @@ import { Checkbox } from '@/app/components/ui/checkbox';
 import { tokens } from '@/lib/theme-tokens';
 import { type StatementColumnId } from './columns/statement-columns';
 import { useStatementsListItemModel } from './hooks/useStatementsListItemModel';
+import { StatementAmountCell } from './StatementAmountCell';
 import { StatementCategoryCell } from './StatementCategoryCell';
 import {
   ActionCell,
-  AmountCell,
   MerchantCell,
   PlainCell,
   RowsToggle,
@@ -63,8 +63,6 @@ export function StatementsListItem(props: StatementsListItemProps) {
     duplicateTooltipText,
     reviewLabel,
     actionLabel,
-    amountFigure,
-    amountCurrency,
     typeCaption,
     handleView,
     renderedColumns,
@@ -143,15 +141,12 @@ export function StatementsListItem(props: StatementsListItemProps) {
     if (columnId === 'tag') return <TagCell statement={statement} tagsLabel={tagsLabel} />;
     if (columnId === 'amount')
       return (
-        <AmountCell
-          c={c}
-          amountFigure={amountFigure}
-          amountCurrency={amountCurrency}
-          danger={isNegativeAmount || hasError || isMissingAmount}
-          showLoader={showAmountLoader}
-          status={statement.status}
+        <StatementAmountCell
+          statement={statement}
+          amountLabel={amountLabel}
+          isReceipt={isReceipt}
           isProcessing={isProcessing}
-          errorMessage={statement.errorMessage}
+          onTeach={() => onIconClick('teach')}
         />
       );
     if (columnId === 'action')

@@ -72,4 +72,15 @@ describe('statement status helpers', () => {
   it('falls back to bank label when manual merchant is missing', () => {
     expect(getStatementDisplayMerchant({ parsingDetails: null }, 'Kaspi')).toBe('Kaspi');
   });
+
+  it('names a statement of a bank no parser knows by the bank name taught for it', () => {
+    const taught = { parsingDetails: { metadataExtracted: { institution: 'Northwind Mutual' } } };
+    expect(getStatementDisplayMerchant({ ...taught, bankName: 'other' }, 'Other')).toBe(
+      'Northwind Mutual',
+    );
+    // A bank with a parser of its own keeps its own name.
+    expect(getStatementDisplayMerchant({ ...taught, bankName: 'axis' }, 'Axis Bank')).toBe(
+      'Axis Bank',
+    );
+  });
 });

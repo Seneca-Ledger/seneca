@@ -1,19 +1,16 @@
 'use client';
 
 import MuiTooltip from '@mui/material/Tooltip';
-import clsx from 'clsx';
 import React from 'react';
 import { AlertCircle, ChevronDown, ChevronRight, CreditCard, Tag } from '@/app/components/icons';
 import { NotesBadge } from '@/app/components/notes/NotesBadge';
-import { PRIVATE_CLASS } from '@/app/components/ui/private-amount';
-import { Spinner } from '@/app/components/ui/spinner';
 import { useIntlayer } from '@/app/i18n';
 import { tokens } from '@/lib/theme-tokens';
 import type { StatementColumnId as ColumnId } from './columns/statement-columns';
 import { EMPTY_CELL, textCellStyle } from './statements-list-item.cells';
 import type { StatementListItem } from './statements-list-item.types';
 
-import { StatusBadge, statementMonth, TagLink } from './statements-list-item-parts';
+import { statementMonth, TagLink } from './statements-list-item-parts';
 
 type Colors = typeof tokens.color | typeof tokens.dark.color;
 
@@ -153,56 +150,6 @@ export function MerchantCell(props: {
         ) : null}
         {rowsToggle}
         <NotesBadge entityId={statement.id} />
-      </div>
-    </div>
-  );
-}
-
-/** The Amount column: the figure with its currency apart, and the status under it. */
-export function AmountCell(props: {
-  c: Colors;
-  amountFigure: string;
-  amountCurrency: string | null;
-  danger: boolean;
-  showLoader: boolean;
-  status: string;
-  isProcessing: boolean;
-  errorMessage?: string | null;
-}): React.JSX.Element {
-  const { c, amountFigure, amountCurrency, danger, showLoader } = props;
-  const { status, isProcessing, errorMessage } = props;
-  return (
-    <div
-      style={{
-        width: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'flex-end',
-        justifyContent: 'center',
-      }}
-    >
-      <span
-        className={clsx('seneca-stmt-list-item__amount', PRIVATE_CLASS)}
-        style={{
-          color: danger ? c.danger : c.ink900,
-          whiteSpace: amountFigure.includes('\n') ? 'pre-line' : undefined,
-        }}
-      >
-        {showLoader ? (
-          <Spinner style={{ width: 16, height: 16, color: c.ink400 }} />
-        ) : (
-          <>
-            {amountFigure}
-            {amountCurrency ? (
-              <span className="seneca-stmt-list-item__currency"> {amountCurrency}</span>
-            ) : null}
-          </>
-        )}
-      </span>
-      <div
-        style={{ marginTop: 2, display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}
-      >
-        <StatusBadge status={status} isProcessing={isProcessing} errorMessage={errorMessage} />
       </div>
     </div>
   );

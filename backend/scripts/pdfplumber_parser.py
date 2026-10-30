@@ -165,7 +165,9 @@ def parse_pdf(file_path: pathlib.Path) -> Dict[str, Any]:
     tables: List[Dict[str, Any]] = []
 
     with pdfplumber.open(str(file_path)) as pdf:
-        for page_number, page in enumerate(pdf.pages, start=1):
+        for page_number, raw_page in enumerate(pdf.pages, start=1):
+            # Bold drawn twice at the same spot reads "PPaaggee" otherwise.
+            page = raw_page.dedupe_chars()
             page_text = page.extract_text() or ""
             full_text.append(page_text)
 

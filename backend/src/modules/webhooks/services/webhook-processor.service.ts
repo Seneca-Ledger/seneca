@@ -4,7 +4,7 @@ import * as https from 'node:https';
 import { Injectable, Logger } from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import {
   assertPublicEgressUrl,
   createPublicEgressHttpAgents,
@@ -17,6 +17,10 @@ import { WorkspacePluginsService } from '../../workspaces/workspace-plugins.serv
 // process run outside a container.
 const LOCK_ID = `processor-${process.env.HOSTNAME ?? randomUUID()}`;
 const HTTP_TIMEOUT_MS = Number.parseInt(process.env.WEBHOOK_HTTP_TIMEOUT_MS ?? '10000', 10);
+// A tick takes up to BATCH_SIZE deliveries and sends CONCURRENCY of them at a time;
+// one per tick left a 500-row import hours behind.
+const BATCH_SIZE = Number.parseInt(process.env.WEBHOOK_BATCH_SIZE ?? '20', 10);
+const CONCURRENCY = Number.parseInt(process.env.WEBHOOK_CONCURRENCY ?? '5', 10);
 
 @Injectable()
 export class WebhookProcessorService {
@@ -38,10 +42,17 @@ export class WebhookProcessorService {
     }
     this.running = true;
     try {
-      const delivery = await this.claimNextDelivery();
-      if (delivery) {
-        await this.processDelivery(delivery);
-      }
+      const deliveries = await this.claimBatch();
+      await runPool(deliveries, CONCURRENCY, async delivery => {
+        try {
+          await this.processDelivery(delivery);
+        } catch (err) {
+          // Left in `processing`; the stale-lock rule hands it back after 15 minutes.
+          this.logger.warn(
+            `Delivery ${delivery.id} failed to process: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
+      });
     } catch (err) {
       this.logger.warn(
         `Webhook processor tick failed: ${err instanceof Error ? err.message : String(err)}`,
@@ -94,12 +105,18 @@ export class WebhookProcessorService {
     });
   }
 
-  private async claimNextDelivery(): Promise<WebhookDelivery | null> {
+  /**
+   * Locks up to BATCH_SIZE due deliveries and loads them as entities. The raw
+   * UPDATE returns snake_case columns, so only ids come back from it: reading
+   * `subscriptionId` off a raw row gave undefined, and `findOne` with an
+   * undefined id returns an arbitrary subscription — another workspace's.
+   */
+  private async claimBatch(): Promise<WebhookDelivery[]> {
     const result = await this.deliveryRepo.query(
       `
       UPDATE webhook_deliveries
       SET status = 'processing', locked_at = now(), locked_by = $1
-      WHERE id = (
+      WHERE id IN (
         SELECT id FROM webhook_deliveries
         WHERE (
           status IN ('pending', 'failed')
@@ -111,14 +128,18 @@ export class WebhookProcessorService {
           AND locked_at < now() - interval '15 minutes'
         )
         ORDER BY created_at ASC
-        LIMIT 1
+        LIMIT $2
         FOR UPDATE SKIP LOCKED
       )
-      RETURNING *
+      RETURNING id
     `,
-      [LOCK_ID],
+      [LOCK_ID, BATCH_SIZE],
     );
-    return result[0]?.[0] ?? null;
+    const ids = ((result[0] ?? []) as Array<{ id: string }>).map(row => row.id);
+    if (ids.length === 0) {
+      return [];
+    }
+    return this.deliveryRepo.find({ where: { id: In(ids) }, order: { createdAt: 'ASC' } });
   }
 
   private async processDelivery(delivery: WebhookDelivery): Promise<void> {
@@ -207,4 +228,21 @@ export class WebhookProcessorService {
   private backoffMs(attemptCount: number): number {
     return 30_000 * 10 ** (attemptCount - 1);
   }
+}
+
+/** Runs `worker` over `items`, at most `limit` at a time. */
+async function runPool<T>(
+  items: readonly T[],
+  limit: number,
+  worker: (item: T) => Promise<void>,
+): Promise<void> {
+  let next = 0;
+  const lanes = Array.from({ length: Math.min(Math.max(limit, 1), items.length) }, async () => {
+    while (next < items.length) {
+      const item = items[next];
+      next += 1;
+      await worker(item);
+    }
+  });
+  await Promise.all(lanes);
 }

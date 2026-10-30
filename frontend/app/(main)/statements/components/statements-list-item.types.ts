@@ -67,7 +67,8 @@ export type StatementsListItemProps = {
   amountLabel: string;
   dateLabel: string;
   onView: () => void;
-  onIconClick: () => void;
+  /** Opens the row's file; `teach` opens it to mark a layout the parser could not read. */
+  onIconClick: (mode?: 'teach') => void;
   onToggleSelect?: () => void;
   selected?: boolean;
   selectionDisabled?: boolean;

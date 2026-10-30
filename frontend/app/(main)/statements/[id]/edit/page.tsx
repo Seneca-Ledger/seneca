@@ -21,7 +21,6 @@ import { buildSourceColumnTitles } from '@/app/(main)/custom-tables/labels';
 import CustomDatePicker from '@/app/components/CustomDatePicker';
 import { ArrowLeft, CheckCircle2, ChevronDown, Layers, Save, Trash2 } from '@/app/components/icons';
 import { NotesPanel } from '@/app/components/notes/NotesPanel';
-import { StatementTagsField } from '@/app/components/tags/RecordTagsField';
 import { DetailActionButton } from '@/app/components/ui/detail-action-button';
 import { fillTemplateNodes, PrivateAmount } from '@/app/components/ui/private-amount';
 import { Spinner } from '@/app/components/ui/spinner';
@@ -30,9 +29,10 @@ import { useIntlayer, useLocale } from '@/app/i18n';
 import { flattenStatementCategories, getCategoryDisplayName } from '@/app/lib/statement-categories';
 import { formatStoredDate } from '@/app/lib/user-format-store';
 import { tokens } from '@/lib/theme-tokens';
-import { BalanceReviewAlert } from './components/BalanceReviewAlert';
+import { BalanceReviewAlert, balanceReviewLabels } from './components/BalanceReviewAlert';
 import { EditStatementSkeleton } from './components/EditStatementSkeleton';
 import { EditTransactionsTable } from './components/EditTransactionsTable';
+import { StatementDetailsFields } from './components/StatementDetailsFields';
 import {
   filterEnabledCategories,
   formatLabel,
@@ -431,27 +431,17 @@ export default function EditStatementPage(): React.JSX.Element {
 
       {statement && (
         <BalanceReviewAlert
-          statementId={statement.id}
+          statement={statement}
           status={statement.status}
           parsingDetails={statement.parsingDetails}
           formatNumber={formatNumber}
           onConfirmed={LoadData}
-          labels={{
-            title: labels.balanceReviewTitle?.value,
-            description: labels.balanceReviewDescription?.value,
-            expected: labels.balanceReviewExpected?.value,
-            actual: labels.balanceReviewActual?.value,
-            difference: labels.balanceReviewDifference?.value,
-            confirm: labels.balanceReviewConfirm?.value,
-            confirmFailed: labels.balanceReviewConfirmFailed?.value,
-          }}
+          labels={balanceReviewLabels(labels)}
         />
       )}
 
       {statement ? (
-        <Box sx={{ mb: 2 }}>
-          <StatementTagsField statementId={statement.id} />
-        </Box>
+        <StatementDetailsFields statement={statement} onAccountChanged={LoadData} />
       ) : null}
 
       {/* Alerts */}

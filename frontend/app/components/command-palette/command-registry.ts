@@ -10,7 +10,6 @@ import {
   PanelLeftClose,
   Search,
   Settings,
-  Sparkles,
   Upload,
 } from '@/app/components/icons';
 import type { NavItem } from '@/app/components/navigation/helpers/navigation-config';
@@ -62,7 +61,6 @@ export interface CommandLabels {
   previousMonth: string;
   nextMonth: string;
   settings: string;
-  whatsNew: string;
   reportBug: string;
 }
 
@@ -185,13 +183,6 @@ function helpCommands(deps: CommandDeps): Command[] {
       icon: React.createElement(Info, { size: 18 }),
       binding: 'Shift+Slash',
       run: deps.openHelp,
-    },
-    {
-      id: 'help.whatsNew',
-      group: 'help',
-      label: labels.whatsNew,
-      icon: React.createElement(Sparkles, { size: 18 }),
-      run: () => openAppPanel('whatsNew'),
     },
     {
       id: 'help.reportBug',

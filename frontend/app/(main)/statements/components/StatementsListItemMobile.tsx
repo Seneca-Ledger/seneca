@@ -3,13 +3,14 @@
 import clsx from 'clsx';
 import React from 'react';
 import { AlertCircle } from '@/app/components/icons';
+import { canTeach } from '@/app/components/pdf-teach/teach-utils';
 import { Checkbox } from '@/app/components/ui/checkbox';
 import { PRIVATE_CLASS } from '@/app/components/ui/private-amount';
 import { Spinner } from '@/app/components/ui/spinner';
 import { useIntlayer } from '@/app/i18n';
 import { tokens } from '@/lib/theme-tokens';
+import { StatusBadge, TeachButton } from './StatementAmountCell';
 import type { StatementListItem } from './statements-list-item.types';
-import { StatusBadge } from './statements-list-item-parts';
 
 /**
  * A documents row on a phone (<768px): who and how much on the first line,
@@ -29,7 +30,7 @@ export function StatementsListItemMobile(props: {
   selected: boolean;
   selectionDisabled: boolean;
   onToggleSelect?: () => void;
-  onIconClick: () => void;
+  onIconClick: (mode?: 'teach') => void;
   rowsToggle: React.ReactNode;
 }): React.JSX.Element {
   const listText = useIntlayer('statementsListUi');
@@ -76,7 +77,9 @@ export function StatementsListItemMobile(props: {
                 color: danger ? c.danger : undefined,
               }}
             >
-              {showAmountLoader ? (
+              {canTeach(statement) ? (
+                <TeachButton onTeach={() => onIconClick('teach')} />
+              ) : showAmountLoader ? (
                 <Spinner style={{ width: 14, height: 14, color: c.ink400 }} />
               ) : (
                 amountLabel
