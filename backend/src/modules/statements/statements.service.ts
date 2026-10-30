@@ -21,7 +21,7 @@ import { StatementProcessingService } from '../parsing/services/statement-proces
 import { DroppedSampleService } from './dropped-sample.service';
 import { ManualExpenseService } from './manual-expense.service';
 import { ReceiptStatementService } from './services/receipt-statement.service';
-import { ensureCanEditStatements, ensureCanModifyStatement } from './statement-access';
+import { ensureCanModifyStatement } from './statement-access';
 import { dateOnly } from './statement-date-only.util';
 import { StatementFilesService } from './statement-files.service';
 import { StatementListService } from './statement-list.service';
@@ -52,10 +52,6 @@ export class StatementsService {
     private readonly droppedSamples: DroppedSampleService,
     private readonly list: StatementListService,
   ) {}
-
-  private async ensureCanEditStatements(userId: string, workspaceId: string): Promise<void> {
-    await ensureCanEditStatements(this.workspaceMemberRepository, userId, workspaceId);
-  }
 
   private async ensureCanModify(
     statement: Statement,
