@@ -202,13 +202,18 @@ describe('the shipped layout', () => {
     hidden: [],
   };
 
-  it('is the Administrator layout', () => {
-    expect(DEFAULT_OVERVIEW_ROWS).toEqual(administrator.rows);
+  it('is the Administrator layout, with the balances card under net worth', () => {
+    const netWorthRow = administrator.rows.findIndex(row => row.includes('net-worth'));
+    expect(DEFAULT_OVERVIEW_ROWS).toEqual([
+      ...administrator.rows.slice(0, netWorthRow + 1),
+      ['balances'],
+      ...administrator.rows.slice(netWorthRow + 1),
+    ]);
     expect(DEFAULT_OVERVIEW_ROWS.flat()).not.toContain('money-owed');
     expect(DEFAULT_OVERVIEW_ROWS.flat()).not.toContain('taxes');
   });
 
-  it('keeps the saved layout as it was', () => {
-    expect(normalizeRows(administrator)).toEqual(administrator.rows);
+  it('keeps the saved layout as it was, adding a section shipped after it at the end', () => {
+    expect(normalizeRows(administrator)).toEqual([...administrator.rows, ['balances']]);
   });
 });

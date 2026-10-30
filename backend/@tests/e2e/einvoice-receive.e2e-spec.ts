@@ -3,11 +3,14 @@ vi.mock('franc', () => ({
 }));
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { getQueueToken } from '@nestjs/bullmq';
 import { type INestApplication, ValidationPipe } from '@nestjs/common';
 import type { TestingModule } from '@nestjs/testing';
+import type { Queue } from 'bullmq';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../../src/app.module';
+import { STATEMENT_PARSING_QUEUE } from '../../src/modules/parsing/queue/statement-parsing.queue';
 import { deleteUserByEmail, e2eTestingModule, registerAccount } from './helpers/e2e-app';
 
 const FIXTURES = join(__dirname, '../fixtures/e-invoices');
@@ -20,6 +23,7 @@ const FIXTURES = join(__dirname, '../fixtures/e-invoices');
 describe('Receiving e-invoices (e2e)', () => {
   let app: INestApplication;
   let dataSource: DataSource;
+  let parsingQueue: Queue;
   let token: string;
   let workspaceId: string;
   const email = `einvoice-${Date.now()}@example.com`;
@@ -64,6 +68,7 @@ describe('Receiving e-invoices (e2e)', () => {
     app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
     await app.init();
     dataSource = moduleFixture.get(DataSource);
+    parsingQueue = moduleFixture.get(getQueueToken(STATEMENT_PARSING_QUEUE));
 
     const account = await registerAccount(app, email, 'E-Invoice');
     token = account.token;
@@ -173,12 +178,23 @@ describe('Receiving e-invoices (e2e)', () => {
 
   it('takes a bank statement in, and refuses XML that is neither an invoice nor a statement', async () => {
     // The scan is the one upload: a camt.053 statement goes to statement parsing.
-    await auth(api().post('/statements/upload-receipt'))
+    const statement = await auth(api().post('/statements/upload-receipt'))
       .attach('files', Buffer.from('<?xml version="1.0"?><Document><BkToCstmrStmt/></Document>'), {
         filename: 'statement.xml',
         contentType: 'application/xml',
       })
       .expect(201);
+    // Parsing runs in the background and ends by saving the statement: left
+    // running into teardown, that save inserts the deleted row again and the
+    // user can no longer be deleted.
+    const statementId = (statement.body.data as Array<{ id: string }>)[0].id;
+    await vi.waitFor(
+      async () =>
+        expect(['completed', 'failed', 'unknown']).toContain(
+          await parsingQueue.getJobState(statementId),
+        ),
+      { timeout: 20_000, interval: 100 },
+    );
     await auth(api().post('/statements/upload-receipt'))
       .attach('files', Buffer.from('<?xml version="1.0"?><note>Call back</note>'), {
         filename: 'note.xml',

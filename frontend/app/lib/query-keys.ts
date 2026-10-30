@@ -27,8 +27,15 @@ export const queryKeys = {
   payee: (workspaceId: string | null, id: string) => ['payees', workspaceId, 'one', id] as const,
   categorizationRules: (workspaceId: string | null) =>
     ['categorization-rules', workspaceId] as const,
-  categorizationRulePreview: (workspaceId: string | null, conditions: unknown) =>
-    ['categorization-rules', workspaceId, 'preview', conditions] as const,
+  categorizationRule: (workspaceId: string | null, id: string) =>
+    ['categorization-rules', workspaceId, 'one', id] as const,
+  categorizationRulePreview: (
+    workspaceId: string | null,
+    conditions: unknown,
+    ruleId: string | null = null,
+  ) => ['categorization-rules', workspaceId, 'preview', conditions, ruleId] as const,
+  categorizationRuleSuggestions: (workspaceId: string | null) =>
+    ['categorization-rules', workspaceId, 'suggestions'] as const,
   reviewInbox: (o: { workspaceId: string | null; params: Record<string, unknown> }) =>
     ['review-inbox', o.workspaceId, o.params] as const,
   reviewInboxCounts: (workspaceId: string | null, reviewer?: string) =>

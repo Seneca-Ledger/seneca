@@ -2,12 +2,77 @@
 
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import Tooltip from '@mui/material/Tooltip';
+import type React from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { slicePercent } from '@/app/components/charts/CategoryDonut';
+import { ChartTooltipCard } from '@/app/components/charts/ChartParts';
 import { categoryTones } from '@/app/components/charts/chart-theme';
 import { PRIVATE_CLASS, PRIVATE_REVEAL_CLASS } from '@/app/components/ui/private-amount';
+import { resolveCategoryVisual } from '@/app/lib/category-defaults';
 import { useCategoryName } from '@/app/lib/use-category-name';
-import { layoutTreemap } from './treemap-layout';
+import { layoutTreemap, type TileLabel, tileLabel } from './treemap-layout';
 import type { CashFlowMapData } from './useCashFlowMap';
+
+// The app's own type, in near-black: readable on every earthy tone in both themes.
+const TILE_INK = '#1b1a18';
+const ONE_LINE = { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } as const;
+
+/**
+ * As much of the tile's caption as fits: name and amount, the name alone, or
+ * the category's icon. HTML inside the SVG, so a long name ends in an ellipsis
+ * instead of running into the next tile.
+ */
+function TileCaption({
+  label,
+  name,
+  icon,
+  amount,
+  height,
+}: {
+  label: Exclude<TileLabel, 'none'>;
+  name: string;
+  icon: string | null;
+  amount: string;
+  height: number;
+}): React.JSX.Element {
+  if (label === 'icon') {
+    const visual = resolveCategoryVisual({ name, icon });
+    return (
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+        {visual.iconUrl ? (
+          <Box component="img" src={visual.iconUrl} alt="" sx={{ width: 16, height: 16 }} />
+        ) : (
+          <visual.Icon size={16} color={TILE_INK} />
+        )}
+      </Box>
+    );
+  }
+  return (
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        // A short strip holds its one line in the middle.
+        justifyContent: height < 34 ? 'center' : 'flex-start',
+        height: '100%',
+        px: '10px',
+        pt: height < 34 ? 0 : '8px',
+        color: TILE_INK,
+        fontFamily: 'var(--font-dashboard-sans)',
+        fontSize: 13,
+        lineHeight: '18px',
+      }}
+    >
+      <Box sx={{ ...ONE_LINE, fontWeight: 500 }}>{name}</Box>
+      {label === 'full' ? (
+        <Box className={PRIVATE_CLASS} sx={{ ...ONE_LINE, fontWeight: 400, opacity: 0.75 }}>
+          {amount}
+        </Box>
+      ) : null}
+    </Box>
+  );
+}
 
 interface CashFlowTreemapProps {
   items: CashFlowMapData['treemap'];
@@ -59,6 +124,7 @@ export function CashFlowTreemap({
       item: source.find(entry => entry.id === tile.id) as {
         id: string;
         name: string;
+        icon: string | null;
         value: number;
       },
     }));
@@ -70,6 +136,7 @@ export function CashFlowTreemap({
     const colors = categoryTones(keys);
     return new Map(tiles.map((tile, index) => [tile.id, colors[index]]));
   }, [tiles]);
+  const total = tiles.reduce((sum, tile) => sum + tile.item.value, 0);
 
   if (items.length === 0) return null;
 
@@ -98,59 +165,75 @@ export function CashFlowTreemap({
         aria-label={focused ? categoryName(focused.name) : 'treemap'}
         style={{ display: 'block', borderRadius: 8 }}
       >
-        {tiles.map(tile => (
-          <g
-            key={tile.id}
-            role="button"
-            tabIndex={0}
-            aria-label={`${categoryName(tile.item.name)} ${formatAmount(tile.item.value)}`}
-            onClick={() => open(tile.id)}
-            onKeyDown={event => {
-              if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault();
-                open(tile.id);
+        {tiles.map(tile => {
+          const label = tileLabel(tile.width, tile.height);
+          const name = categoryName(tile.item.name);
+          const amount = formatAmount(tile.item.value);
+          return (
+            <Tooltip
+              key={tile.id}
+              followCursor
+              // Every tile, however small, names itself and its share under the pointer.
+              title={
+                <ChartTooltipCard
+                  title={name}
+                  rows={[
+                    {
+                      value: `${amount} · ${slicePercent(tile.item.value, total)}%`,
+                      tone: 'strong',
+                    },
+                  ]}
+                />
               }
-            }}
-            // The amount is SVG text that takes no pointer: the whole tile shows it.
-            className={PRIVATE_REVEAL_CLASS}
-            style={{ cursor: 'pointer' }}
-            data-testid={`treemap-tile-${tile.id}`}
-          >
-            <rect
-              x={tile.x}
-              y={tile.y}
-              width={tile.width}
-              height={tile.height}
-              fill={tones.get(tile.id) ?? 'var(--cat-tone-other)'}
-              stroke="var(--background, #fff)"
-              strokeWidth={3}
-              rx={6}
-            />
-            {tile.width > 90 && tile.height > 34 && (
-              // The app's own type, in near-black: readable on every earthy tone in both themes.
-              <text
-                x={tile.x + 10}
-                y={tile.y + 22}
-                fill="#1b1a18"
-                fontSize={13}
-                fontWeight={500}
-                style={{ pointerEvents: 'none', fontFamily: 'var(--font-dashboard-sans), inherit' }}
+              slotProps={{ tooltip: { sx: { bgcolor: 'transparent', p: 0, maxWidth: 'none' } } }}
+            >
+              <g
+                role="button"
+                tabIndex={0}
+                aria-label={`${name} ${amount}`}
+                onClick={() => open(tile.id)}
+                onKeyDown={event => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    open(tile.id);
+                  }
+                }}
+                // The caption takes no pointer: the whole tile shows its amount.
+                className={PRIVATE_REVEAL_CLASS}
+                style={{ cursor: 'pointer' }}
+                data-testid={`treemap-tile-${tile.id}`}
               >
-                {categoryName(tile.item.name)}
-                <tspan
-                  className={PRIVATE_CLASS}
-                  x={tile.x + 10}
-                  dy={18}
-                  fontSize={13}
-                  fontWeight={400}
-                  opacity={0.75}
-                >
-                  {formatAmount(tile.item.value)}
-                </tspan>
-              </text>
-            )}
-          </g>
-        ))}
+                <rect
+                  x={tile.x}
+                  y={tile.y}
+                  width={tile.width}
+                  height={tile.height}
+                  fill={tones.get(tile.id) ?? 'var(--cat-tone-other)'}
+                  stroke="var(--background, #fff)"
+                  strokeWidth={3}
+                  rx={6}
+                />
+                {label !== 'none' && (
+                  <foreignObject
+                    x={tile.x}
+                    y={tile.y}
+                    width={tile.width}
+                    height={tile.height}
+                    style={{ pointerEvents: 'none' }}
+                  >
+                    <TileCaption
+                      label={label}
+                      name={name}
+                      icon={tile.item.icon}
+                      amount={amount}
+                      height={tile.height}
+                    />
+                  </foreignObject>
+                )}
+              </g>
+            </Tooltip>
+          );
+        })}
       </svg>
     </Box>
   );

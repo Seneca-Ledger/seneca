@@ -1,7 +1,9 @@
 'use client';
 
 import { useTheme } from 'next-themes';
-import React from 'react';
+import React, { useState } from 'react';
+import { DocumentThumbnailPreview } from '@/app/components/DocumentThumbnailPreview';
+import { PDFPreviewModal } from '@/app/components/PDFPreviewModal';
 import { ModalFooter, ModalShell } from '@/app/components/ui/modal-shell';
 import { useIntlayer } from '@/app/i18n';
 import type { AuditEvent } from '@/lib/api/audit';
@@ -27,11 +29,14 @@ export function AuditEventModal({
   const t = useIntlayer('auditUi');
   const { resolvedTheme } = useTheme();
   const c = resolvedTheme === 'dark' ? tokens.dark.color : tokens.color;
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   if (!event) {
     return null;
   }
   const formatted = formatAuditEvent(event);
+  // A deleted statement has no file left to show.
+  const hasStatementFile = event.entityType === 'statement' && event.action !== 'delete';
 
   const rowStyle: React.CSSProperties = {
     display: 'flex',
@@ -109,10 +114,25 @@ export function AuditEventModal({
           <span style={labelStyle}>{t.when}</span>
           <span style={valueStyle}>{relativeTime(event.createdAt)}</span>
         </div>
-        <div style={{ ...rowStyle, borderBottom: 'none' }}>
+        <div
+          style={{ ...rowStyle, borderBottom: hasStatementFile ? rowStyle.borderBottom : 'none' }}
+        >
           <span style={labelStyle}>{t.severity}</span>
           <span style={valueStyle}>{event.severity}</span>
         </div>
+        {hasStatementFile && (
+          <div style={{ ...rowStyle, borderBottom: 'none' }}>
+            <span style={labelStyle}>{t.file}</span>
+            <DocumentThumbnailPreview
+              fileId={event.entityId}
+              fileName={formatted.objectLabel}
+              fileType="pdf"
+              source="statement"
+              onOpen={() => setPreviewOpen(true)}
+              testId="audit-event-thumbnail"
+            />
+          </div>
+        )}
 
         {event.isUndoable && (
           <p
@@ -127,6 +147,15 @@ export function AuditEventModal({
           </p>
         )}
       </div>
+      {hasStatementFile && (
+        <PDFPreviewModal
+          isOpen={previewOpen}
+          onClose={() => setPreviewOpen(false)}
+          fileId={event.entityId}
+          fileName={formatted.objectLabel}
+          source="statement"
+        />
+      )}
     </ModalShell>
   );
 }

@@ -312,7 +312,7 @@
     transition: background-color 200ms;
 
     &:hover {
-      background-color: #f9fafb;
+      background-color: $seneca-color-ink-50;
     }
 
     &:disabled {

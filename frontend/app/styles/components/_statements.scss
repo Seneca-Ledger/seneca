@@ -530,7 +530,7 @@
     width: 64px;
     color: #d1d5db;
     margin-bottom: 16px;
-    background: #f9fafb;
+    background: $seneca-color-ink-50;
     border-radius: $seneca-radius-md;
     display: flex;
     align-items: center;
@@ -1331,7 +1331,7 @@
     flex-direction: column;
     gap: 16px;
     padding: 16px;
-    border-bottom: 1px solid #f3f4f6;
+    border-bottom: 1px solid $seneca-color-hairline;
 
     @include dark {
       border-bottom-color: $seneca-color-border-dk;
@@ -1384,7 +1384,7 @@
   }
 
   &__tbody tr {
-    border-top: 1px solid #f3f4f6;
+    border-top: 1px solid $seneca-color-hairline;
     vertical-align: middle;
 
     @include dark {
@@ -1400,7 +1400,7 @@
     display: flex;
     flex-direction: column;
     gap: 16px;
-    border-top: 1px solid #f3f4f6;
+    border-top: 1px solid $seneca-color-hairline;
     padding: 16px 20px;
     align-items: flex-start;
     justify-content: space-between;
@@ -2035,7 +2035,7 @@
   }
 
   &__row {
-    border-top: 1px solid #f3f4f6;
+    border-top: 1px solid $seneca-color-hairline;
 
     @include dark {
       border-top-color: $seneca-color-border-dk;
@@ -2131,7 +2131,7 @@
     }
 
     &:hover {
-      background: #f3f4f6;
+      background: $seneca-color-ink-100;
       color: #374151;
 
       @include dark {
@@ -2646,7 +2646,7 @@
     display: inline-flex;
     border-radius: $seneca-radius-lg;
     border: 1px solid #e5e7eb;
-    background: #f9fafb;
+    background: $seneca-color-ink-50;
     padding: 4px;
 
     @include dark {
@@ -2713,7 +2713,7 @@
     }
 
     tbody {
-      border-top: 1px solid #f3f4f6;
+      border-top: 1px solid $seneca-color-hairline;
 
       @include dark {
         border-top-color: $seneca-color-border-dk;
@@ -2721,7 +2721,7 @@
     }
 
     tbody tr {
-      border-bottom: 1px solid #f3f4f6;
+      border-bottom: 1px solid $seneca-color-hairline;
       color: #374151;
 
       @include dark {
@@ -2828,7 +2828,7 @@
     }
 
     &:hover {
-      background: #f3f4f6;
+      background: $seneca-color-ink-100;
       color: #374151;
 
       @include dark {
@@ -2949,8 +2949,8 @@
     text-transform: uppercase;
     letter-spacing: 0.1em;
     color: #6b7280;
-    background: #f9fafb;
-    border-bottom: 1px solid #f3f4f6;
+    background: $seneca-color-ink-50;
+    border-bottom: 1px solid $seneca-color-hairline;
 
     @include dark {
       color: $seneca-color-ink-500-dk;
@@ -2962,7 +2962,7 @@
   &__td {
     padding: 12px 16px;
     vertical-align: top;
-    border-bottom: 1px solid #f9fafb;
+    border-bottom: 1px solid $seneca-color-hairline;
 
     @include dark {
       border-bottom-color: $seneca-color-border-dk;
@@ -3287,7 +3287,7 @@
     align-items: center;
     justify-content: center;
     border-radius: $seneca-radius-md;
-    background: #f9fafb;
+    background: $seneca-color-ink-50;
     color: #d1d5db;
 
     @include dark {
@@ -3745,7 +3745,7 @@
 
     &:hover:not(:disabled) {
       border-color: #d1d5db;
-      background: #f9fafb;
+      background: $seneca-color-ink-50;
       color: #111827;
 
       @include dark {
@@ -4394,7 +4394,7 @@
     }
 
     &:hover {
-      background: #f3f4f6;
+      background: $seneca-color-ink-100;
       border-color: #e5e7eb;
 
       @include dark {
@@ -4443,7 +4443,7 @@
     }
 
     &:hover {
-      background: #f9fafb;
+      background: $seneca-color-ink-50;
       color: #374151;
 
       @include dark {
@@ -4619,7 +4619,7 @@
     // Keyboard focus looks like the pointer's hover: the menu is run by arrows too.
     &:hover,
     &:focus-visible {
-      background: #f9fafb;
+      background: $seneca-color-ink-50;
       outline: none;
 
       @include dark {
@@ -5197,7 +5197,7 @@
     display: inline-flex;
     border-radius: $seneca-radius-lg;
     border: 1px solid #e5e7eb;
-    background: #f9fafb;
+    background: $seneca-color-ink-50;
     padding: 4px;
 
     @include dark {
@@ -5238,7 +5238,7 @@
     display: inline-flex;
     border-radius: $seneca-radius-lg;
     border: 1px solid #e5e7eb;
-    background: #f9fafb;
+    background: $seneca-color-ink-50;
     padding: 4px;
 
     @include dark {
@@ -5318,7 +5318,7 @@
   &__td {
     padding: 12px 16px;
     vertical-align: middle;
-    border-top: 1px solid #f3f4f6;
+    border-top: 1px solid $seneca-color-hairline;
 
     @include dark {
       border-top-color: $seneca-color-border-dk;
@@ -5360,7 +5360,7 @@
     }
 
     &:hover {
-      background: #f9fafb;
+      background: $seneca-color-ink-50;
 
       @include dark {
         background: $seneca-color-surface-muted-dk;
@@ -5407,7 +5407,7 @@
     }
 
     &:hover {
-      background: #f9fafb;
+      background: $seneca-color-ink-50;
 
       @include dark {
         background: $seneca-color-surface-muted-dk;
@@ -5585,22 +5585,10 @@
     &[data-heat='4'] { background: color-mix(in srgb, #{$seneca-color-empty-icon} 34%, transparent); }
     &[data-heat='5'] { background: color-mix(in srgb, #{$seneca-color-empty-icon} 45%, transparent); }
 
-    // Another currency: a hairline instead of a shade, and a small mark.
+    // Another currency: a hairline instead of a shade.
     &--foreign {
-      position: relative;
       background: transparent;
       border-color: $seneca-color-hairline;
-
-      &::after {
-        content: '';
-        position: absolute;
-        top: 8px;
-        right: 8px;
-        width: 5px;
-        height: 5px;
-        border-radius: 50%;
-        background: var(--text-muted);
-      }
     }
 
     &--today {

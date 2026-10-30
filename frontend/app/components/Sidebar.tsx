@@ -247,9 +247,9 @@ function SidebarContent({ collapsed }: { collapsed: boolean }) {
                       </span>
                     </button>
                   </RailTip>
-                  {open ? (
+                  <div className="seneca-sidebar__group-collapse" data-open={open}>
                     <div className="seneca-sidebar__group-items">{items.map(renderItem)}</div>
-                  ) : null}
+                  </div>
                 </div>
               );
             })}

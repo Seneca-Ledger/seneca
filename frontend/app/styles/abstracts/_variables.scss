@@ -21,10 +21,10 @@ $seneca-color-ink-600: #4a4a58;
 $seneca-color-ink-500: #6b6b78;
 $seneca-color-ink-400: #8e8e9a;
 $seneca-color-ink-300: #b7b7c0;
-$seneca-color-ink-200: #dcdce1;
-$seneca-color-ink-150: #ececef;
-$seneca-color-ink-100: #f2f2f4;
-$seneca-color-ink-50:  #f8f8f9;
+$seneca-color-ink-200: #d6cfc3;
+$seneca-color-ink-150: #e1dbd1;
+$seneca-color-ink-100: #e7e2d9;
+$seneca-color-ink-50:  #eeeae3;
 $seneca-color-white:   #ffffff;
 
 // ── Semantic ─────────────────────────────────────────────────
@@ -45,19 +45,19 @@ $seneca-color-figure:        #24211e;
 // Attention that isn't an error (an unconfirmed item): ochre, not orange.
 $seneca-color-attention:     #c79a3b;
 // The one neutral circle behind every category icon.
-$seneca-color-icon-badge-bg: #efebe4;
+$seneca-color-icon-badge-bg: #e2ddd3;
 // Placeholder shapes while a block loads (SnapshotSkeleton).
-$seneca-color-skeleton:      #efebe4;
+$seneca-color-skeleton:      #e2ddd3;
 // Row dividers in lists: a warm hairline that barely separates.
-$seneca-color-hairline:      #ede9e2;
+$seneca-color-hairline:      #e1dbd1;
 // Grey text that has to be read (descriptions, hints): #6b665d is ~5.7:1 on
 // white. #8a857c below (~3.7:1) is for decorative captions only.
 $seneca-color-text-muted:    #6b665d;
 // An empty slot waiting for input ("Add category"): grey at rest, a chip on hover.
 $seneca-color-slot-text:     #8a857c;
 $seneca-color-slot-dash:     #cfc9be;
-$seneca-color-slot-border:   #e3ded5;
-$seneca-color-slot-bg:       #f4f1eb;
+$seneca-color-slot-border:   #d6cfc3;
+$seneca-color-slot-bg:       #e7e2d9;
 // A tab's count when there is nothing in it.
 $seneca-color-tab-count-zero: #b5afa4;
 // The line icon of an empty state, on the $seneca-color-icon-badge-bg circle.
@@ -77,9 +77,9 @@ $seneca-color-cat-income:    #10b981;
 $seneca-color-cat-other:     #64748b;
 
 // ── Surface / background ──────────────────────────────────────
-$seneca-color-bg:              #faf8f5;
-$seneca-color-surface:         #ffffff;
-$seneca-color-surface-muted:   #f2f2f4;
+$seneca-color-bg:              #ebe7df;
+$seneca-color-surface:         #f3f0ea;
+$seneca-color-surface-muted:   #e7e2d9;
 $seneca-color-surface-warning: #fffbeb;
 $seneca-color-surface-error:   #fff1f2;
 
@@ -151,7 +151,7 @@ $seneca-z-popover:  1400;
 $seneca-z-tooltip:  1500;
 
 // ── Theme tokens (globals / Tailwind layer) ───────────────────
-$color-background:           #faf8f5;
+$color-background:           #ebe7df;
 $color-foreground:           #0b0b10;
 $color-primary:              #5b7b6a;
 $color-primary-hover:        #4e6b5c;
@@ -160,7 +160,7 @@ $color-secondary:            $seneca-color-ink-600;
 $color-secondary-foreground: #ffffff;
 $color-muted:                $seneca-color-ink-100;
 $color-muted-foreground:     $seneca-color-ink-500;
-$color-card-bg:              #ffffff;
+$color-card-bg:              #f3f0ea;
 $color-card-foreground:      $seneca-color-ink-900;
 $color-border:               $seneca-color-ink-150;
 $color-input:                $seneca-color-ink-200;
@@ -174,10 +174,10 @@ $color-surface-success-glow:   rgba(16, 185, 129, 0.12);
 $ff-dash-primary:       #5b7b6a;
 $ff-dash-primary-soft:  #b9cbc1;
 $ff-dash-cta:           #084f09;
-$ff-dash-surface:       #ffffff;
+$ff-dash-surface:       #f3f0ea;
 $ff-dash-foreground:    #0b0b10;
-$ff-dash-muted:         #f2f2f4;
-$ff-dash-border:        #ececef;
+$ff-dash-muted:         #e7e2d9;
+$ff-dash-border:        #e1dbd1;
 $ff-dash-critical:      #e11d48;
 $ff-dash-warning:       #f59e0b;
 $ff-dash-info:          #0ea5e9;

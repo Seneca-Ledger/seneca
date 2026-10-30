@@ -5,8 +5,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import CustomDatePicker from '@/app/components/CustomDatePicker';
+import { DrawerShell } from '@/app/components/ui/drawer-shell';
 import { Input } from '@/app/components/ui/input';
-import { FULL_SCREEN_ON_PHONE, ModalShell } from '@/app/components/ui/modal-shell';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
@@ -29,7 +29,7 @@ const formFrom = (tag: StorageTag | null) => ({
   tagDate: tag?.tagDate ?? '',
 });
 
-/** Create or edit a tag: a name, and optionally a description and a date. */
+/** Create or edit a tag in a right-hand drawer: a name, and optionally a description and a date. */
 export function TagFormDialog({ open, tag, onClose, onCreated }: TagFormDialogProps) {
   const t = useIntlayer('tagsPage');
   const workspaceId = useWorkspaceId();
@@ -80,16 +80,15 @@ export function TagFormDialog({ open, tag, onClose, onCreated }: TagFormDialogPr
   };
 
   return (
-    <ModalShell
+    <DrawerShell
       isOpen={open}
       onClose={onClose}
-      size="sm"
-      paperSx={{ maxWidth: 480, ...FULL_SCREEN_ON_PHONE }}
+      width="md"
       title={
         <span style={{ fontWeight: 500 }}>{tag ? t.dialog.editTitle : t.dialog.createTitle}</span>
       }
       footer={
-        <>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
           <Button
             type="button"
             variant="text"
@@ -106,7 +105,7 @@ export function TagFormDialog({ open, tag, onClose, onCreated }: TagFormDialogPr
           >
             {t.dialog.save}
           </Button>
-        </>
+        </div>
       }
     >
       <form
@@ -161,6 +160,6 @@ export function TagFormDialog({ open, tag, onClose, onCreated }: TagFormDialogPr
           />
         </div>
       </form>
-    </ModalShell>
+    </DrawerShell>
   );
 }

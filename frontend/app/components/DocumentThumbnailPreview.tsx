@@ -154,7 +154,7 @@ export function DocumentThumbnailPreview({
               style={{
                 pointerEvents: 'none',
                 position: 'fixed',
-                zIndex: 140,
+                zIndex: tokens.zIndex.popover,
                 borderRadius: tokens.radius.lg,
                 border: `1px solid ${c.ink150}`,
                 background: 'var(--card-bg)',

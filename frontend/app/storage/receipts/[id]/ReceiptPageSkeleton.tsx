@@ -93,6 +93,9 @@ export function ReceiptPageSkeleton(): React.JSX.Element {
           </Box>
           <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1 }}>
             <DetailActionButton variant="ghost" type="button" disabled>
+              {t.markAsSubscription}
+            </DetailActionButton>
+            <DetailActionButton variant="ghost" type="button" disabled>
               {t.download}
             </DetailActionButton>
             <DetailActionButton variant="ghost" type="button" disabled>

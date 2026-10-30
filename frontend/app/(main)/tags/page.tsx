@@ -28,6 +28,7 @@ import { formatStoredDate } from '@/app/lib/user-format-store';
 
 interface TagLabels {
   name: string;
+  description: string;
   date: string;
   usage: string;
   notUsed: string;
@@ -99,7 +100,7 @@ function useTagColumns(options: {
         accessorFn: row => row.name,
         header: labels.name,
         sortFn: 'text',
-        size: 380,
+        size: 280,
         meta: {
           label: labels.name,
           skeleton: { shape: 'text', icon: 16, width: 160 },
@@ -115,16 +116,18 @@ function useTagColumns(options: {
           ),
         },
         cell: ({ row }) => (
-          <span className="seneca-tags__activity">
-            <span className="seneca-tags__name">
-              <Tag size={16} color="var(--text-muted)" aria-hidden style={{ flexShrink: 0 }} />
-              <span className="seneca-tags__name-text">{row.original.name}</span>
-            </span>
-            {row.original.description ? (
-              <span className="seneca-tags__description">{row.original.description}</span>
-            ) : null}
+          <span className="seneca-tags__name">
+            <Tag size={16} color="var(--text-muted)" aria-hidden style={{ flexShrink: 0 }} />
+            <span className="seneca-tags__name-text">{row.original.name}</span>
           </span>
         ),
+      },
+      {
+        id: 'description',
+        header: labels.description,
+        size: 360,
+        enableSorting: false,
+        cell: ({ row }) => <span className="seneca-tags__note">{row.original.description}</span>,
       },
       {
         id: 'date',
@@ -182,6 +185,7 @@ export default function TagsPage() {
   const labels = useMemo<TagLabels>(
     () => ({
       name: t.columns.name.value,
+      description: t.dialog.descriptionLabel.value,
       date: t.columns.date.value,
       usage: t.columns.usage.value,
       notUsed: t.notUsed.value,

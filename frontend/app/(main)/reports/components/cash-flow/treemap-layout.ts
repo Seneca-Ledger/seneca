@@ -87,3 +87,16 @@ export function layoutTreemap(items: TreemapItem[], width: number, height: numbe
 function round(value: number): number {
   return Math.round(value * 100) / 100;
 }
+
+/**
+ * What a tile has room for: name and amount, the name alone (cut short with an
+ * ellipsis), the category's icon, or nothing. The tooltip carries all of it.
+ */
+export type TileLabel = 'full' | 'name' | 'icon' | 'none';
+
+export function tileLabel(width: number, height: number): TileLabel {
+  if (width >= 80 && height >= 48) return 'full';
+  if (width >= 64 && height >= 20) return 'name';
+  if (width >= 22 && height >= 22) return 'icon';
+  return 'none';
+}

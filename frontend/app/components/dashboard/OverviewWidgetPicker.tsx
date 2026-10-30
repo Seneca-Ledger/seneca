@@ -23,6 +23,7 @@ type SectionNameKey =
   | 'spendCalendar'
   | 'goals'
   | 'netWorth'
+  | 'balances'
   | 'budgets'
   | 'subscriptionsMonth'
   | 'activity'
@@ -45,6 +46,7 @@ const NAME_KEYS: Record<Exclude<OverviewSectionId, 'getting-started'>, SectionNa
   'spend-calendar': 'spendCalendar',
   goals: 'goals',
   'net-worth': 'netWorth',
+  balances: 'balances',
   budgets: 'budgets',
   'cash-runway': 'subscriptionsMonth',
   activity: 'activity',

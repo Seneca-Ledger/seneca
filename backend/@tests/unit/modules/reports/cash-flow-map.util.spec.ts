@@ -9,7 +9,7 @@ const categories = [
   { id: 'food', name: 'Food', parentId: null },
   { id: 'groceries', name: 'Groceries', parentId: 'food' },
   { id: 'restaurants', name: 'Restaurants', parentId: 'food' },
-  { id: 'rent', name: 'Rent', parentId: null },
+  { id: 'rent', name: 'Rent', parentId: null, icon: 'mdi:home' },
 ];
 const labels = {
   uncategorised: 'Uncategorised',
@@ -71,6 +71,13 @@ describe('buildCashFlowMap', () => {
       ]),
     );
     expect(map.treemap.find(item => item.id === 'food')?.children).toHaveLength(2);
+    // The editor's icon travels with each tile; uncategorised and icon-less ones carry none.
+    expect(map.treemap.map(item => [item.id, item.icon])).toEqual([
+      ['rent', 'mdi:home'],
+      ['food', null],
+      ['__none__', null],
+    ]);
+    expect(map.treemap.find(item => item.id === 'food')?.children[0].icon).toBeNull();
     expect(map.previous).toBeNull();
   });
 

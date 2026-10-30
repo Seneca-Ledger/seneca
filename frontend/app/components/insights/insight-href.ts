@@ -20,7 +20,7 @@ const CASH_FLOW = '/reports?tab=cash-flow';
 const STATIC_ROUTES: Record<string, string> = {
   'operational.unapproved_count': '/review',
   'operational.uncategorized_count': '/statements/submit?missingCategory=true',
-  'operational.duplicate_detected': '/review',
+  'operational.duplicate_detected': '/review?kind=duplicate',
   'pattern.risky_allocation': '/net-worth?focus=card:risk',
   'forecast.monthly': '/dashboard',
   'pattern.detected': '/subscriptions',

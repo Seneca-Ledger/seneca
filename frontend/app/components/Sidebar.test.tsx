@@ -100,12 +100,15 @@ describe('Sidebar groups', () => {
 
     const analytics = screen.getByRole('button', { name: 'analytics' });
     expect(analytics.getAttribute('aria-expanded')).toBe('false');
-    expect(screen.queryByRole('link', { name: 'forecast' })).toBeNull();
+    // A folded group stays mounted so it can animate; its wrapper says it is shut.
+    const folded = screen.getByRole('link', { name: 'forecast', hidden: true });
+    expect(folded.closest('[data-open]')?.getAttribute('data-open')).toBe('false');
     expect(screen.getByRole('link', { name: 'budgets' })).toBeTruthy();
 
     fireEvent.click(analytics);
 
     expect(analytics.getAttribute('aria-expanded')).toBe('true');
+    expect(folded.closest('[data-open]')?.getAttribute('data-open')).toBe('true');
     expect(screen.getByRole('link', { name: 'forecast' }).getAttribute('href')).toBe('/forecast');
   });
 
