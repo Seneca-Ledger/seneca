@@ -140,6 +140,9 @@ export async function seedWorkspace(
     currency: 'USD',
   });
   await send('goal contribution', 'post', `/goals/${goal.body.id}/contributions`, { amount: 10 });
+  await send('goal transaction link', 'put', `/transactions/${transaction.id}/goal`, {
+    goalId: goal.body.id,
+  });
   await send('goal item', 'post', `/goals/${goal.body.id}/items`, {
     name: `${marker} item`,
     estimatedAmount: 20,

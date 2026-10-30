@@ -33,6 +33,10 @@ export enum GoalItemStatus {
  */
 @Entity('goal_items')
 @Index('IDX_goal_items_workspace_goal', ['workspaceId', 'goalId'])
+@Index('UQ_goal_items_transaction', ['transactionId'], {
+  unique: true,
+  where: '"transaction_id" IS NOT NULL',
+})
 export class GoalItem {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -81,6 +85,14 @@ export class GoalItem {
 
   @Column({ type: 'text', nullable: true })
   note: string | null;
+
+  /**
+   * The transaction that paid for the line, linked from a receipt or a bank
+   * row. Linking marks the line paid at the transaction's amount; unlinking
+   * hands it back to the plan.
+   */
+  @Column({ name: 'transaction_id', type: 'uuid', nullable: true })
+  transactionId: string | null;
 
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'created_by_id' })
