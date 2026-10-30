@@ -74,10 +74,8 @@ export function CashFlowSkeleton({
       <Box
         sx={{
           display: 'grid',
-          gridTemplateColumns: {
-            xs: 'minmax(0, 1fr)',
-            sm: 'repeat(auto-fill, minmax(240px, 320px))',
-          },
+          gridTemplateColumns: 'minmax(0, 1fr)',
+          '@media (min-width: 1024px)': { gridTemplateColumns: 'repeat(4, minmax(0, 1fr))' },
           gap: 2,
         }}
       >
