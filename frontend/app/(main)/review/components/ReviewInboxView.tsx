@@ -2,7 +2,6 @@
 
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
-import Skeleton from '@mui/material/Skeleton';
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
 import Typography from '@mui/material/Typography';
@@ -65,6 +64,7 @@ import {
   type ReviewInboxItem,
   type ReviewInboxKind,
 } from '../lib/review-inbox-model';
+import { ReviewRowsSkeleton } from './ReviewRowsSkeleton';
 
 const SWIPE_THRESHOLD_PX = 80;
 
@@ -618,11 +618,11 @@ export function ReviewInboxView({ state }: Props) {
   );
 
   const listBody = state.isPending ? (
-    ['a', 'b', 'c'].map(key => (
-      <Box key={key} className="seneca-stmt-list-item">
-        <Skeleton variant="rounded" height={40} />
-      </Box>
-    ))
+    <ReviewRowsSkeleton
+      columnStyle={columnStyle}
+      selectCellSx={SELECT_CELL_SX}
+      showCategory={showCategoryColumn}
+    />
   ) : orderedItems.length === 0 ? (
     <EmptyState icon={EMPTY_ICONS[kind]} title={t.empty.value} compact />
   ) : groups ? (

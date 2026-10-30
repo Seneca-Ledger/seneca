@@ -22,6 +22,10 @@ vi.mock('@/app/hooks/useAuth', () => ({
   }),
 }));
 
+vi.mock('@/app/contexts/WorkspaceContext', () => ({
+  useWorkspace: () => ({ currentWorkspace: null }),
+}));
+
 vi.mock('react-hot-toast', () => ({
   default: {
     success: vi.fn(),

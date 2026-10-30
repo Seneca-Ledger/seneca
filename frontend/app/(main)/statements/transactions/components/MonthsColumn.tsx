@@ -1,15 +1,21 @@
 'use client';
 
+import Skeleton from '@mui/material/Skeleton';
 import clsx from 'clsx';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import type { TransactionsOverview } from '@/app/lib/contracts';
 
 /** A card per month, newest first, with how many rows it holds; a click opens it. */
+const LOADING_MONTHS = 6;
+
 export function MonthsColumn({
+  loading = false,
   months,
   selected,
   onSelect,
 }: {
+  /** While the months load, their cards are drawn empty. */
+  loading?: boolean;
   months: TransactionsOverview['months'];
   /** `YYYY-MM` on screen, or null when the page shows everything. */
   selected: string | null;
@@ -22,6 +28,25 @@ export function MonthsColumn({
     year: 'numeric',
     timeZone: 'UTC',
   });
+
+  if (loading && months.length === 0) {
+    return (
+      <nav className="seneca-all-tx__months" aria-label={t.months.value} aria-busy="true">
+        {Array.from({ length: LOADING_MONTHS }, (_, index) => (
+          // biome-ignore lint/suspicious/noArrayIndexKey: placeholder cards have no identity
+          <div key={index} className="seneca-all-tx__card seneca-all-tx__month">
+            <span className="seneca-all-tx__month-title">
+              <Skeleton variant="text" width={110} />
+            </span>
+            <span className="seneca-all-tx__month-row">
+              <span>{t.transactions}</span>
+              <Skeleton variant="text" width={16} />
+            </span>
+          </div>
+        ))}
+      </nav>
+    );
+  }
 
   return (
     <nav className="seneca-all-tx__months" aria-label={t.months.value}>

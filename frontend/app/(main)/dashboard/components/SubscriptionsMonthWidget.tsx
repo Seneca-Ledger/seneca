@@ -1,6 +1,7 @@
 'use client';
 
 import EventRepeatOutlined from '@mui/icons-material/EventRepeatOutlined';
+import Skeleton from '@mui/material/Skeleton';
 import { useQuery } from '@tanstack/react-query';
 import type React from 'react';
 import type { DonutSlice } from '@/app/components/charts/CategoryDonut';
@@ -8,6 +9,7 @@ import { LazyCategoryDonut } from '@/app/components/charts/lazy-charts';
 import { currentMonthKey } from '@/app/components/dashboard/month-end';
 import { useOverviewMonth } from '@/app/components/dashboard/overview-month';
 import { CardEmpty, CardLink, DashboardCard, ListRow } from '@/app/components/dashboard/ui';
+import { ListRowsSkeleton } from '@/app/components/dashboard/ui/card-skeletons';
 import { PrivateAmount } from '@/app/components/ui/private-amount';
 import { VendorIcon } from '@/app/components/VendorIcon';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
@@ -22,6 +24,8 @@ const PAID_TONE = 'var(--cat-tone-1)';
 const UNPAID_TONE = 'var(--cat-tone-4)';
 // The card sits beside others on Overview; the full list is one click away.
 const MAX_ROWS = 5;
+// The donut's ring (outer 90%, inner 56% of its 220px box), cut out of a disc.
+const DONUT_RING_SX = { mask: 'radial-gradient(circle, transparent 61px, black 62px)' };
 
 type SubscriptionsMonthWidgetProps = {
   /** Formats an amount in the workspace currency, which the answer is in. */
@@ -60,7 +64,23 @@ export function SubscriptionsMonthWidget({
   });
 
   if (isPending) {
-    return null;
+    return (
+      <DashboardCard
+        title={t.title}
+        subtitle={shown?.label}
+        action={<CardLink href="/subscriptions">{links.allSubscriptions}</CardLink>}
+      >
+        <div className="seneca-dashboard__categories" aria-hidden="true">
+          <div
+            className="seneca-dashboard__donut"
+            style={{ display: 'grid', placeItems: 'center' }}
+          >
+            <Skeleton variant="circular" width={198} height={198} sx={DONUT_RING_SX} />
+          </div>
+          <ListRowsSkeleton rows={4} leading={24} />
+        </div>
+      </DashboardCard>
+    );
   }
 
   // A failed request shows the empty state rather than breaking the dashboard.

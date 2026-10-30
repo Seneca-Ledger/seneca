@@ -5,7 +5,8 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { type CSSProperties, type ReactNode, useEffect, useRef } from 'react';
 import { ArrowDown, ArrowUp } from '@/app/components/icons';
 import { Spinner } from '@/app/components/ui/spinner';
-import type { GridColumnMeta, GridFeatures } from './features';
+import type { GridFeatures } from './features';
+import { cellClass, cellStyle, GridSkeletonRows } from './grid-skeleton';
 import type { DataGridTable } from './use-data-grid';
 
 type GridRow<TData extends RowData> = Row<GridFeatures, TData>;
@@ -43,14 +44,6 @@ export interface DataGridProps<TData extends RowData> {
   trailing?: ReactNode;
   className?: string;
 }
-
-const alignClass = (meta: GridColumnMeta | undefined): string =>
-  meta?.align ? ` seneca-grid__cell--${meta.align}` : '';
-
-const cellClass = (base: string, meta: GridColumnMeta | undefined): string =>
-  `${base}${alignClass(meta)}${meta?.className ? ` ${meta.className}` : ''}`;
-
-const cellStyle = (size: number): CSSProperties => ({ width: size, minWidth: size });
 
 const ariaSort = (dir: false | 'asc' | 'desc'): 'ascending' | 'descending' | 'none' =>
   dir === 'asc' ? 'ascending' : dir === 'desc' ? 'descending' : 'none';
@@ -158,71 +151,6 @@ const loadingIndicator = (
   const skeleton = loading && rowCount === 0 ? (skeletonRows ?? 0) : 0;
   return { skeletonRows: skeleton, spinner: loading && skeleton === 0 };
 };
-
-function SkeletonRows({
-  count,
-  columns,
-  rowHeight,
-}: {
-  count: number;
-  columns: number;
-  rowHeight: number | undefined;
-}) {
-  return Array.from({ length: count }, (_, rowIndex) => (
-    <tr
-      // biome-ignore lint/suspicious/noArrayIndexKey: placeholders have no identity
-      key={rowIndex}
-      aria-hidden
-      className="seneca-grid__tr seneca-grid__skeleton-row"
-      style={rowHeight ? { height: rowHeight } : undefined}
-    >
-      {Array.from({ length: columns }, (_, cellIndex) => (
-        // biome-ignore lint/suspicious/noArrayIndexKey: placeholders have no identity
-        <td key={cellIndex} className="seneca-grid__td">
-          <span className="seneca-grid__skeleton" />
-        </td>
-      ))}
-    </tr>
-  ));
-}
-
-/**
- * A whole grid drawn as placeholders, for when even the columns are not known
- * yet (the page is still fetching the table's definition).
- */
-export function DataGridSkeleton({
-  rows,
-  columns,
-  rowHeight,
-  className,
-}: {
-  rows: number;
-  columns: number;
-  rowHeight?: number;
-  className?: string;
-}): React.JSX.Element {
-  return (
-    <div className={`seneca-grid${className ? ` ${className}` : ''}`} aria-hidden>
-      <div className="seneca-grid__scroll">
-        <table className="seneca-grid__table" style={{ width: '100%' }}>
-          <thead className="seneca-grid__thead">
-            <tr>
-              {Array.from({ length: columns }, (_, index) => (
-                // biome-ignore lint/suspicious/noArrayIndexKey: placeholders have no identity
-                <th key={index} className="seneca-grid__th">
-                  <span className="seneca-grid__skeleton" />
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="seneca-grid__tbody">
-            <SkeletonRows count={rows} columns={columns} rowHeight={rowHeight} />
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
 
 function SpacerRow({ height, colSpan }: { height: number; colSpan: number }) {
   return height > 0 ? (
@@ -343,9 +271,15 @@ export function DataGrid<TData extends RowData>({
               ) : null,
             )}
             <SpacerRow height={bottomGap} colSpan={colSpan} />
-            <SkeletonRows
+            <GridSkeletonRows
               count={indicator.skeletonRows}
-              columns={colSpan}
+              columns={
+                indicator.skeletonRows > 0
+                  ? table
+                      .getVisibleLeafColumns()
+                      .map(column => ({ size: column.getSize(), meta: column.columnDef.meta }))
+                  : []
+              }
               rowHeight={virtualization?.rowHeight}
             />
             {trailing}

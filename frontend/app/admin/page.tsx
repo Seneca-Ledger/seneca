@@ -27,7 +27,7 @@ export default function AdminPage() {
   const [auditPage, setAuditPage] = useState(1);
   const [auditLimit] = useState(50);
   const [auditFilters, setAuditFilters] = useState<AuditEventFilter>({});
-  const [auditLoading, setAuditLoading] = useState(false);
+  const [auditLoading, setAuditLoading] = useState(true);
   const [auditError, setAuditError] = useState<string | null>(null);
 
   const [selectedEvent, setSelectedEvent] = useState<AuditEvent | null>(null);

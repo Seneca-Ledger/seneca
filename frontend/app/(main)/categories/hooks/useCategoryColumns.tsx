@@ -34,6 +34,7 @@ export function useCategoryColumns(options: {
         size: 360,
         meta: {
           label: labels.name,
+          skeleton: { shape: 'text', icon: 24, width: 180 },
           headerActions: (
             <input
               type="search"
@@ -93,7 +94,7 @@ export function useCategoryColumns(options: {
         size: 64,
         enableSorting: false,
         enableHiding: false,
-        meta: { align: 'end', label: labels.menu },
+        meta: { align: 'end', label: labels.menu, skeleton: { shape: 'text', width: 18 } },
         cell: ({ row }) => (
           <CategoryActionsMenu
             category={row.original}

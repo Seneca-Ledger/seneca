@@ -157,12 +157,14 @@ describe('NetWorthCard', () => {
     expect(screen.queryByTestId('net-worth-area')).not.toBeInTheDocument();
   });
 
-  it('draws nothing until the first answer is in', () => {
+  it('holds its place without a figure until the first answer is in', () => {
     apiGet.mockReturnValue(new Promise(() => {}));
 
-    const { container } = renderWithQuery(<NetWorthCard month={THIS_MONTH} monthLabel="This month" />);
+    renderWithQuery(<NetWorthCard month={THIS_MONTH} monthLabel="This month" />);
 
-    expect(container).toBeEmptyDOMElement();
+    expect(screen.getByText('Net worth')).toBeInTheDocument();
+    expect(screen.queryByText('Nothing to show yet')).not.toBeInTheDocument();
+    expect(screen.queryByText(/\$/)).not.toBeInTheDocument();
   });
 
   it('shows what the total is made of only with the row to itself', async () => {

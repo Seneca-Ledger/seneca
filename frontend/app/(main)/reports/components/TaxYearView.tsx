@@ -4,7 +4,6 @@ import {
   Alert,
   Box,
   Button,
-  Checkbox,
   Chip,
   IconButton,
   Stack,
@@ -36,6 +35,7 @@ import { queryKeys } from '@/app/lib/query-keys';
 import { useCategoryName } from '@/app/lib/use-category-name';
 import { tokens } from '@/lib/theme-tokens';
 import { DatevExportCard } from './DatevExportCard';
+import { TaxCategoryGroups } from './TaxCategoryGroups';
 import { TaxThresholdCard } from './TaxThresholdCard';
 import { saveBlob } from './tax-return.helpers';
 
@@ -268,75 +268,11 @@ export function TaxYearView(): React.ReactElement {
           </Typography>
         </Stack>
         <Typography sx={{ ...HINT_SX, mt: 0.5, mb: 2 }}>{t.categoriesHint.value}</Typography>
-        {(['expense', 'income'] as const).map(type => {
-          const group = rootCategories.filter(category => category.type === type);
-          if (group.length === 0) {
-            return null;
-          }
-          const groupLabel = type === 'expense' ? t.groupExpenses.value : t.income.value;
-          return (
-            <Box key={type} role="group" aria-label={groupLabel} sx={{ mb: 2.5 }}>
-              <Typography
-                sx={{ fontSize: 13, fontWeight: 500, color: 'var(--text-muted)', mb: 0.5 }}
-              >
-                {groupLabel}
-              </Typography>
-              <Box
-                sx={{
-                  display: 'grid',
-                  gridTemplateColumns: {
-                    xs: '1fr',
-                    sm: 'repeat(2, minmax(0, 1fr))',
-                    md: 'repeat(3, minmax(0, 1fr))',
-                  },
-                  columnGap: 3,
-                  maxWidth: 900,
-                }}
-              >
-                {group.map(category => (
-                  <Box
-                    key={category.id}
-                    component="label"
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 1,
-                      py: 0.5,
-                      fontSize: 14,
-                      color: 'text.primary',
-                      cursor: toggleCategory.isPending ? 'default' : 'pointer',
-                    }}
-                  >
-                    <Checkbox
-                      size="small"
-                      checked={Boolean(category.taxRelevant)}
-                      disabled={toggleCategory.isPending}
-                      onChange={() => toggleCategory.mutate(category)}
-                      // A thin outlined box: the app's blank one is a #f5f5f5 fill that
-                      // vanishes on the warm page, and a darker fill reads as a heavy block.
-                      icon={
-                        <Box
-                          component="span"
-                          sx={{
-                            width: 18,
-                            height: 18,
-                            borderRadius: '4px',
-                            border: '1.5px solid',
-                            borderColor: theme =>
-                              theme.palette.mode === 'dark' ? '#5f5a53' : '#cfc9be',
-                            bgcolor: 'var(--card)',
-                          }}
-                        />
-                      }
-                      sx={{ p: 0.5 }}
-                    />
-                    {categoryName(category.name)}
-                  </Box>
-                ))}
-              </Box>
-            </Box>
-          );
-        })}
+        <TaxCategoryGroups
+          categories={categories.isPending ? null : rootCategories}
+          disabled={toggleCategory.isPending}
+          onToggle={category => toggleCategory.mutate(category)}
+        />
       </Box>
 
       {/* The year's tax-relevant spending and income */}

@@ -1,7 +1,6 @@
 'use client';
 
 import Modal from '@mui/material/Modal';
-import Skeleton from '@mui/material/Skeleton';
 import { useQuery } from '@tanstack/react-query';
 import { useTheme } from 'next-themes';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -15,6 +14,7 @@ import { usePrivacyMode } from '@/app/lib/privacy-mode';
 import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import { tokens } from '@/lib/theme-tokens';
+import { TablesReportsSkeleton } from './TablesReportsSkeleton';
 import {
   type AvailableTable,
   formatAmount,
@@ -515,14 +515,7 @@ export default function TablesReportsView() {
 
       <div style={{ flex: 1, overflowY: 'auto' }}>
         {reportQuery.isPending ? (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 }}>
-            {['total', 'manual', 'operations'].map(key => (
-              <div key={key} style={panelStyle}>
-                <Skeleton variant="text" width="40%" height={16} />
-                <Skeleton variant="rounded" width="60%" height={24} style={{ marginTop: 4 }} />
-              </div>
-            ))}
-          </div>
+          <TablesReportsSkeleton />
         ) : !report || report.totals.operations === 0 ? (
           <div style={{ padding: '40px 0', fontSize: 14, color: c.ink500 }}>{reportsT.noData}</div>
         ) : (

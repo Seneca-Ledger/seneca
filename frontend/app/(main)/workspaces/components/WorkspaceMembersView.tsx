@@ -5,7 +5,6 @@ import IconButton from '@mui/material/IconButton';
 import InputAdornment from '@mui/material/InputAdornment';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
-import Skeleton from '@mui/material/Skeleton';
 import { alpha, type SxProps, type Theme } from '@mui/material/styles';
 import TextField from '@mui/material/TextField';
 import Tooltip from '@mui/material/Tooltip';
@@ -21,6 +20,7 @@ import {
 } from '@/app/components/icons';
 import { Checkbox } from '@/app/components/ui/checkbox';
 import { Select } from '@/app/components/ui/select';
+import { useWorkspace } from '@/app/contexts/WorkspaceContext';
 import { useAuth } from '@/app/hooks/useAuth';
 import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
@@ -30,6 +30,7 @@ import { avatarInitial, avatarTone } from '@/app/lib/initial-avatar';
 import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import { formatStoredDateWithOptions } from '@/app/lib/user-format-store';
 import { tokens } from '@/lib/theme-tokens';
+import { WorkspaceMembersSkeleton } from './WorkspaceMembersSkeleton';
 import {
   filterAndSortMembers,
   type MemberRoleFilter,
@@ -108,8 +109,6 @@ const formatDate = (value: string | null | undefined, fallback: string) => {
   });
 };
 
-const MEMBER_ROW_SKELETON_KEYS = ['row-0', 'row-1', 'row-2', 'row-3', 'row-4'];
-
 /** Divider between flat sections and rows; barely there, in either theme. */
 const HAIRLINE = (theme: Theme): string => alpha(theme.palette.text.primary, 0.06);
 
@@ -153,33 +152,9 @@ const MEMBER_ROW_SX = {
   '@media (hover: none)': { '& .members-row-actions': { opacity: 1 } },
 } satisfies SxProps<Theme>;
 
-/** Mirrors a loaded member row: flat, hairline between rows, 32px avatar. */
-function MemberRowSkeleton(): React.JSX.Element {
-  return (
-    <Box
-      sx={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: 1.5,
-        py: 1.25,
-        '& + &': { borderTop: '1px solid', borderColor: HAIRLINE },
-      }}
-    >
-      <Box sx={{ display: 'flex', minWidth: 0, alignItems: 'center', gap: 1.5 }}>
-        <Skeleton variant="circular" width={32} height={32} />
-        <Box>
-          <Skeleton variant="text" width={140} height={18} />
-          <Skeleton variant="text" width={220} height={14} />
-        </Box>
-      </Box>
-      <Skeleton variant="rounded" width={52} height={20} />
-    </Box>
-  );
-}
-
 export default function WorkspaceMembersView() {
   const { user } = useAuth();
+  const { currentWorkspace } = useWorkspace();
   const t = useIntlayer('workspaceMembers');
   const getRoleLabel = (role: string): string =>
     isWorkspaceRole(role) ? t.roles[role].value : role;
@@ -502,45 +477,9 @@ export default function WorkspaceMembersView() {
     });
   };
 
-  // Same shape as the loaded tab — toolbar row, flat rows, invitations below —
-  // so nothing jumps when the data arrives.
+  // Same shape as the loaded tab, so nothing jumps when the data arrives.
   if (loading) {
-    return (
-      <Box
-        sx={{
-          height: 'calc(100vh - var(--global-nav-height, 0px))',
-          overflowY: 'auto',
-          bgcolor: 'var(--background)',
-        }}
-      >
-        <Box
-          sx={{
-            maxWidth: 1120,
-            px: { xs: 2.5, sm: 4 },
-            py: 3,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 2.5,
-          }}
-        >
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1.5 }}>
-            <Skeleton variant="text" width={130} height={32} sx={{ mr: 'auto' }} />
-            <Skeleton variant="rounded" width={240} height={36} />
-            <Skeleton variant="text" width={90} height={24} />
-            <Skeleton variant="text" width={110} height={24} />
-            <Skeleton variant="rounded" width={136} height={32} />
-          </Box>
-          <Box>
-            {MEMBER_ROW_SKELETON_KEYS.map(key => (
-              <MemberRowSkeleton key={key} />
-            ))}
-          </Box>
-          <Box sx={{ pt: 2 }}>
-            <Skeleton variant="text" width={170} height={18} />
-          </Box>
-        </Box>
-      </Box>
-    );
+    return <WorkspaceMembersSkeleton memberCount={currentWorkspace?.stats?.memberCount} />;
   }
 
   if (!overview) {

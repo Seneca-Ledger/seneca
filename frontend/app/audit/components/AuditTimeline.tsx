@@ -9,6 +9,7 @@ import { useIntlayer } from '@/app/i18n';
 import { normalizeAvatarUrl } from '@/app/lib/avatar-url';
 import { avatarInitial, avatarTone } from '@/app/lib/initial-avatar';
 import { type AuditEvent, isEntityType } from '@/lib/api/audit';
+import { tokens } from '@/lib/theme-tokens';
 import { ACTION_ICON_MAP } from '../utils/actionIconMap';
 import { buildGroupedData } from '../utils/audit-table-utils';
 import { formatAuditEvent } from '../utils/formatAuditEvent';
@@ -142,14 +143,24 @@ export function AuditTimelineSkeleton(): React.JSX.Element {
       {SKELETON_ROW_KEYS.map(key => (
         <li className="audit-item" key={key}>
           <div className="audit-dot">
-            <Skeleton variant="circular" width={16} height={16} />
+            <Skeleton variant="circular" width={13} height={13} />
           </div>
           <div className="audit-body">
             <div className="audit-line">
               <Skeleton variant="circular" width={22} height={22} className="audit-avatar" />
-              <Skeleton variant="text" width={140} height={16} />
+              <Skeleton variant="text" width={110} height={20} />
+              <Skeleton variant="text" width={50} height={20} />
+              <Skeleton variant="text" width={60} height={20} />
+              <Skeleton
+                variant="rounded"
+                width={52}
+                height={18}
+                sx={{ borderRadius: tokens.radius.full }}
+              />
             </div>
-            <Skeleton variant="text" width={70} height={14} />
+            <div className="audit-when">
+              <Skeleton variant="text" width={64} height={16} />
+            </div>
           </div>
         </li>
       ))}

@@ -1,6 +1,7 @@
 'use client';
 
 import Box from '@mui/material/Box';
+import Skeleton from '@mui/material/Skeleton';
 import { alpha } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
 import React from 'react';
@@ -93,6 +94,29 @@ function NoResultsState(): React.JSX.Element {
   );
 }
 
+/** A loaded card's two zones: the 16:9 cover, then name and details. */
+function WorkspaceCardSkeleton(): React.JSX.Element {
+  return (
+    <Box
+      sx={{
+        border: '1px solid var(--border)',
+        borderRadius: tokens.radius.lg,
+        bgcolor: 'var(--card)',
+        overflow: 'hidden',
+      }}
+    >
+      <Skeleton
+        variant="rectangular"
+        sx={{ aspectRatio: '16/9', width: '100%', height: 'auto', borderRadius: 0 }}
+      />
+      <Box sx={{ px: 2, py: 1.5 }}>
+        <Skeleton variant="text" width="60%" height={22} />
+        <Skeleton variant="text" width="40%" height={18} sx={{ mt: 0.25 }} />
+      </Box>
+    </Box>
+  );
+}
+
 type WorkspaceGridViewProps = {
   workspaces: WorkspaceItem[];
   allWorkspacesEmpty: boolean;
@@ -102,6 +126,8 @@ type WorkspaceGridViewProps = {
   onWorkspaceClick: (id: string) => void;
   onCreateClick: () => void;
   onFavoriteToggle: (id: string) => Promise<void>;
+  /** While the list loads: this many card placeholders before the create slot. */
+  loadingCards?: number;
 };
 
 export function WorkspaceGridView({
@@ -113,6 +139,7 @@ export function WorkspaceGridView({
   onWorkspaceClick,
   onCreateClick,
   onFavoriteToggle,
+  loadingCards = 0,
 }: WorkspaceGridViewProps): React.JSX.Element {
   if (allWorkspacesEmpty) {
     return (
@@ -141,6 +168,10 @@ export function WorkspaceGridView({
         mb: 4,
       }}
     >
+      {Array.from({ length: loadingCards }, (_, index) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: fixed-length static skeleton list
+        <WorkspaceCardSkeleton key={index} />
+      ))}
       {workspaces.map(workspace => (
         <WorkspaceCard
           key={workspace.id}

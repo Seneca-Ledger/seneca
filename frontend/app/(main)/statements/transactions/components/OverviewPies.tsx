@@ -1,5 +1,6 @@
 'use client';
 
+import Skeleton from '@mui/material/Skeleton';
 import { useMemo } from 'react';
 import type { DonutSlice } from '@/app/components/charts/CategoryDonut';
 import { categoryTones } from '@/app/components/charts/chart-theme';
@@ -15,14 +16,19 @@ import {
   UNCATEGORIZED_SLICE,
 } from '../all-transactions';
 
+// The donut's ring (outer 90%, inner 56% of its 220px box), cut out of a disc.
+const DONUT_RING_SX = { mask: 'radial-gradient(circle, transparent 61px, black 62px)' };
+
 type Labels = { uncategorized: string; noAccount: string; other: string };
 
 function PieCard({
+  loading,
   title,
   slices,
   formatAmount,
   emptyLabel,
 }: {
+  loading: boolean;
   title: string;
   slices: DonutSlice[];
   formatAmount: (value: number) => string;
@@ -32,7 +38,11 @@ function PieCard({
     <section className="seneca-all-tx__card seneca-all-tx__pie" aria-label={title}>
       <h2 className="seneca-all-tx__card-title">{title}</h2>
       <div className="seneca-all-tx__pie-body">
-        {slices.length === 0 ? (
+        {loading ? (
+          <div className="seneca-all-tx__donut seneca-all-tx__donut--loading" aria-hidden="true">
+            <Skeleton variant="circular" width={198} height={198} sx={DONUT_RING_SX} />
+          </div>
+        ) : slices.length === 0 ? (
           <p className="seneca-all-tx__muted">{emptyLabel}</p>
         ) : (
           <>
@@ -72,9 +82,12 @@ function toDonut(
 
 /** Categories, source accounts and destination accounts of the period, side by side. */
 export function OverviewPies({
+  loading = false,
   overview,
   formatAmount,
 }: {
+  /** Each card draws an empty ring while the figures load. */
+  loading?: boolean;
   overview: TransactionsOverview | undefined;
   formatAmount: (value: number) => string;
 }): React.JSX.Element {
@@ -103,18 +116,21 @@ export function OverviewPies({
   return (
     <div className="seneca-all-tx__pies">
       <PieCard
+        loading={loading}
         title={t.categories.value}
         slices={pies.categories}
         formatAmount={formatAmount}
         emptyLabel={t.noData.value}
       />
       <PieCard
+        loading={loading}
         title={t.sourceAccounts.value}
         slices={pies.sources}
         formatAmount={formatAmount}
         emptyLabel={t.noData.value}
       />
       <PieCard
+        loading={loading}
         title={t.destinationAccounts.value}
         slices={pies.destinations}
         formatAmount={formatAmount}

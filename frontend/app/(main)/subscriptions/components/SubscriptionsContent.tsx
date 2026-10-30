@@ -58,6 +58,7 @@ import type {
 import { attentionGroups, RISK_LABELS, STATUS_LABELS, SubscriptionCard } from './SubscriptionCard';
 import { SubscriptionDetailsDrawer } from './SubscriptionDetailsDrawer';
 import { SubscriptionFormDrawer } from './SubscriptionFormDrawer';
+import { SubscriptionsListSkeleton } from './SubscriptionsSkeleton';
 import { filterSubscriptions } from './subscription-filter.utils';
 
 // Its own chunk: the matrix only renders for workspaces with enough
@@ -383,12 +384,14 @@ export function SubscriptionsContent(props: SubscriptionsContentProps) {
                 {formatAmount(props.summary.upcoming30DaysAmount, props.workspaceCurrency)}
               </PrivateAmount>
             ),
-            detail: props.summary.upcoming30DaysCount
-              ? t.kpiForecastCharges.value.replace(
-                  '{count}',
-                  String(props.summary.upcoming30DaysCount),
-                )
-              : undefined,
+            detail: props.isPending ? (
+              <Skeleton variant="text" width={70} />
+            ) : props.summary.upcoming30DaysCount ? (
+              t.kpiForecastCharges.value.replace(
+                '{count}',
+                String(props.summary.upcoming30DaysCount),
+              )
+            ) : undefined,
           },
           {
             label: t.kpiPriceChanges.value,
@@ -458,9 +461,15 @@ export function SubscriptionsContent(props: SubscriptionsContentProps) {
                   color: summaryEmpty ? 'var(--muted-foreground)' : (accent ?? 'text.primary'),
                 }}
               >
-                {summaryEmpty ? '—' : value}
+                {props.isPending ? (
+                  <Skeleton variant="text" width={90} />
+                ) : summaryEmpty ? (
+                  '—'
+                ) : (
+                  value
+                )}
               </Typography>
-              {!summaryEmpty && detail && (
+              {(props.isPending || !summaryEmpty) && detail && (
                 <Typography
                   sx={{
                     mt: 0.25,
@@ -479,7 +488,7 @@ export function SubscriptionsContent(props: SubscriptionsContentProps) {
       {/* Nothing to filter in an empty tab. */}
       <Box
         sx={{
-          display: hasSubscriptions ? 'flex' : 'none',
+          display: hasSubscriptions || props.isPending ? 'flex' : 'none',
           flexWrap: 'wrap',
           alignItems: 'center',
           gap: 1.5,
@@ -552,52 +561,7 @@ export function SubscriptionsContent(props: SubscriptionsContentProps) {
         )}
       </Box>
       {props.isPending ? (
-        <>
-          <Box
-            sx={{
-              display: { xs: 'none', md: 'block' },
-              overflowX: 'auto',
-              border: 1,
-              borderColor: 'divider',
-              borderRadius: 2,
-              // A CSS variable, not the theme colour: it turns translucent over a content background.
-              bgcolor: 'var(--card-bg)',
-            }}
-          >
-            <Box
-              component="table"
-              sx={{
-                width: '100%',
-                borderCollapse: 'collapse',
-                '& th': { textAlign: 'left', p: 1.5, color: 'text.secondary', fontSize: 12 },
-                '& td': { p: 1.5, borderTop: 1, borderColor: 'divider' },
-              }}
-            >
-              <thead>
-                <tr>
-                  <th>{t.colVendor}</th>
-                  <th>{t.colSpend}</th>
-                  <th>{t.colNextCharge}</th>
-                  <th>{t.colOwner}</th>
-                  <th>{t.colRisk}</th>
-                  <th>{t.colReview}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {Array.from({ length: 6 }).map((_, index) => (
-                  // biome-ignore lint/suspicious/noArrayIndexKey: static skeleton list
-                  <SubscriptionRowSkeleton key={index} />
-                ))}
-              </tbody>
-            </Box>
-          </Box>
-          <Box sx={{ display: { xs: 'grid', md: 'none' }, gridTemplateColumns: '1fr', gap: 1.5 }}>
-            {Array.from({ length: 4 }).map((_, index) => (
-              // biome-ignore lint/suspicious/noArrayIndexKey: static skeleton list
-              <SubscriptionCardSkeleton key={index} />
-            ))}
-          </Box>
-        </>
+        <SubscriptionsListSkeleton />
       ) : props.error ? (
         <LoadError spacing={4}>{props.error}</LoadError>
       ) : visibleSubscriptions.length === 0 || (matrixView && visibleCalendar.rows.length === 0) ? (

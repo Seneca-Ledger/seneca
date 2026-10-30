@@ -1,3 +1,4 @@
+import Skeleton from '@mui/material/Skeleton';
 import { LazyPayeeLines } from '@/app/components/charts/lazy-charts';
 import { usePayeePeers } from '@/app/components/payees/usePayees';
 import { EmptyState } from '@/app/components/ui/EmptyState';
@@ -6,12 +7,29 @@ import { useIntlayer, useLocale } from '@/app/i18n';
 import { formatMoney } from '@/app/lib/format-money';
 import { localizeStatementCategoryName } from '@/app/lib/statement-categories';
 
+/** The comparison card while it loads; its title names the category, so it waits too. */
+export function PayeePeersSkeleton(): React.JSX.Element {
+  return (
+    <section
+      className="seneca-all-tx__card seneca-payees__section"
+      style={{ flex: 1, gridTemplateRows: 'auto 1fr' }}
+      aria-busy="true"
+    >
+      <Skeleton variant="text" width={220} height={24} />
+      <Skeleton variant="rounded" sx={{ height: '100%', minHeight: 160 }} />
+    </section>
+  );
+}
+
 /** The payee against the biggest others of its category, a smooth line each. */
 export function PayeePeersSection({ payeeId }: { payeeId: string }): React.JSX.Element | null {
   const t = useIntlayer('payeesPage');
   const { locale } = useLocale();
   const peers = usePayeePeers(payeeId);
   const data = peers.data;
+  if (peers.isPending) {
+    return <PayeePeersSkeleton />;
+  }
   if (!data) {
     return null;
   }

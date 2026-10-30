@@ -2,7 +2,6 @@
 
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
-import Skeleton from '@mui/material/Skeleton';
 import Typography from '@mui/material/Typography';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
@@ -15,10 +14,14 @@ import { useIntlayer, useLocale } from '@/app/i18n';
 import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import { formatMoney } from '@/app/lib/format-money';
 import type { GoalItem, GoalItemPayload } from '@/app/lib/goals-api';
-import { tokens } from '@/lib/theme-tokens';
 import { MonthStrip } from '../../dashboard/components/MonthStrip';
 import { formatMonthParam } from '../../dashboard/helpers/dashboard-url-state';
 import { GoalBudgetList } from './components/GoalBudgetList';
+import {
+  GoalFlowSkeleton,
+  GoalItemsSkeleton,
+  GoalPlanSkeleton,
+} from './components/GoalDetailSkeleton';
 import { GoalFlowSankey } from './components/GoalFlowSankey';
 import { GoalItemDialog } from './components/GoalItemDialog';
 import { GoalItemsCard } from './components/GoalItemsCard';
@@ -96,17 +99,7 @@ export default function GoalDetailPage(): React.JSX.Element {
 
       {error && !isPending && <LoadError spacing={6}>{t.error}</LoadError>}
 
-      {showSkeleton && (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <Skeleton variant="text" width={220} height={32} />
-          <Skeleton variant="rounded" height={8} sx={{ borderRadius: tokens.radius.full }} />
-          <Skeleton variant="rounded" height={440} />
-          {/* План и позиции грузятся отдельными запросами и раньше всплывали
-              из ниоткуда после того, как Sankey уже сел. */}
-          <Skeleton variant="rounded" height={160} />
-          <Skeleton variant="rounded" height={220} />
-        </Box>
-      )}
+      {showSkeleton && <GoalFlowSkeleton />}
 
       {data && (
         <>
@@ -183,9 +176,15 @@ export default function GoalDetailPage(): React.JSX.Element {
         </>
       )}
 
-      {!showSkeleton && plan.data && (
-        <GoalPlanCard plan={plan.data} locale={locale} formatAmount={money} />
+      {/* План и позиции грузятся отдельными запросами; их скелеты держат место,
+          пока не сядут все три. */}
+      {showSkeleton || plan.isPending ? (
+        <GoalPlanSkeleton />
+      ) : (
+        plan.data && <GoalPlanCard plan={plan.data} locale={locale} formatAmount={money} />
       )}
+
+      {(showSkeleton || items.isPending) && <GoalItemsSkeleton />}
 
       {!showSkeleton && items.data && (
         <>

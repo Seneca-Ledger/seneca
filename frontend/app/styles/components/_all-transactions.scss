@@ -86,6 +86,12 @@
     height: 220px;
   }
 
+  &__donut--loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
   &__scope {
     display: flex;
     justify-content: flex-end;

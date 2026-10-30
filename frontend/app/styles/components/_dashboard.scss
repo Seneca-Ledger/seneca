@@ -471,12 +471,12 @@
   }
 
   &__donut {
-    flex: 0 0 160px;
-    height: 160px;
+    flex: 0 0 220px;
+    height: 220px;
 
     @media (max-width: 640px) {
       flex-basis: auto;
-      height: 180px;
+      height: 220px;
     }
   }
 

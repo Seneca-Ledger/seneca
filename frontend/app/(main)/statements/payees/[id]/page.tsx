@@ -1,7 +1,6 @@
 'use client';
 
 import Button from '@mui/material/Button';
-import Skeleton from '@mui/material/Skeleton';
 import TextField from '@mui/material/TextField';
 import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
@@ -33,6 +32,11 @@ import { formatMoney } from '@/app/lib/format-money';
 import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import { PayeeAliasesSection } from '../components/PayeeAliasesSection';
+import {
+  PayeeDetailSkeleton,
+  PayeeFiguresSkeleton,
+  PayeeMonthsSkeleton,
+} from '../components/PayeeDetailSkeleton';
 import { PayeeFigures } from '../components/PayeeFigures';
 import { PayeeMonthBars } from '../components/PayeeMonthBars';
 import { PayeePeersSection } from '../components/PayeePeersSection';
@@ -128,7 +132,7 @@ export default function PayeePage(): React.JSX.Element {
       </Button>
 
       {payee.isError && <LoadError>{t.notFound}</LoadError>}
-      {payee.isPending && <Skeleton variant="rounded" height={120} />}
+      {payee.isPending && <PayeeDetailSkeleton payeeId={id} />}
 
       {data && (
         <>
@@ -175,10 +179,12 @@ export default function PayeePage(): React.JSX.Element {
             )}
           </header>
 
+          {summary.isPending ? <PayeeFiguresSkeleton /> : null}
           {info && <PayeeFigures summary={info} money={money} />}
 
           <div className="seneca-all-tx__body" style={{ alignItems: 'stretch' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0 }}>
+              {summary.isPending ? <PayeeMonthsSkeleton /> : null}
               {info && (
                 <section className="seneca-all-tx__card seneca-payees__section">
                   <h2 className="seneca-all-tx__card-title">{t.monthsTitle}</h2>

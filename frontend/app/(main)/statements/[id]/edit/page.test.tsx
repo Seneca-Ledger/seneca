@@ -194,6 +194,11 @@ vi.mock('./components/StatementDetailsFields', () => ({
   StatementDetailsFields: () => <div data-testid="statement-tags" />,
 }));
 
+// The loading skeleton draws the real tags field, which needs a workspace.
+vi.mock('@/app/components/tags/RecordTagsField', () => ({
+  StatementTagsField: () => <div data-testid="statement-tags-loading" />,
+}));
+
 vi.mock('@/app/components/notes/NotesPanel', () => ({
   NotesPanel: () => <div data-testid="statement-notes" />,
 }));
@@ -346,8 +351,8 @@ describe('EditStatementPage locale', () => {
     });
 
     expect(replace).toHaveBeenCalledWith('/storage/receipts/rc-1');
-    // The editor itself never shows.
-    expect(container.textContent).not.toContain('Counterparty');
+    // The editor itself never shows: only its loading skeleton, without the statement's line.
+    expect(container.querySelector('[data-testid="statement-transactions-chip"]')).toBeNull();
   });
 
   it('renders transaction table headers in English when locale is en', async () => {
@@ -398,7 +403,9 @@ describe('EditStatementPage locale', () => {
 
     expect(loadingContainer).toBeTruthy();
     expect(loadingContainer?.querySelectorAll('.MuiSkeleton-root').length).toBeGreaterThan(0);
-    expect(container.textContent).not.toContain('Counterparty');
+    // The column titles stay; the statement's own line waits for it.
+    expect(container.textContent).toContain('Counterparty');
+    expect(container.querySelector('[data-testid="statement-transactions-chip"]')).toBeNull();
   });
 
   it('colours the parsing details link and the summary line from theme variables', async () => {

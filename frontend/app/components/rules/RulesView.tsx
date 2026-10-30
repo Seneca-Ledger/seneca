@@ -15,6 +15,7 @@ import { usePermissions } from '@/app/hooks/usePermissions';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { useCategoryName } from '@/app/lib/use-category-name';
 import { RuleFormDialog } from './RuleFormDialog';
+import { RulesSkeleton } from './RulesSkeleton';
 import { describeConditions, describeResult, fill } from './rule-text';
 import type { Rule, RuleSeed } from './types';
 import { useDeleteRule, useRulesList, useRuleTargets, useToggleRule } from './useRules';
@@ -122,6 +123,10 @@ export function RulesView() {
       <p className="seneca-rules__intro">{t.page.intro}</p>
 
       {rules.isError && <LoadError>{t.page.loadError}</LoadError>}
+
+      {rules.isPending && (
+        <RulesSkeleton when={t.page.when} then={t.page.thenLabel} canEdit={canEdit} />
+      )}
 
       {rules.isSuccess && list.length === 0 && (
         <EmptyState

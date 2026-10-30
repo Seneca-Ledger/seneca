@@ -102,7 +102,7 @@ describe('WorkspacesListContent', () => {
       const html = renderToStaticMarkup(<WorkspacesListContent />);
 
       // One cover placeholder per skeleton card, in place of the workspace cards.
-      expect(html.match(/MuiSkeleton-rectangular/g)).toHaveLength(6);
+      expect(html.match(/MuiSkeleton-rectangular/g)).toHaveLength(3);
       expect(html).not.toContain('Main Workspace');
     } finally {
       workspaceState.loading = false;

@@ -19,7 +19,7 @@ import {
   type UpdateClientInput,
 } from '@/app/lib/invoices-api';
 import { ClientDrawer } from './ClientDrawer';
-import { ClientsListSkeleton } from './InvoicesSkeletons';
+import { ClientRowsSkeleton } from './InvoicesSkeletons';
 
 export function ClientsView(): React.JSX.Element {
   const router = useRouter();
@@ -87,10 +87,6 @@ export function ClientsView(): React.JSX.Element {
     { id: 'new-client', label: t.clients.newClient.value, icon: Plus, run: openNewClient },
   ]);
 
-  if (loading) {
-    return <ClientsListSkeleton />;
-  }
-
   return (
     <div className="container-shared seneca-stmt-list">
       <div
@@ -111,7 +107,7 @@ export function ClientsView(): React.JSX.Element {
         </button>
         <div style={{ flex: 1 }} />
         {/* With no clients the empty state's button is the one action. */}
-        {clients.length === 0 ? null : (
+        {!loading && clients.length === 0 ? null : (
           <Button className="seneca-bottom-bar-source" onClick={openNewClient}>
             <Plus size={18} aria-hidden />
             {t.clients.newClient}
@@ -119,7 +115,7 @@ export function ClientsView(): React.JSX.Element {
         )}
       </div>
 
-      {clients.length === 0 ? (
+      {!loading && clients.length === 0 ? (
         <EmptyState
           fill
           icon={<PeopleLineIcon />}
@@ -141,39 +137,43 @@ export function ClientsView(): React.JSX.Element {
                   </th>
                 </tr>
               </thead>
-              <tbody className="seneca-payable-list__tbody">
-                {clients.map(client => (
-                  <tr key={client.id}>
-                    <td className="seneca-payable-list__td" style={{ fontWeight: 500 }}>
-                      {client.name}
-                    </td>
-                    <td className="seneca-payable-list__td">{client.email || '—'}</td>
-                    <td className="seneca-payable-list__td">{client.currency}</td>
-                    <td className="seneca-payable-list__td">
-                      <div className="seneca-payable-list__actions">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => {
-                            setEditingClient(client);
-                            setDrawerOpen(true);
-                          }}
-                        >
-                          {t.actions.edit.value}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          disabled={deletingId === client.id}
-                          onClick={() => void handleDelete(client)}
-                        >
-                          {t.actions.delete.value}
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
+              {loading ? (
+                <ClientRowsSkeleton />
+              ) : (
+                <tbody className="seneca-payable-list__tbody">
+                  {clients.map(client => (
+                    <tr key={client.id}>
+                      <td className="seneca-payable-list__td" style={{ fontWeight: 500 }}>
+                        {client.name}
+                      </td>
+                      <td className="seneca-payable-list__td">{client.email || '—'}</td>
+                      <td className="seneca-payable-list__td">{client.currency}</td>
+                      <td className="seneca-payable-list__td">
+                        <div className="seneca-payable-list__actions">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => {
+                              setEditingClient(client);
+                              setDrawerOpen(true);
+                            }}
+                          >
+                            {t.actions.edit.value}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            disabled={deletingId === client.id}
+                            onClick={() => void handleDelete(client)}
+                          >
+                            {t.actions.delete.value}
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              )}
             </table>
           </div>
         </div>

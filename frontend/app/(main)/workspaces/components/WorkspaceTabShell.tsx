@@ -1,7 +1,6 @@
 'use client';
 
 import Box from '@mui/material/Box';
-import Skeleton from '@mui/material/Skeleton';
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
 import Link from 'next/link';
@@ -12,7 +11,8 @@ import { PageTitle } from '@/app/components/ui/page-title';
 import { useWorkspace } from '@/app/contexts/WorkspaceContext';
 import { useIntlayer } from '@/app/i18n';
 import { getWorkspaceTabItems, type WorkspaceTabId } from '@/app/lib/workspace-tabs';
-import { tokens } from '@/lib/theme-tokens';
+import { WorkspaceMembersSkeleton } from './WorkspaceMembersSkeleton';
+import { WorkspaceOverviewSkeleton } from './WorkspaceOverviewSkeleton';
 import WorkspacesListContent from './WorkspacesListContent';
 
 type Props = {
@@ -20,39 +20,11 @@ type Props = {
   children: ReactNode;
 };
 
-const BLOCK_SKELETON_KEYS = ['block-0', 'block-1', 'block-2', 'block-3'];
-
 // The tab views size themselves to calc(100vh - var(--global-nav-height)); the
 // shell hands them the height of the title and tab rows so neither pushes them past the fold.
 const TITLE_ROW_HEIGHT = '52px';
 const TAB_ROW_HEIGHT = '56px';
 const ALL_WORKSPACES_TAB = 'all-workspaces';
-
-function WorkspaceTabShellSkeleton(): React.JSX.Element {
-  return (
-    <Box
-      sx={{
-        minHeight: 'calc(100vh - var(--global-nav-height, 0px))',
-        px: { xs: 2, md: 4 },
-        py: 4,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 2,
-      }}
-    >
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
-        <Skeleton variant="rounded" width={40} height={40} />
-        <Box>
-          <Skeleton variant="text" width={200} height={28} />
-          <Skeleton variant="text" width={280} height={18} />
-        </Box>
-      </Box>
-      {BLOCK_SKELETON_KEYS.map(key => (
-        <Skeleton key={key} variant="rounded" height={72} sx={{ borderRadius: tokens.radius.lg }} />
-      ))}
-    </Box>
-  );
-}
 
 export default function WorkspaceTabShell({ activeItem, children }: Props) {
   const router = useRouter();
@@ -66,11 +38,11 @@ export default function WorkspaceTabShell({ activeItem, children }: Props) {
     }
   }, [currentWorkspace, loading, router]);
 
-  if (loading || !currentWorkspace) {
-    return <WorkspaceTabShellSkeleton />;
-  }
-
-  const tabItems = getWorkspaceTabItems(activeItem, currentWorkspace.stats?.memberCount ?? 0);
+  // Title and tabs need no data, so they stay put while the workspace loads;
+  // only the tab body is a placeholder of the tab's own shape.
+  const ready = !loading && currentWorkspace;
+  const memberCount = currentWorkspace?.stats?.memberCount;
+  const tabItems = getWorkspaceTabItems(activeItem, memberCount ?? 0);
 
   return (
     <Box sx={{ '--global-nav-height': `calc(${TITLE_ROW_HEIGHT} + ${TAB_ROW_HEIGHT})` }}>
@@ -107,7 +79,11 @@ export default function WorkspaceTabShell({ activeItem, children }: Props) {
               component={Link}
               href={item.href}
               onClick={() => setIsAllWorkspacesOpen(false)}
-              label={item.badge === undefined ? item.label : `${item.label} (${item.badge})`}
+              label={
+                item.badge === undefined || memberCount === undefined
+                  ? item.label
+                  : `${item.label} (${item.badge})`
+              }
             />
           ))}
           <Tab
@@ -117,7 +93,13 @@ export default function WorkspaceTabShell({ activeItem, children }: Props) {
           />
         </Tabs>
       </Box>
-      {isAllWorkspacesOpen ? (
+      {!ready ? (
+        activeItem === 'members' ? (
+          <WorkspaceMembersSkeleton memberCount={memberCount} />
+        ) : (
+          <WorkspaceOverviewSkeleton />
+        )
+      ) : isAllWorkspacesOpen ? (
         <WorkspacesListContent
           embedded
           redirectPathOnSelect={null}

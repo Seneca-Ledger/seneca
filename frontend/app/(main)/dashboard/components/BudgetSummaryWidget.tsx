@@ -8,6 +8,7 @@ import type React from 'react';
 import { monthEndOrToday } from '@/app/components/dashboard/month-end';
 import { useIsWideSection } from '@/app/components/dashboard/section-span';
 import { CardEmpty, CardLink, DashboardCard } from '@/app/components/dashboard/ui';
+import { BudgetRowsSkeleton } from '@/app/components/dashboard/ui/card-skeletons';
 import { fillTemplateNodes } from '@/app/components/ui/private-amount';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer, useLocale } from '@/app/i18n';
@@ -18,6 +19,8 @@ import { type BudgetItem as BudgetSummary, fetchBudgets } from '../../budgets/ho
 
 /** A half-width card shows the most used few; with the row to itself, every budget. */
 const VISIBLE_BUDGETS = 5;
+/** Rows drawn while the budgets load. */
+const LOADING_BUDGETS = 3;
 
 /**
  * Colour only for what needs acting on: a budget in its last tenth turns
@@ -82,8 +85,17 @@ export function BudgetSummaryWidget({
   const wide = useIsWideSection();
   const categoryName = useCategoryName();
 
+  // The card holds its place while the budgets load, so the row does not jump.
   if (!loaded) {
-    return null;
+    return (
+      <DashboardCard
+        title={t.title}
+        subtitle={monthLabel}
+        action={<CardLink href="/budgets#budget-list">{t.viewAll}</CardLink>}
+      >
+        <BudgetRowsSkeleton rows={LOADING_BUDGETS} wide={wide} />
+      </DashboardCard>
+    );
   }
 
   const hasBudgets = budgets.length > 0;
