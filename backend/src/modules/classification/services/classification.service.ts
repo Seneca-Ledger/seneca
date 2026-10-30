@@ -28,6 +28,8 @@ import { UNCATEGORIZED_CATEGORY_NAME } from '../../categories/uncategorized-cate
 import { decidePayeeCategory } from '../engine/payee-category.matcher';
 import { onlyPayeeEvidence } from '../engine/payee-evidence';
 import { matchesConditions } from '../engine/rule-conditions';
+import { applyRuleResult } from '../engine/rule-result';
+import { ruleTags } from '../engine/rule-tags';
 import {
   type ClassificationCondition,
   type ClassificationRule,
@@ -111,27 +113,10 @@ export class ClassificationService {
     const rule = await this.firstApplicableRule(rules, transaction, workspaceId);
     if (rule) {
       matchedRule = rule;
-      if (rule.result.categoryId) {
-        classification.categoryId = rule.result.categoryId;
-        classification.categorySource = TransactionCategorySource.RULE;
-        classification.categoryReason = rule.name;
-      }
-      if (rule.result.branchId) {
-        classification.branchId = rule.result.branchId;
-      }
-      if (rule.result.walletId) {
-        classification.walletId = rule.result.walletId;
-      }
-      if (rule.result.ownerMemberId !== undefined) {
-        classification.ownerMemberId = rule.result.ownerMemberId;
-        ruleSetOwner = true;
-      }
-      if (rule.result.article) {
-        classification.article = rule.result.article;
-      }
-      if (rule.result.activityType) {
-        classification.activityType = rule.result.activityType;
-      }
+      ({ ruleSetOwner } = applyRuleResult(rule, classification));
+      // A relation for a new row; callers updating an existing row add them instead.
+      const tags = await ruleTags(this.walletRepository.manager, workspaceId, rule.result.tagIds);
+      if (tags) classification.tags = tags;
       await this.recordRuleMatch(rule.id, workspaceId);
     }
 
@@ -451,9 +436,8 @@ export class ClassificationService {
     }
     const userRules = await this.categorizationRuleRepository.find({
       where: { workspaceId, isActive: true },
-      order: {
-        priority: 'DESC',
-      },
+      // Equal priorities: the newer rule first, as on the rules page.
+      order: { priority: 'DESC', createdAt: 'DESC' },
     });
 
     // Convert database rules to ClassificationRule format

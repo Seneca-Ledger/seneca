@@ -18,16 +18,21 @@ interface RuleConditionsFieldProps {
   conditions: RuleCondition[];
   onChange: (conditions: RuleCondition[]) => void;
   /** Who a row can belong to; empty in a workspace of one, which hides the owner field. */
-  ownerOptions: { value: string; label: string }[];
+  ownerOptions: Option[];
   hasMembers: boolean;
+  /** The workspace's accounts; none hides the account field. */
+  walletOptions: Option[];
 }
 
-/** The rule dialog's conditions: rows of field, check and value that must all hold. */
+type Option = { value: string; label: string };
+
+/** The editor's conditions: rows of field, check and value that must all hold. */
 export function RuleConditionsField({
   conditions,
   onChange,
   ownerOptions,
   hasMembers,
+  walletOptions,
 }: RuleConditionsFieldProps) {
   const t = useIntlayer('categorizationRules');
   const words = useRuleWords();
@@ -35,8 +40,19 @@ export function RuleConditionsField({
   const fieldOptions: RuleField[] = [
     ...TEXT_FIELDS,
     'amount',
+    'direction',
+    ...(walletOptions.length > 0 ? (['wallet'] as RuleField[]) : []),
     ...(hasMembers ? (['owner'] as RuleField[]) : []),
   ];
+  // Fields whose value is picked from a list rather than typed.
+  const choices: Partial<Record<RuleField, Option[]>> = {
+    owner: ownerOptions,
+    wallet: walletOptions,
+    direction: [
+      { value: 'expense', label: words.direction.expense },
+      { value: 'income', label: words.direction.income },
+    ],
+  };
 
   const setCondition = (index: number, next: RuleCondition) =>
     onChange(conditions.map((condition, at) => (at === index ? next : condition)));
@@ -45,7 +61,7 @@ export function RuleConditionsField({
     setCondition(index, {
       field,
       operator: operatorsFor(field)[0],
-      value: field === 'owner' ? OWNER_SHARED : '',
+      value: field === 'owner' ? OWNER_SHARED : (choices[field]?.[0]?.value ?? ''),
     });
 
   return (
@@ -78,12 +94,12 @@ export function RuleConditionsField({
             )}
             size="small"
           />
-          {condition.field === 'owner' ? (
+          {choices[condition.field] ? (
             <Select
               inputProps={{ 'aria-label': t.dialog.valueLabel.value }}
               value={String(condition.value)}
               onChange={value => setCondition(index, { ...condition, value })}
-              options={ownerOptions}
+              options={choices[condition.field] ?? []}
               size="small"
             />
           ) : (

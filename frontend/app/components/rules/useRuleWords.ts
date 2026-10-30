@@ -14,6 +14,8 @@ export function useRuleWords(): RuleWords {
       owner: t.field.owner.value,
       counterparty_bin: t.field.counterparty_bin.value,
       document_number: t.field.document_number.value,
+      direction: t.field.direction.value,
+      wallet: t.field.wallet.value,
     },
     operator: {
       contains: t.operator.contains.value,
@@ -24,10 +26,12 @@ export function useRuleWords(): RuleWords {
       less_than: t.operator.less_than.value,
       regex: t.operator.regex.value,
     },
+    direction: { income: t.direction.income.value, expense: t.direction.expense.value },
     and: t.page.and.value,
     category: t.result.category.value,
     wallet: t.result.wallet.value,
     owner: t.result.owner.value,
+    tags: t.result.tags.value,
     shared: t.result.shared.value,
     unknown: t.result.unknown.value,
   };
