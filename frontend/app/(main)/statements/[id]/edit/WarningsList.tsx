@@ -1,6 +1,4 @@
-import { Box, Button, List, ListItem, ListItemIcon, ListItemText, Typography } from '@mui/material';
-import Tooltip from '@mui/material/Tooltip';
-import { TriangleAlert } from '@/app/components/icons';
+import { useState } from 'react';
 
 interface EditableWarningEntry {
   key: string;
@@ -15,10 +13,15 @@ interface WarningsListProps {
   editableEntryByTxKey: Map<string, EditableWarningEntry>;
   fixTooltipLabel: string;
   resolveBalanceTooltipLabel: string;
+  showAllLabel: string;
+  showLessLabel: string;
   extractTxKey: (value: string) => string | null;
   onSelectWarning: (args: { entryKey: string; warning: string; warningIndex: number }) => void;
   onResolve: (args: { warning: string; warningIndex: number }) => void;
 }
+
+/** Twenty identical lines say less than five and a way to see the rest. */
+const FOLDED_COUNT = 5;
 
 const resolveMatchedEntry = ({
   warning,
@@ -37,41 +40,22 @@ const resolveMatchedEntry = ({
   );
 };
 
-const ACTION_TOOLTIP: Record<
-  'resolve' | 'convert',
-  'resolveBalanceTooltipLabel' | 'fixTooltipLabel'
-> = {
-  resolve: 'resolveBalanceTooltipLabel',
-  convert: 'fixTooltipLabel',
+/**
+ * "tx#7: skipped (no debit/credit amount)" → "#7" and "Skipped (no debit/credit
+ * amount)": the row number goes in its own quiet column, so the reasons line up.
+ */
+export const splitWarning = (warning: string): { row: string | null; message: string } => {
+  const match = warning.match(/^\s*tx#(\d+)\s*:?\s*/i);
+  const message = match ? warning.slice(match[0].length) : warning;
+  return {
+    row: match ? `#${match[1]}` : null,
+    message: message.charAt(0).toUpperCase() + message.slice(1),
+  };
 };
 
-const BUTTON_SX = {
-  justifyContent: 'flex-start',
-  alignItems: 'flex-start',
-  gap: 1,
-  px: 1,
-  py: 1,
-  mx: -1,
-  minWidth: 0,
-  width: 'calc(100% + 16px)',
-  color: 'warning.dark',
-  textTransform: 'none',
-  cursor: 'pointer',
-  transition: 'background-color 150ms ease',
-  '&:hover': { bgcolor: 'rgba(25, 118, 210, 0.08)' },
-  '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: '1px' },
-} as const;
-
-type WarningItemProps = {
+type WarningItemProps = Omit<WarningsListProps, 'warnings' | 'showAllLabel' | 'showLessLabel'> & {
   warning: string;
   warningIndex: number;
-  editableEntryByReason: Map<string, EditableWarningEntry>;
-  editableEntryByTxKey: Map<string, EditableWarningEntry>;
-  fixTooltipLabel: string;
-  resolveBalanceTooltipLabel: string;
-  extractTxKey: (v: string) => string | null;
-  onSelectWarning: (args: { entryKey: string; warning: string; warningIndex: number }) => void;
-  onResolve: (args: { warning: string; warningIndex: number }) => void;
 };
 
 function WarningItem({
@@ -91,78 +75,72 @@ function WarningItem({
     editableEntryByTxKey,
     extractTxKey,
   });
-  const tooltipTitle = matchedEntry
-    ? ACTION_TOOLTIP[matchedEntry.action] === 'resolveBalanceTooltipLabel'
-      ? resolveBalanceTooltipLabel
-      : fixTooltipLabel
-    : '';
+  const { row, message } = splitWarning(warning);
+  const content = (
+    <>
+      <span className="seneca-parse-warnings__row">{row}</span>
+      <span className="seneca-parse-warnings__message">{message}</span>
+    </>
+  );
+  if (!matchedEntry) {
+    return <li className="seneca-parse-warnings__item">{content}</li>;
+  }
   return (
-    <ListItem key={`${warningIndex}-${warning}`} disableGutters alignItems="flex-start">
-      {matchedEntry ? (
-        <Tooltip title={tooltipTitle} placement="top" enterDelay={150}>
-          <Button
-            variant="text"
-            onClick={() => {
-              if (matchedEntry.action === 'resolve') {
-                onResolve({ warning, warningIndex });
-                return;
-              }
-              onSelectWarning({ entryKey: matchedEntry.key, warning, warningIndex });
-            }}
-            sx={BUTTON_SX}
-          >
-            <TriangleAlert size={16} style={{ color: '#ed6c02', marginTop: 2, flexShrink: 0 }} />
-            <Typography variant="body2">{warning}</Typography>
-          </Button>
-        </Tooltip>
-      ) : (
-        <>
-          <ListItemIcon sx={{ minWidth: 28, mt: 0.25 }}>
-            <TriangleAlert size={16} style={{ color: '#ed6c02' }} />
-          </ListItemIcon>
-          <ListItemText
-            primary={warning}
-            slotProps={{
-              primary: { variant: 'body2' },
-            }}
-          />
-        </>
-      )}
-    </ListItem>
+    <li>
+      <button
+        type="button"
+        className="seneca-parse-warnings__item seneca-parse-warnings__item--action"
+        onClick={() => {
+          if (matchedEntry.action === 'resolve') {
+            onResolve({ warning, warningIndex });
+            return;
+          }
+          onSelectWarning({ entryKey: matchedEntry.key, warning, warningIndex });
+        }}
+      >
+        {content}
+        <span className="seneca-parse-warnings__fix">
+          {matchedEntry.action === 'resolve' ? resolveBalanceTooltipLabel : fixTooltipLabel}
+        </span>
+      </button>
+    </li>
   );
 }
 
 export function WarningsList({
   warnings,
-  editableEntryByReason,
-  editableEntryByTxKey,
-  fixTooltipLabel,
-  resolveBalanceTooltipLabel,
-  extractTxKey,
-  onSelectWarning,
-  onResolve,
+  showAllLabel,
+  showLessLabel,
+  ...itemProps
 }: WarningsListProps): React.ReactElement | null {
+  const [expanded, setExpanded] = useState(false);
   if (warnings.length === 0) {
     return null;
   }
+  const folds = warnings.length > FOLDED_COUNT + 1;
+  const shown = folds && !expanded ? warnings.slice(0, FOLDED_COUNT) : warnings;
   return (
-    <Box sx={{ bgcolor: 'warning.50', px: 1.5, py: 0.5 }}>
-      <List dense disablePadding>
-        {[...warnings.entries()].map(([index, warning]) => (
+    <>
+      <ul className="seneca-parse-warnings__list">
+        {shown.map((warning, index) => (
           <WarningItem
             key={`${index}-${warning}`}
             warning={warning}
             warningIndex={index}
-            editableEntryByReason={editableEntryByReason}
-            editableEntryByTxKey={editableEntryByTxKey}
-            fixTooltipLabel={fixTooltipLabel}
-            resolveBalanceTooltipLabel={resolveBalanceTooltipLabel}
-            extractTxKey={extractTxKey}
-            onSelectWarning={onSelectWarning}
-            onResolve={onResolve}
+            {...itemProps}
           />
         ))}
-      </List>
-    </Box>
+      </ul>
+      {folds ? (
+        <button
+          type="button"
+          className="seneca-parse-warnings__more"
+          aria-expanded={expanded}
+          onClick={() => setExpanded(value => !value)}
+        >
+          {expanded ? showLessLabel : showAllLabel.replace('{{count}}', String(warnings.length))}
+        </button>
+      ) : null}
+    </>
   );
 }

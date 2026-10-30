@@ -7,12 +7,6 @@ import { createRoot } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ParsingWarningsPanel, formatDroppedSample } from './ParsingWarningsPanel';
 
-vi.mock('@mui/material/Tooltip', () => ({
-  default: ({ children, title }: { children: React.ReactNode; title: React.ReactNode }) => (
-    <div data-tooltip-content={String(title)}>{children}</div>
-  ),
-}));
-
 describe('ParsingWarningsPanel', () => {
   let container: HTMLDivElement;
   let root: ReturnType<typeof createRoot>;
@@ -97,7 +91,7 @@ describe('ParsingWarningsPanel', () => {
     });
 
     const rowButton = Array.from(container.querySelectorAll('button')).find(button =>
-      button.textContent?.includes('tx#207: skipped (no debit/credit amount)'),
+      /#207Skipped \(no debit\/credit amount\)/.test(button.textContent ?? ''),
     ) as HTMLButtonElement | undefined;
 
     expect(rowButton).toBeTruthy();
@@ -134,7 +128,7 @@ describe('ParsingWarningsPanel', () => {
     });
 
     const rowButton = Array.from(container.querySelectorAll('button')).find(button =>
-      button.textContent?.includes('tx#207: skipped (no debit/credit amount)'),
+      /#207Skipped \(no debit\/credit amount\)/.test(button.textContent ?? ''),
     ) as HTMLButtonElement | undefined;
 
     expect(rowButton).toBeTruthy();
@@ -177,7 +171,7 @@ describe('ParsingWarningsPanel', () => {
     });
 
     const rowButton = Array.from(container.querySelectorAll('button')).find(button =>
-      button.textContent?.includes('tx#189: skipped (negative amount)'),
+      /#189Skipped \(negative amount\)/.test(button.textContent ?? ''),
     ) as HTMLButtonElement | undefined;
 
     expect(rowButton).toBeTruthy();
@@ -210,7 +204,7 @@ describe('ParsingWarningsPanel', () => {
     });
 
     const rowButton = Array.from(container.querySelectorAll('button')).find(button =>
-      button.textContent?.includes('tx#203: skipped (negative amount)'),
+      /#203Skipped \(negative amount\)/.test(button.textContent ?? ''),
     ) as HTMLButtonElement | undefined;
 
     expect(rowButton).toBeTruthy();
@@ -264,7 +258,7 @@ describe('ParsingWarningsPanel', () => {
     });
 
     const rowButton = Array.from(container.querySelectorAll('button')).find(button =>
-      button.textContent?.includes('tx#209: skipped (negative amount) [review]'),
+      button.textContent?.includes('#209Skipped (negative amount) [review]'),
     ) as HTMLButtonElement | undefined;
 
     expect(rowButton).toBeTruthy();
@@ -290,7 +284,7 @@ describe('ParsingWarningsPanel', () => {
     });
 
     const rowButton = Array.from(container.querySelectorAll('button')).find(button =>
-      button.textContent?.includes('tx#245: skipped (no debit/credit amount)'),
+      /#245Skipped \(no debit\/credit amount\)/.test(button.textContent ?? ''),
     ) as HTMLButtonElement | undefined;
 
     expect(rowButton).toBeTruthy();
@@ -319,7 +313,7 @@ describe('ParsingWarningsPanel', () => {
     expect(rowButton).toBeTruthy();
   });
 
-  it('shows balance-specific tooltip for balance mismatch warnings', async () => {
+  it('names the balance check on a balance mismatch row', async () => {
     await act(async () => {
       renderPanel(
         <ParsingWarningsPanel
@@ -329,16 +323,12 @@ describe('ParsingWarningsPanel', () => {
       );
     });
 
-    const tooltipHost = Array.from(container.querySelectorAll('[data-tooltip-content]')).find(
-      node =>
-        node.textContent?.includes('Balance mismatch: expected 1000.00 got 800.00 (diff 200.00)'),
-    ) as HTMLElement | undefined;
-
-    expect(tooltipHost).toBeTruthy();
-    expect(tooltipHost?.getAttribute('data-tooltip-content')).toBe('Check balance');
+    const row = container.querySelector('.seneca-parse-warnings__item--action');
+    expect(row?.textContent).toContain('Balance mismatch: expected 1000.00 got 800.00');
+    expect(row?.querySelector('.seneca-parse-warnings__fix')?.textContent).toBe('Check balance');
   });
 
-  it('shows localized fix tooltip on hoverable dropped warning rows', async () => {
+  it('names the fix on a fixable row, in the label it was given', async () => {
     await act(async () => {
       renderPanel(
         <ParsingWarningsPanel
@@ -358,12 +348,9 @@ describe('ParsingWarningsPanel', () => {
       );
     });
 
-    const tooltipHost = Array.from(container.querySelectorAll('[data-tooltip-content]')).find(
-      node => node.textContent?.includes('tx#207: skipped (no debit/credit amount)'),
-    ) as HTMLElement | undefined;
-
-    expect(tooltipHost).toBeTruthy();
-    expect(tooltipHost?.getAttribute('data-tooltip-content')).toBe('Fix');
+    const row = container.querySelector('.seneca-parse-warnings__item--action');
+    expect(row?.textContent).toContain('Skipped (no debit/credit amount)');
+    expect(row?.querySelector('.seneca-parse-warnings__fix')?.textContent).toBe('Fix');
   });
 
   it('does not render a separate dropped-rows list under warnings', async () => {
@@ -387,7 +374,7 @@ describe('ParsingWarningsPanel', () => {
     });
 
     const text = container.textContent || '';
-    const matches = text.match(/tx#207: skipped \(no debit\/credit amount\)/g) || [];
+    const matches = text.match(/Skipped \(no debit\/credit amount\)/g) || [];
 
     expect(matches).toHaveLength(1);
   });
@@ -415,7 +402,7 @@ describe('ParsingWarningsPanel', () => {
     });
 
     const rowButton = Array.from(container.querySelectorAll('button')).find(button =>
-      button.textContent?.includes('tx#207: skipped (no debit/credit amount)'),
+      /#207Skipped \(no debit\/credit amount\)/.test(button.textContent ?? ''),
     ) as HTMLButtonElement | undefined;
 
     expect(rowButton).toBeTruthy();
@@ -463,5 +450,36 @@ describe('ParsingWarningsPanel', () => {
         }),
       }),
     });
+  });
+  it('puts the row number in its own column and folds a long list', async () => {
+    const reason = 'skipped (no debit/credit amount)';
+    const warnings = Array.from({ length: 20 }, (_, index) => `tx#${index + 1}: ${reason}`);
+    await act(async () => {
+      renderPanel(<ParsingWarningsPanel warnings={warnings} />);
+    });
+
+    const rows = () => container.querySelectorAll('.seneca-parse-warnings__row');
+    expect(rows()).toHaveLength(5);
+    expect(rows()[0].textContent).toBe('#1');
+    expect(container.querySelector('.seneca-parse-warnings__message')?.textContent).toBe(
+      'Skipped (no debit/credit amount)',
+    );
+
+    const more = container.querySelector<HTMLButtonElement>('.seneca-parse-warnings__more');
+    expect(more?.textContent).toBe(`Show all ${warnings.length}`);
+    await act(async () => {
+      more?.click();
+    });
+    expect(rows()).toHaveLength(warnings.length);
+  });
+
+  it('does not fold a list only one line too long', async () => {
+    await act(async () => {
+      renderPanel(
+        <ParsingWarningsPanel warnings={Array.from({ length: 6 }, (_, i) => `Row ${i}: odd`)} />,
+      );
+    });
+    expect(container.querySelectorAll('.seneca-parse-warnings__item')).toHaveLength(6);
+    expect(container.querySelector('.seneca-parse-warnings__more')).toBeNull();
   });
 });
