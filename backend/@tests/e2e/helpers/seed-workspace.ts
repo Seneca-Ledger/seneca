@@ -7,6 +7,7 @@ import {
   NotificationCategory,
   NotificationType,
 } from '../../../src/entities/notification.entity';
+import { ParsingLayoutTemplate } from '../../../src/entities/parsing-layout-template.entity';
 import { ReportHistory } from '../../../src/entities/report-history.entity';
 import {
   SubscriptionCharge,
@@ -329,6 +330,19 @@ export async function seedWorkspace(
     sizeBytes: '1024',
     startedAt: new Date(),
     finishedAt: new Date(),
+  });
+  // A layout taught on a statement the parser could not read (POST /statements/:id/teach needs a PDF).
+  await dataSource.getRepository(ParsingLayoutTemplate).save({
+    workspaceId: owner.workspaceId,
+    signature: `${marker}`.slice(0, 64),
+    bankName: 'other',
+    template: {
+      headings: [{ phrase: `${marker} date`.toLowerCase(), role: 'date' }],
+      columns: [{ role: 'date', x0: 40, x1: 90 }],
+      skip: [],
+      balances: {},
+    },
+    taughtBy: owner.userId,
   });
   await dataSource.getRepository(Insight).save({
     userId: owner.userId,

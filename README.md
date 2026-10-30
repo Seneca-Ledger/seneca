@@ -1,5 +1,6 @@
 <div align="center">
-<img width="150" height="150" alt="N (5)" src="https://github.com/user-attachments/assets/766c9c0b-50b5-4eaf-8b17-871c4a8c1a49" />
+<img width="150" height="150" alt="N (6)" src="https://github.com/user-attachments/assets/05bf21c1-922b-4a95-8423-ab0964946029" />
+
 
 
 <h1>Stoic Budget</h1>

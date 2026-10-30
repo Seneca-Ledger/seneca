@@ -58,6 +58,12 @@ export enum BankName {
   ABSA = 'absa',
   ALLY = 'ally',
   ANZ = 'anz',
+  ASSOCIATED = 'associated',
+  ATB = 'atb',
+  AXIS = 'axis',
+  BANCO_DO_BRASIL = 'banco_do_brasil',
+  BANK_OF_CHINA = 'bank_of_china',
+  BANK_OF_SCOTLAND = 'bank_of_scotland',
   OTHER = 'other',
 }
 
@@ -296,12 +302,24 @@ export class Statement {
     validation?: {
       passed: boolean;
       warnings: string[];
+      /** Why it was held for review, one code per warning (statement-validation.helper). */
+      reasonCodes?: string[];
       balanceCheck?: {
         expectedEnd?: number;
         actualEnd?: number;
         difference?: number;
         tolerance?: number;
       };
+    };
+    /** The parser's checks of its own reading (ParseCheck), passed or not. */
+    checks?: Array<{ code: string; passed: boolean; detail?: Record<string, string | number> }>;
+    /** The file's layout as words, with its fingerprint (pdf-layout-fingerprint.helper). */
+    layout?: {
+      fingerprint: string;
+      headings: string[];
+      unknownWords: string[];
+      mentionedBank?: string;
+      taughtTemplate?: string;
     };
     droppedSamples?: Array<{
       reason: string;

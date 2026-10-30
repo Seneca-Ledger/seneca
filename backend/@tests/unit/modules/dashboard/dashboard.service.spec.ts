@@ -5,6 +5,10 @@ import { ReceiptSource, ReceiptStatus } from '../../../../src/entities/receipt.e
 import { BankName, StatementStatus } from '../../../../src/entities/statement.entity';
 import { TransactionType } from '../../../../src/entities/transaction.entity';
 import { WorkspaceRole } from '../../../../src/entities/workspace-member.entity';
+import {
+  awaitingCategorySql,
+  UNCATEGORIZED_SQL_PARAMS,
+} from '../../../../src/modules/categories/uncategorized-category';
 import { CashFlowEntriesService } from '../../../../src/modules/dashboard/cash-flow-entries.service';
 import { DashboardService } from '../../../../src/modules/dashboard/dashboard.service';
 
@@ -547,7 +551,10 @@ describe('DashboardService', () => {
     await (service as any).getUncategorizedCount('ws-1', null);
 
     expect(query.andWhere).not.toHaveBeenCalledWith('t.isVerified = true');
-    expect(query.andWhere).toHaveBeenCalledWith('t.categoryId IS NULL');
+    expect(query.andWhere).toHaveBeenCalledWith(
+      awaitingCategorySql('t'),
+      UNCATEGORIZED_SQL_PARAMS,
+    );
     // A receipt is counted as its row or as a receipt to review, never on its own.
     expect(receiptRepo.createQueryBuilder).not.toHaveBeenCalled();
   });

@@ -1,0 +1,516 @@
+{
+  "metadata": {
+    "accountNumber": "826056743600781",
+    "currency": "INR",
+    "dateFrom": "2023-08-23T00:00:00",
+    "dateTo": "2024-01-24T00:00:00",
+    "balanceStart": 94.11,
+    "balanceEnd": 6350.79
+  },
+  "transactions": [
+    {
+      "transactionDate": "2023-08-28T00:00:00",
+      "counterpartyName": "ACMEWORKS",
+      "paymentPurpose": "NEFT/HSBCN10572557513/ACMEWORKS/HSBC BANK//ACC/NEF",
+      "credit": 1396,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2023-08-30T00:00:00",
+      "counterpartyName": "MEMBER TW",
+      "paymentPurpose": "UPI/P2A/626486566065/MEMBER TW/Paytm Pay/Payment",
+      "debit": 800,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2023-08-31T00:00:00",
+      "counterpartyName": "PERSON TW",
+      "paymentPurpose": "UPI/P2M/772175168778/PERSON TW/Yes Bank /Payment",
+      "debit": 70,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2023-09-01T00:00:00",
+      "counterpartyName": "MEMBER TW",
+      "paymentPurpose": "UPI/P2A/023651576846/MEMBER TW/Paytm Pay/Payment",
+      "credit": 500,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2023-09-01T00:00:00",
+      "counterpartyName": "ATM-CASH- AXIS/CPCN01709/2410/010923/EXAMPLETOWN",
+      "paymentPurpose": "ATM-CASH- AXIS/CPCN01709/2410/010923/EXAMPLETOWN",
+      "debit": 1000,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2023-09-04T00:00:00",
+      "counterpartyName": "MEMBER TWO DAS",
+      "paymentPurpose": "UPI/P2A/604988876985/MEMBER TWO DAS /NA",
+      "debit": 120,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2023-09-07T00:00:00",
+      "counterpartyName": "ACMEWORKS",
+      "paymentPurpose": "NEFT/HSBCN43573017209/ACMEWORKS/HSBC BANK//ACC/NEF",
+      "credit": 3454,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2023-09-07T00:00:00",
+      "counterpartyName": "Person Four",
+      "paymentPurpose": "UPI/P2A/470752029801/Person Four /NA/Punjab National Bank",
+      "debit": 2200,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2023-09-08T00:00:00",
+      "counterpartyName": "MEMBERTW",
+      "paymentPurpose": "IMPS/P2A/355426974560/MEMBERTW/Paytm Pay/PBPL/3638242553030453702",
+      "credit": 29000,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2023-09-09T00:00:00",
+      "counterpartyName": "PERSON SEVEN",
+      "paymentPurpose": "UPI/P2A/684470741060/PERSON SEVEN /Paymen/Punjab National Bank",
+      "debit": 3000,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2023-09-13T00:00:00",
+      "counterpartyName": "ACMESOFT INFOTECH",
+      "paymentPurpose": "UPI/P2M/396605151594/ACMESOFT INFOTECH /ATTkz/Ujjivan Small Financ",
+      "debit": 6600,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2023-09-15T00:00:00",
+      "counterpartyName": "ACMEPAYS",
+      "paymentPurpose": "IMPS/P2A/034779480566/ACMEPAYS/ICICIBA N/FTTransf/3052603044989989219",
+      "credit": 1,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2023-09-16T00:00:00",
+      "counterpartyName": "SAMPLE OWNER",
+      "paymentPurpose": "UPI/P2A/286596175672/SAMPLE OWNER /Paymen/State Bank Of India",
+      "debit": 1000,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2023-09-18T00:00:00",
+      "counterpartyName": "MEMBER TW",
+      "paymentPurpose": "UPI/P2A/459620388173/MEMBER TW/Paytm Pay/Payment/",
+      "credit": 500,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2023-09-18T00:00:00",
+      "counterpartyName": "ACME MOTORS",
+      "paymentPurpose": "UPI/P2M/473775933720/ACME MOTORS /Paymen/Axis Bank Ltd.",
+      "debit": 20000,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2023-09-20T00:00:00",
+      "counterpartyName": "Pay Gate",
+      "paymentPurpose": "UPI/P2A/081456460181/Pay Gate/Yes Bank /TRANSFER/",
+      "credit": 791,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2023-09-20T00:00:00",
+      "counterpartyName": "PayApp P",
+      "paymentPurpose": "UPI/P2A/596964605393/PayApp P/Yes Bank /F07 Cred/",
+      "credit": 297,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2023-09-21T00:00:00",
+      "counterpartyName": "PERSON FIVE",
+      "paymentPurpose": "UPI/P2M/095667223948/PERSON FIVE /Paymen/Paytm Payments Bank",
+      "debit": 6,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2023-09-21T00:00:00",
+      "counterpartyName": "ACME HAUL TRANSPORT",
+      "paymentPurpose": "UPI/P2M/746448943433/ACME HAUL TRANSPORT /14lrc/IDFC FIRST Bank",
+      "debit": 1200,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2023-09-23T00:00:00",
+      "counterpartyName": "PERSON NINE",
+      "paymentPurpose": "UPI/P2M/500694141617/PERSON NINE /NA/INDUSIND BANK",
+      "debit": 10,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2023-09-24T00:00:00",
+      "counterpartyName": "ACME TECHNOLOGIES LIM",
+      "paymentPurpose": "UPI/P2M/349035653802/ACME TECHNOLOGIES LIM/Payvia/ICICI Bank",
+      "debit": 20.6,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2023-09-24T00:00:00",
+      "counterpartyName": "ACME TECH",
+      "paymentPurpose": "UPI/P2A/412208083846/ACME TECH/ICICI Ban/AcmePay/",
+      "credit": 20.6,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2023-09-28T00:00:00",
+      "counterpartyName": "PERSON TH",
+      "paymentPurpose": "UPI/P2A/075532798721/PERSON TH/Federal B/Payment/",
+      "credit": 1100,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2023-09-29T00:00:00",
+      "counterpartyName": "MEMBER TWO DAS",
+      "paymentPurpose": "UPI/P2A/628779466753/MEMBER TWO DAS /Paymen/Paytm Payments Bank",
+      "debit": 1100,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2023-10-01T00:00:00",
+      "counterpartyName": "826056743600781:Int.Pd:01-07-2023 to 30-09- 2023",
+      "paymentPurpose": "826056743600781:Int.Pd:01-07-2023 to 30-09- 2023",
+      "credit": 33,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2023-10-02T00:00:00",
+      "counterpartyName": "PAYGATE",
+      "paymentPurpose": "UPI/P2A/219887237595/PAYGATE /Standard /AcmeShop/",
+      "credit": 227,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2023-10-02T00:00:00",
+      "counterpartyName": "PERSON TH",
+      "paymentPurpose": "UPI/P2A/810305761883/PERSON TH/Federal B/UPI/",
+      "credit": 3000,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2023-10-09T00:00:00",
+      "counterpartyName": "MEMBER TWO DAS",
+      "paymentPurpose": "UPI/P2A/172879524261/MEMBER TWO DAS /Paymen/Paytm Payments Bank",
+      "debit": 3005,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2023-10-09T00:00:00",
+      "counterpartyName": "MEMBER TWO DAS",
+      "paymentPurpose": "UPI/P2A/132947051658/MEMBER TWO DAS /Paymen/Paytm Payments Bank",
+      "debit": 10,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2023-10-11T00:00:00",
+      "counterpartyName": "AcmeInvest",
+      "paymentPurpose": "UPI/P2M/276412107698/AcmeInvest /Accoun/Kotak Mahindra Bank",
+      "debit": 1,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2023-10-12T00:00:00",
+      "counterpartyName": "UPI/CRADJ/276412107698/12.10.2023",
+      "paymentPurpose": "UPI/CRADJ/276412107698/12.10.2023",
+      "credit": 1,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2023-10-14T00:00:00",
+      "counterpartyName": "MEMBER TW",
+      "paymentPurpose": "UPI/P2A/497906096156/MEMBER TW/Paytm Pay/Payment/",
+      "credit": 2000,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2023-10-14T00:00:00",
+      "counterpartyName": "ATM-CASH- AXIS/DWCW278502/6411/141023/EXAMPLETOWN",
+      "paymentPurpose": "ATM-CASH- AXIS/DWCW278502/6411/141023/EXAMPLETOWN",
+      "debit": 2000,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2023-10-27T00:00:00",
+      "counterpartyName": "MEMBER TW",
+      "paymentPurpose": "UPI/P2A/038818114260/MEMBER TW/Paytm Pay/Payment/",
+      "credit": 700,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2023-10-29T00:00:00",
+      "counterpartyName": "MEMBER TW",
+      "paymentPurpose": "UPI/P2A/216859507135/MEMBER TW/Paytm Pay/Payment/",
+      "credit": 1500,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2023-10-31T00:00:00",
+      "counterpartyName": "MEMBER TW",
+      "paymentPurpose": "UPI/P2A/903360730040/MEMBER TW/Paytm Pay/Payment/",
+      "credit": 700,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2023-11-04T00:00:00",
+      "counterpartyName": "MEMBER TW",
+      "paymentPurpose": "UPI/P2A/719441588012/MEMBER TW/Paytm Pay/Payment/",
+      "credit": 900,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2023-11-05T00:00:00",
+      "counterpartyName": "ACH-DR-TP ACH ICICI BANK-7095534702- UTIB847767909",
+      "paymentPurpose": "ACH-DR-TP ACH ICICI BANK-7095534702- UTIB847767909",
+      "debit": 3549,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2023-11-19T00:00:00",
+      "counterpartyName": "PERSON TEN",
+      "paymentPurpose": "UPI/P2A/165272023330/PERSON TEN /Paymen/State Bank Of India",
+      "debit": 200,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2023-11-19T00:00:00",
+      "counterpartyName": "PERSONS",
+      "paymentPurpose": "UPI/P2M/568836354524/PERSONS /Paymen/Yes Bank Ltd",
+      "debit": 200,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2023-11-28T00:00:00",
+      "counterpartyName": "MEMBER TWO DAS",
+      "paymentPurpose": "UPI/P2A/802162599854/MEMBER TWO DAS /Paymen/Paytm Payments Bank",
+      "debit": 23,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2023-12-03T00:00:00",
+      "counterpartyName": "MEMBER TW",
+      "paymentPurpose": "UPI/P2A/078395718477/MEMBER TW/Paytm Pay/Payment/",
+      "credit": 4000,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2023-12-05T00:00:00",
+      "counterpartyName": "ACH-DR-TP ACH ICICI BANK-0457305522- UTIB847767909",
+      "paymentPurpose": "ACH-DR-TP ACH ICICI BANK-0457305522- UTIB847767909",
+      "debit": 3549,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2023-12-07T00:00:00",
+      "counterpartyName": "MEMBER TWO DAS",
+      "paymentPurpose": "UPI/P2A/001982773916/MEMBER TWO DAS /Paymen/Paytm Payments Bank",
+      "debit": 510,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2023-12-08T00:00:00",
+      "counterpartyName": "MEMBER TWO DAS",
+      "paymentPurpose": "UPI/P2A/088931334744/MEMBER TWO DAS /Paymen/Paytm Payments Bank",
+      "debit": 40,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2023-12-12T00:00:00",
+      "counterpartyName": "PERSON SI",
+      "paymentPurpose": "UPI/P2A/086200078774/PERSON SI/ICICI Ban/note one/",
+      "credit": 1000,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2023-12-15T00:00:00",
+      "counterpartyName": "MEMBER TWO DAS",
+      "paymentPurpose": "UPI/P2A/543504133785/MEMBER TWO DAS /Paymen/Paytm Payments Bank",
+      "debit": 920,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2023-12-15T00:00:00",
+      "counterpartyName": "MEMBER TW",
+      "paymentPurpose": "UPI/P2A/283038913543/MEMBER TW/Paytm Pay/Payment/",
+      "credit": 1500,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2023-12-17T00:00:00",
+      "counterpartyName": "ECS Txn Chrgs Incl GST",
+      "paymentPurpose": "ECS Txn Chrgs Incl GST",
+      "debit": 29.5,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2023-12-17T00:00:00",
+      "counterpartyName": "ACMESHIPS LIMITED",
+      "paymentPurpose": "NEFT/N477809878838245/ACMESHIPS LIMITED/HDFC BANK/13445731",
+      "credit": 2383.13,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2023-12-21T00:00:00",
+      "counterpartyName": "EMPLOYEE PROVIDENT FUND ORGA",
+      "paymentPurpose": "NEFT/SBIN046601183832/EMPLOYEE PROVIDENT FUND ORGA/STATE BANK OF INDIA//URGENT/RS4698531946180//BUL",
+      "credit": 9650,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2023-12-23T00:00:00",
+      "counterpartyName": "ACMESHIPS LIMITED",
+      "paymentPurpose": "NEFT/N693121588369961/ACMESHIPS LIMITED/HDFC BANK/13509621",
+      "credit": 3162.06,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2023-12-23T00:00:00",
+      "counterpartyName": "MEMBER TWO DAS",
+      "paymentPurpose": "UPI/P2A/516941550831/MEMBER TWO DAS /Paymen/Paytm Payments Bank",
+      "debit": 1000,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2023-12-23T00:00:00",
+      "counterpartyName": "MEMBER TWO DAS",
+      "paymentPurpose": "UPI/P2A/516421176552/MEMBER TWO DAS /Paymen/Paytm Payments Bank",
+      "debit": 650,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2023-12-25T00:00:00",
+      "counterpartyName": "MEMBER TWO DAS",
+      "paymentPurpose": "UPI/P2A/078732571014/MEMBER TWO DAS /Paymen/Paytm Payments Bank",
+      "debit": 30,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2023-12-29T00:00:00",
+      "counterpartyName": "PERSON ELEVEN",
+      "paymentPurpose": "UPI/P2A/687873004467/PERSON ELEVEN /Paymen/State Bank Of India",
+      "debit": 1000,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2023-12-29T00:00:00",
+      "counterpartyName": "PERSON EIGHT",
+      "paymentPurpose": "UPI/P2A/571947274142/PERSON EIGHT /Paymen/Axis Bank Ltd.",
+      "debit": 1000,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2023-12-30T00:00:00",
+      "counterpartyName": "ACMESHIPS LIMITED",
+      "paymentPurpose": "NEFT/N656089215707418/ACMESHIPS LIMITED/HDFC BANK/13563832",
+      "credit": 2729.43,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2024-01-01T00:00:00",
+      "counterpartyName": "ACME BUTCHER MEAT SHO",
+      "paymentPurpose": "UPI/P2M/747707573049/ACME BUTCHER MEAT SHO/UPI/Bank of Baroda",
+      "debit": 1650,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2024-01-01T00:00:00",
+      "counterpartyName": "826056743600781:Int.Pd:01-10-2023 to 31-12- 2023",
+      "paymentPurpose": "826056743600781:Int.Pd:01-10-2023 to 31-12- 2023",
+      "credit": 21,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2024-01-02T00:00:00",
+      "counterpartyName": "PERSON THREE",
+      "paymentPurpose": "UPI/P2M/513114699390/PERSON THREE /Paymen/Yes Bank Ltd",
+      "debit": 34,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2024-01-03T00:00:00",
+      "counterpartyName": "Acme Prepaid Recharges",
+      "paymentPurpose": "UPI/P2M/366348568143/Acme Prepaid Recharges/Paymen/Paytm Payments Bank",
+      "debit": 179,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2024-01-04T00:00:00",
+      "counterpartyName": "MEMBE RTWARI DAS",
+      "paymentPurpose": "NEFT/MB/AXOMB54496840569/MEMBE RTWARI DAS/PAYTM PAYMENTS BANK /",
+      "debit": 1454,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2024-01-05T00:00:00",
+      "counterpartyName": "ACH-DR-TP ACH ICICI BANK-5034291859- UTIB847767909",
+      "paymentPurpose": "ACH-DR-TP ACH ICICI BANK-5034291859- UTIB847767909",
+      "debit": 3549,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2024-01-05T00:00:00",
+      "counterpartyName": "ACMESHIPS LIMITED",
+      "paymentPurpose": "NEFT/N923020015764310/ACMESHIPS LIMITED/HDFC BANK/13635159",
+      "credit": 1746.16,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2024-01-09T00:00:00",
+      "counterpartyName": "Dr Card Charges ANNUAL 6522XXXXXXXX0000",
+      "paymentPurpose": "Dr Card Charges ANNUAL 6522XXXXXXXX0000",
+      "debit": 236,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2024-01-10T00:00:00",
+      "counterpartyName": "MEMBE RTWARI DAS",
+      "paymentPurpose": "NEFT/MB/AXOMB59622802745/MEMBE RTWARI DAS/PAYTM PAYMENTS BANK /",
+      "debit": 3000,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2024-01-12T00:00:00",
+      "counterpartyName": "MEMBERTWOXXX S",
+      "paymentPurpose": "IMPS/P2A/731016193048/MEMBERTWOXXX S/X180245/PaytmPaymentsBank/",
+      "debit": 1505.9,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2024-01-13T00:00:00",
+      "counterpartyName": "ACMESHIPS LIMITED",
+      "paymentPurpose": "NEFT/N921607416503921/ACMESHIPS LIMITED/HDFC BANK/13697669",
+      "credit": 575.98,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2024-01-13T00:00:00",
+      "counterpartyName": "MEMBE RTWARI DAS",
+      "paymentPurpose": "NEFT/MB/AXOMB96649570153/MEMBE RTWARI DAS/PAYTM PAYMENTS BANK /",
+      "debit": 150,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2024-01-21T00:00:00",
+      "counterpartyName": "SMS Alerts Chrgs Incl GST",
+      "paymentPurpose": "SMS Alerts Chrgs Incl GST",
+      "debit": 1.18,
+      "currency": "INR"
+    },
+    {
+      "transactionDate": "2024-01-21T00:00:00",
+      "counterpartyName": "ECS Txn Chrgs Incl GST",
+      "paymentPurpose": "ECS Txn Chrgs Incl GST",
+      "debit": 29.5,
+      "currency": "INR"
+    }
+  ]
+}

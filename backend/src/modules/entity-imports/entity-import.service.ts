@@ -187,6 +187,8 @@ export class EntityImportService {
         currency,
         fileName: dto.fileName ?? null,
         categorize: dto.options?.categorize !== false,
+        walletId: dto.options?.walletId ?? null,
+        headers: [...(dto.headers ?? [])],
         cell: (row, field) => {
           const index = dto.mapping[field];
           return Number.isInteger(index) && index >= 0 ? String(row[index] ?? '') : '';
@@ -202,11 +204,7 @@ export class EntityImportService {
           }
           const all = await categoryRepo.find({
             where: { workspaceId },
-            select: {
-              id: true,
-              name: true,
-              type: true,
-            },
+            select: { id: true, name: true, type: true },
           });
           const found =
             all.find(item => item.type === type && nameKey(item.name) === nameKey(name)) ??

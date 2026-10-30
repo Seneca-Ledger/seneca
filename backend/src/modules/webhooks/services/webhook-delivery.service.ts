@@ -49,6 +49,10 @@ export class WebhookDeliveryService {
   async resetForRetry(id: string): Promise<void> {
     await this.repo.update(id, {
       status: WebhookDeliveryStatus.PENDING,
+      // An exhausted delivery has used every attempt; without this the claim
+      // query (attempt_count < max_attempts) never picks it up again.
+      attemptCount: 0,
+      lastError: null,
       nextAttemptAt: new Date(),
       lockedAt: null,
       lockedBy: null,

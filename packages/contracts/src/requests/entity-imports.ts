@@ -15,6 +15,8 @@ export const EntityImportOptionsInput = Schema.Struct({
   currency: optionalNullable(Schema.String.check(Schema.isBetweenLength(3, 3))),
   /** Transactions only: run the categorizer over rows without a category. */
   categorize: optionalNullable(Schema.Boolean),
+  /** Transactions only: the account the rows came from. */
+  walletId: optionalNullable(Schema.String.check(Schema.isUUID())),
 });
 export type EntityImportOptionsInput = Wire<typeof EntityImportOptionsInput>;
 
@@ -36,6 +38,8 @@ export const RunEntityImportBody = Schema.Struct({
     Schema.isMaxLength(5000),
   ),
   fileName: optionalNullable(Schema.String.check(Schema.isMaxLength(255))),
+  /** The sheet's header row: tells one bank's export from another's. */
+  headers: optionalNullable(Schema.Array(Schema.String).check(Schema.isMaxLength(60))),
   /** Validate and count only; nothing is written. */
   dryRun: optionalNullable(Schema.Boolean),
   options: optionalNullable(EntityImportOptionsInput),

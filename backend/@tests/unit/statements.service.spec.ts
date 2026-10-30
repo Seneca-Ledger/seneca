@@ -11,6 +11,7 @@ const createRepository = (rows: unknown[] = []) => {
     andWhere: vi.fn().mockReturnThis(),
     groupBy: vi.fn().mockReturnThis(),
     setParameter: vi.fn().mockReturnThis(),
+    setParameters: vi.fn().mockReturnThis(),
     getRawMany: vi.fn().mockResolvedValue(rows),
   };
 

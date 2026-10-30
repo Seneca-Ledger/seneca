@@ -1,9 +1,11 @@
 'use client';
 
-import { Container, Typography } from '@mui/material';
+import { Button, Container, Typography } from '@mui/material';
+import Link from 'next/link';
 import { useTheme } from 'next-themes';
 import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
+import { useAuth } from '@/app/hooks/useAuth';
 import { useIntlayer } from '@/app/i18n';
 import type { AuditEvent, AuditEventFilter } from '@/lib/api/audit';
 import { fetchAuditEvents, rollbackEvent } from '@/lib/api/audit';
@@ -17,6 +19,8 @@ export default function AdminPage() {
   const { resolvedTheme } = useTheme();
   const c = resolvedTheme === 'dark' ? tokens.dark.color : tokens.color;
   const t = useIntlayer('adminPage');
+  const parsing = useIntlayer('adminParsingPage');
+  const { user } = useAuth();
 
   const [auditLogs, setAuditLogs] = useState<AuditEvent[]>([]);
   const [auditTotal, setAuditTotal] = useState(0);
@@ -86,6 +90,11 @@ export default function AdminPage() {
       <Typography variant="h4" component="h1" gutterBottom>
         {t.title}
       </Typography>
+      {user?.role === 'admin' ? (
+        <Button component={Link} href="/admin/parsing" variant="outlined" size="small">
+          {parsing.title}
+        </Button>
+      ) : null}
 
       <div className="audit-page" style={{ maxWidth: '100%', padding: '24px 0 0' }}>
         <div className="audit-page__head">

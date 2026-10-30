@@ -1,0 +1,45 @@
+import * as Schema from 'effect/Schema';
+import type { Wire } from '../common/wire';
+
+/**
+ * One statement layout a bank's files came in, as words: what its table
+ * headers say. Never a figure, a name or a description.
+ */
+export const ParserHealthLayout = Schema.Struct({
+  fingerprint: Schema.String,
+  parser: Schema.String,
+  headings: Schema.Array(Schema.String),
+  unknownWords: Schema.Array(Schema.String),
+  /** Statements read in this layout within the window. */
+  statements: Schema.Number,
+  /** When the layout was first and last seen, over all statements. */
+  firstSeen: Schema.String,
+  lastSeen: Schema.String,
+  /** First seen lately, for a bank whose files came in another layout before. */
+  isNew: Schema.Boolean,
+});
+export type ParserHealthLayout = Wire<typeof ParserHealthLayout>;
+
+export const ParserHealthBank = Schema.Struct({
+  bank: Schema.String,
+  statements: Schema.Number,
+  needsReview: Schema.Number,
+  errors: Schema.Number,
+  /** Files naming the bank that its parser did not take (read generically, or none found). */
+  declined: Schema.Number,
+  /** Why statements were held for review, most frequent first. */
+  reasons: Schema.Array(Schema.Struct({ code: Schema.String, count: Schema.Number })),
+  layouts: Schema.Array(ParserHealthLayout),
+});
+export type ParserHealthBank = Wire<typeof ParserHealthBank>;
+
+/**
+ * `GET /parsing/health` (instance admins only): how each bank's statements
+ * parsed across the instance, as counts and layout words.
+ */
+export const ParserHealth = Schema.Struct({
+  /** Start of the window the counts cover. */
+  since: Schema.String,
+  banks: Schema.Array(ParserHealthBank),
+});
+export type ParserHealth = Wire<typeof ParserHealth>;

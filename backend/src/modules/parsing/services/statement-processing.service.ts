@@ -19,6 +19,7 @@ import { ImportSessionMode } from '../../../entities/import-session.entity';
 import { BankName, FileType, Statement, StatementStatus } from '../../../entities/statement.entity';
 import { Transaction, TransactionType } from '../../../entities/transaction.entity';
 import { User } from '../../../entities/user.entity';
+import { countWithoutCategory } from '../../categories/uncategorized-category';
 import { extractTaxFromPurpose } from '../../classification/helpers/tax-extractor.util';
 import { ClassificationService } from '../../classification/services/classification.service';
 import { ImportSessionService } from '../../import/services/import-session.service';
@@ -39,7 +40,12 @@ import {
   takeStatementAccount,
 } from '../helpers/statement-account.helper';
 import { fileExtensionOf } from '../helpers/statement-file.helper';
+import {
+  type ValidationReasonCode,
+  validateParsedStatement,
+} from '../helpers/statement-validation.helper';
 import type { ParsedStatement, ParsedTransaction } from '../interfaces/parsed-statement.interface';
+import { LayoutTemplateService } from './layout-template.service';
 import { MetadataExtractionService } from './metadata-extraction.service';
 import { OcrService } from './ocr.service';
 import { ParserFactoryService } from './parser-factory.service';
@@ -111,6 +117,7 @@ export class StatementProcessingService {
     private readonly transferPairingService?: TransferPairingService,
     @Optional()
     private readonly manualRowDuplicates?: ManualRowDuplicateService,
+    @Optional() private readonly layoutTemplates?: LayoutTemplateService,
   ) {}
 
   private isRecord(value: unknown): value is Record<string, unknown> {
@@ -236,6 +243,18 @@ export class StatementProcessingService {
     );
   }
 
+  /** One count per reason a statement was held, or one `ok`, by bank and parser. */
+  private countOutcome(statement: Statement, reasons: ValidationReasonCode[]) {
+    for (const reason of reasons.length > 0 ? reasons : ['none']) {
+      this.metricsService?.statementParseOutcomeTotal.inc({
+        bank: statement.bankName,
+        parser: statement.parsingDetails?.parserUsed ?? 'unknown',
+        outcome: reasons.length > 0 ? 'review' : 'ok',
+        reason,
+      });
+    }
+  }
+
   private countError(stage: string, error: unknown) {
     if (!this.metricsService) {
       return;
@@ -252,113 +271,6 @@ export class StatementProcessingService {
       stage,
       error: label.substring(0, 80),
     });
-  }
-
-  private static readonly HIGH_DROP_RATIO_THRESHOLD = 0.5;
-
-  /**
-   * Summing debit/credit across transactions only makes sense when they
-   * share one currency — a statement whose rows carry different currency
-   * codes (e.g. a generic CSV/XLSX with a per-row currency column) would
-   * otherwise get compared against balanceEnd as if KZT and USD were the
-   * same unit. Parsers that convert foreign amounts into the statement's
-   * own currency (Hapoalim tracks the original via amountForeign instead)
-   * already report one currency per row, so they're unaffected.
-   */
-  private findMixedCurrencies(transactions: ParsedTransaction[]): string[] | null {
-    const currencies = new Set(transactions.map(t => t.currency).filter((c): c is string => !!c));
-    return currencies.size > 1 ? Array.from(currencies) : null;
-  }
-
-  private validateStatement(
-    metadata: { balanceStart?: number | null; balanceEnd?: number | null },
-    transactions: ParsedTransaction[],
-    dropInfo?: { rawCount: number; droppedCount: number },
-  ): {
-    passed: boolean;
-    warnings: string[];
-    balanceCheck?: {
-      expectedEnd?: number;
-      actualEnd?: number;
-      difference?: number;
-      tolerance: number;
-    };
-  } {
-    const warnings: string[] = [];
-    const debitSum = transactions.reduce((sum, t) => sum + (t.debit ?? 0), 0);
-    const creditSum = transactions.reduce((sum, t) => sum + (t.credit ?? 0), 0);
-
-    const mixedCurrencies = this.findMixedCurrencies(transactions);
-
-    let balanceCheck:
-      | {
-          expectedEnd?: number;
-          actualEnd?: number;
-          difference?: number;
-          tolerance: number;
-        }
-      | undefined;
-
-    if (mixedCurrencies) {
-      warnings.push(
-        `Statement mixes multiple currencies (${mixedCurrencies.join(', ')}) — balance could not be automatically reconciled`,
-      );
-    } else if (
-      metadata.balanceStart !== null &&
-      metadata.balanceStart !== undefined &&
-      metadata.balanceEnd !== null &&
-      metadata.balanceEnd !== undefined
-    ) {
-      const expectedEnd = metadata.balanceStart + creditSum - debitSum;
-      const diff = Math.abs(expectedEnd - metadata.balanceEnd);
-      balanceCheck = {
-        expectedEnd,
-        actualEnd: metadata.balanceEnd,
-        difference: diff,
-        tolerance: StatementProcessingService.BALANCE_EPS,
-      };
-
-      if (diff > StatementProcessingService.BALANCE_EPS) {
-        warnings.push(
-          `Balance mismatch: expected ${expectedEnd.toFixed(2)} got ${metadata.balanceEnd.toFixed(2)} (diff ${diff.toFixed(2)})`,
-        );
-      }
-    }
-
-    // The balance check above passes trivially whenever the bank statement
-    // didn't include balances at all, or when every row happened to net to
-    // zero — that's not the same as a good parse. A statement that produced
-    // zero transactions, or dropped most of what it attempted, must not be
-    // reported as COMPLETED just because there was nothing left to compare.
-    if (dropInfo) {
-      const { rawCount, droppedCount } = dropInfo;
-      const validCount = transactions.length;
-
-      if (rawCount > 0 && validCount === 0) {
-        warnings.push(
-          `All ${rawCount} parsed rows were rejected during validation — statement produced zero transactions`,
-        );
-      } else if (
-        rawCount > 0 &&
-        droppedCount / rawCount > StatementProcessingService.HIGH_DROP_RATIO_THRESHOLD
-      ) {
-        const percent = Math.round((droppedCount / rawCount) * 100);
-        warnings.push(
-          `${droppedCount} of ${rawCount} parsed rows were rejected during validation (${percent}%)`,
-        );
-      } else if (
-        rawCount === 0 &&
-        validCount === 0 &&
-        (metadata.balanceStart == null || metadata.balanceEnd == null)
-      ) {
-        // Both balances must be present to trust that zero transactions means
-        // a genuinely empty period rather than a failed extraction — one
-        // balance found and the other missing is still a partial failure.
-        warnings.push('No transactions or balances could be extracted from the statement');
-      }
-    }
-
-    return { passed: warnings.length === 0, warnings, balanceCheck };
   }
 
   private enforceTransactionSchema(
@@ -678,13 +590,11 @@ export class StatementProcessingService {
       if (!parser) {
         const errorMsg = `No parser found for bank ${bankName} and file type ${statement.fileType}`;
         addLog('error', errorMsg);
-        parsingDetails.errors = parsingDetails.errors || [];
-        parsingDetails.errors.push(errorMsg);
+        parsingDetails.errors = [...(parsingDetails.errors ?? []), errorMsg];
         throw new StatementRejected({ message: errorMsg });
       }
 
-      const parserVersion =
-        typeof parser.getVersion === 'function' ? parser.getVersion() : 'unknown';
+      const parserVersion = parser.getVersion?.() ?? 'unknown';
 
       parsingDetails.parserUsed = parser.constructor.name;
       parsingDetails.parserVersion = parserVersion;
@@ -693,7 +603,9 @@ export class StatementProcessingService {
       // Parse statement
       addLog('info', 'Starting PDF text extraction...');
       const parseStartTime = Date.now();
-      const parsedStatement = await parser.parse(processingFilePath, cachedText, ocrConfidence);
+      // A layout the workspace taught reads the file when the parser's own reading fails.
+      const reader = this.layoutTemplates?.readerFor(parser, statement) ?? parser;
+      const parsedStatement = await reader.parse(processingFilePath, cachedText, ocrConfidence);
       takeStatementAccount(parsedStatement, statement, parsingDetails);
       const parseTime = Date.now() - parseStartTime;
 
@@ -852,19 +764,19 @@ export class StatementProcessingService {
         parsingDetails,
       } as QueryDeepPartialEntity<Statement>);
 
-      const validationResult = this.validateStatement(
+      const validationResult = validateParsedStatement(
         enrichedMetadata,
         parsedStatement.transactions,
         {
-          rawCount: rawTransactionCount,
-          droppedCount: droppedSamples.length,
+          tolerance: StatementProcessingService.BALANCE_EPS,
+          dropInfo: { rawCount: rawTransactionCount, droppedCount: droppedSamples.length },
+          checks: parsedStatement.checks,
         },
       );
-      parsingDetails.validation = {
-        passed: validationResult.passed,
-        warnings: validationResult.warnings,
-        balanceCheck: validationResult.balanceCheck,
-      };
+      parsingDetails.validation = validationResult;
+      parsingDetails.checks = parsedStatement.checks;
+      parsingDetails.layout = parsedStatement.layout;
+      this.countOutcome(statement, validationResult.reasonCodes);
       if (validationResult.warnings.length) {
         parsingDetails.warnings = parsingDetails.warnings || [];
         validationResult.warnings.forEach(warning => {
@@ -873,9 +785,9 @@ export class StatementProcessingService {
         });
       }
 
-      // A statement whose balance does not reconcile is held out of analytics
-      // until a user confirms it. `passed` is also true when the bank gave us no
-      // balances to check against, so only a real mismatch blocks here.
+      // A statement that fails validation is held out of analytics until a user
+      // confirms it. `passed` is also true when the bank gave us no balances
+      // and the parser nothing of its own to check against.
       const finalStatus = validationResult.passed
         ? StatementStatus.COMPLETED
         : StatementStatus.NEEDS_REVIEW;
@@ -883,7 +795,7 @@ export class StatementProcessingService {
       if (finalStatus === StatementStatus.NEEDS_REVIEW) {
         addLog(
           'warn',
-          'Statement held for review: balance did not reconcile. It is excluded from analytics until confirmed.',
+          `Statement held for review (${validationResult.reasonCodes.join(', ')}). It is excluded from analytics until confirmed.`,
         );
       }
 
@@ -907,9 +819,7 @@ export class StatementProcessingService {
           source: 'statement',
         } satisfies ImportCommittedEvent);
 
-        const uncategorizedCount = creationResult.transactions.filter(
-          transaction => !transaction.categoryId,
-        ).length;
+        const uncategorizedCount = countWithoutCategory(creationResult.transactions);
         if (uncategorizedCount > 0) {
           this.eventEmitter.emit('transactions.uncategorized', {
             workspaceId: statement.workspaceId,
@@ -938,8 +848,7 @@ export class StatementProcessingService {
       const message = this.getErrorMessage(error);
       const errorMsg = `Error processing statement ${statementId}: ${message}`;
       addLog('error', errorMsg);
-      parsingDetails.errors = parsingDetails.errors || [];
-      parsingDetails.errors.push(message);
+      parsingDetails.errors = [...(parsingDetails.errors ?? []), message];
       parsingDetails.processingTime = Date.now() - startTime;
       this.countError('processing', error);
       this.observeDuration('total', startTime, statement.bankName, statement.fileType, 'error');

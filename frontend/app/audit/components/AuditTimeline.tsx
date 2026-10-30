@@ -6,10 +6,11 @@ import { ChevronDown, ChevronRight, Layers } from '@/app/components/icons';
 import { EmptyStateIllustration } from '@/app/components/ui/EmptyStateIllustration';
 import { AppPagination } from '@/app/components/ui/pagination';
 import { useIntlayer } from '@/app/i18n';
+import { normalizeAvatarUrl } from '@/app/lib/avatar-url';
+import { avatarInitial, avatarTone } from '@/app/lib/initial-avatar';
 import { type AuditEvent, isEntityType } from '@/lib/api/audit';
 import { ACTION_ICON_MAP } from '../utils/actionIconMap';
 import { buildGroupedData } from '../utils/audit-table-utils';
-import { getAvatarColor, getInitials } from '../utils/avatarUtils';
 import { formatAuditEvent } from '../utils/formatAuditEvent';
 import { relativeTime } from '../utils/relativeTime';
 
@@ -23,6 +24,26 @@ interface AuditTimelineProps {
   onPageChange: (page: number) => void;
 }
 
+/**
+ * The member who acted, as the account menu shows them: their photo, or the
+ * first letter of their name on the tint their e-mail picks. The system and
+ * integrations have no member: their label's letter on a muted tint.
+ */
+function ActorAvatar({ event }: { event: AuditEvent }): React.JSX.Element {
+  const [photoFailed, setPhotoFailed] = useState(false);
+  const { actor } = event;
+  const photo = normalizeAvatarUrl(actor?.avatarUrl);
+  const tone = actor ? avatarTone(actor.email) : 'var(--muted-foreground)';
+  return (
+    <span className="audit-avatar" style={{ background: tone }} title={event.actorLabel}>
+      {photo && !photoFailed ? (
+        <img src={photo} alt="" onError={() => setPhotoFailed(true)} />
+      ) : (
+        avatarInitial(actor?.name || actor?.email || event.actorLabel)
+      )}
+    </span>
+  );
+}
 function AuditTimelineItem({
   event,
   onSelect,
@@ -38,9 +59,6 @@ function AuditTimelineItem({
   const entityLabel = isEntityType(event.entityType)
     ? (t.entityLabels[event.entityType]?.value ?? event.entityType)
     : event.entityType;
-  const initials = getInitials(event.actorLabel);
-  const avatarColor =
-    event.actorType === 'system' ? 'var(--muted-foreground)' : getAvatarColor(event.actorLabel);
 
   return (
     <li className="audit-item">
@@ -60,13 +78,7 @@ function AuditTimelineItem({
         }}
       >
         <div className="audit-line">
-          <span
-            className="audit-avatar"
-            style={{ background: avatarColor }}
-            title={event.actorLabel}
-          >
-            {initials}
-          </span>
+          <ActorAvatar event={event} />
           <span className="audit-actor">{event.actorLabel}</span>
           <span className="audit-verb">{formatted.actionVerb}</span>
           <span className="audit-what">{entityLabel}</span>

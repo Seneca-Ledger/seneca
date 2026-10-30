@@ -238,5 +238,7 @@ export const queryKeys = {
     ['transactions', 'receipt-tax', o.workspaceId, o.receiptId] as const,
   /** Instance-wide (the running containers), so the one key without a workspace. */
   systemUpdate: () => ['system-update'] as const,
+  /** Instance-wide too: every workspace's statements, as counts per bank and layout. */
+  parserHealth: () => ['parser-health'] as const,
   workspaceVersions: (workspaceId: string | null) => ['workspace-versions', workspaceId] as const,
 } as const;

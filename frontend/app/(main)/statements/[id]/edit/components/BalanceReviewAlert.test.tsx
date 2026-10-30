@@ -7,6 +7,10 @@ import { BalanceReviewAlert } from './BalanceReviewAlert';
 
 const post = vi.fn();
 vi.mock('@/app/lib/api', () => ({ default: { post: (...args: unknown[]) => post(...args) } }));
+vi.mock('@/app/components/PDFPreviewModal', () => ({
+  PDFPreviewModal: ({ isOpen, teach }: { isOpen: boolean; teach?: boolean }) =>
+    isOpen ? <div data-testid="preview-modal">{teach ? 'teach' : 'view'}</div> : null,
+}));
 
 const labels = {
   title: 'Balance does not reconcile',
@@ -16,6 +20,15 @@ const labels = {
   difference: 'Difference',
   confirm: 'Confirm discrepancy',
   confirmFailed: 'Failed to confirm the discrepancy',
+  checksTitle: 'The statement may have been misread',
+  checks: {
+    chain: 'The running balance breaks at the row of {date}.',
+    credits: 'Money in does not match the total the statement prints.',
+    debits: 'Money out does not match the total the statement prints.',
+    opening: 'The opening balance does not match the one the statement prints.',
+    closing: 'The closing balance does not match the one the statement prints.',
+    dates: 'A row dated {date} falls outside the statement period.',
+  },
 };
 
 const parsingDetails = {
@@ -47,7 +60,7 @@ describe('BalanceReviewAlert', () => {
     act(async () => {
       root.render(
         <BalanceReviewAlert
-          statementId="stmt-1"
+          statement={{ id: 'stmt-1', fileName: 'statement.pdf', fileType: 'pdf' }}
           status="needs_review"
           parsingDetails={parsingDetails}
           labels={labels}
@@ -70,6 +83,30 @@ describe('BalanceReviewAlert', () => {
     expect(container.textContent).toContain('1100');
     expect(container.textContent).toContain('1500');
     expect(container.textContent).toContain('400');
+  });
+
+  it("says which of the parser's checks failed, where, and the figures that disagree", async () => {
+    await render({
+      parsingDetails: {
+        validation: { passed: false, reasonCodes: ['balance_chain', 'printed_totals'] },
+        checks: [
+          { code: 'section_totals', passed: true },
+          {
+            code: 'balance_chain',
+            passed: false,
+            detail: { row: 2, date: '15/02/2025', expected: 1110, actual: 1050 },
+          },
+          { code: 'printed_totals', passed: false, detail: { side: 'debits', expected: 50.25, actual: 50 } },
+        ],
+      },
+    });
+
+    expect(container.textContent).toContain('The statement may have been misread');
+    expect(container.textContent).not.toContain('Balance does not reconcile');
+    expect(container.textContent).toContain('The running balance breaks at the row of 15/02/2025.');
+    expect(container.textContent).toContain('1110');
+    expect(container.textContent).toContain('Money out does not match the total the statement prints.');
+    expect(container.textContent).not.toContain('Money in does not match');
   });
 
   it('renders nothing for a statement that is not awaiting review', async () => {
@@ -95,6 +132,16 @@ describe('BalanceReviewAlert', () => {
 
     expect(container.textContent).toContain('Failed to confirm the discrepancy');
     expect(onConfirmed).not.toHaveBeenCalled();
+  });
+
+  it('offers teaching the layout when the parser read nothing or its checks broke', async () => {
+    const teachButton = () => container.querySelector('[data-testid="teach-layout-button"]');
+    await render({ parsingDetails: { validation: { passed: false, reasonCodes: ['balance_mismatch'] } } });
+    expect(teachButton()).toBeNull();
+
+    await render({ parsingDetails: { validation: { passed: false, reasonCodes: ['balance_chain'] } } });
+    await act(async () => (teachButton() as HTMLButtonElement).click());
+    expect(container.querySelector('[data-testid="preview-modal"]')?.textContent).toBe('teach');
   });
 
   it('still renders when the backend reported no balance figures', async () => {

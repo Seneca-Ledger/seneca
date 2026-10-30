@@ -9,6 +9,7 @@ import { formatMonthParam } from '@/app/(main)/dashboard/helpers/dashboard-url-s
 import { DocumentThumbnailPreview } from '@/app/components/DocumentThumbnailPreview';
 import { AlertCircle, ChevronDown, ChevronRight, CreditCard, Tag } from '@/app/components/icons';
 import { NotesBadge } from '@/app/components/notes/NotesBadge';
+import { canTeach } from '@/app/components/pdf-teach/teach-utils';
 import { Checkbox } from '@/app/components/ui/checkbox';
 import { PRIVATE_CLASS } from '@/app/components/ui/private-amount';
 import { Spinner } from '@/app/components/ui/spinner';
@@ -23,7 +24,7 @@ import {
   type StatementColumn,
   type StatementColumnId,
 } from './columns/statement-columns';
-import { splitAmountLabel } from './filters/amount-view';
+import { amountState, StatementAmountCell, StatusBadge, TeachButton } from './StatementAmountCell';
 import { StatementCategoryCell } from './StatementCategoryCell';
 import { isDocumentApproved, resolveStatementSortDate } from './StatementsListView.utils';
 import {
@@ -102,7 +103,8 @@ type Props = {
   amountLabel: string;
   dateLabel: string;
   onView: () => void;
-  onIconClick: () => void;
+  /** Opens the row's file; `teach` opens it to mark a layout the parser could not read. */
+  onIconClick: (mode?: 'teach') => void;
   onToggleSelect?: () => void;
   selected?: boolean;
   selectionDisabled?: boolean;
@@ -166,45 +168,6 @@ function TagLink({
   );
 }
 
-function StatusBadge({
-  status,
-  isProcessing,
-  errorMessage,
-}: {
-  status: string;
-  isProcessing: boolean;
-  errorMessage?: string | null;
-}) {
-  const listText = useIntlayer('statementsListUi');
-  if (errorMessage || status === 'error') {
-    return (
-      <span className="seneca-stmt-badge seneca-stmt-badge--error">{listText.statusError}</span>
-    );
-  }
-  if (isProcessing || status === 'processing' || status === 'uploaded') {
-    return (
-      <span className="seneca-stmt-badge seneca-stmt-badge--pending">{listText.statusPending}</span>
-    );
-  }
-  // Parsed, but the balance did not reconcile: held out of analytics until a user
-  // confirms it on the statement page.
-  if (status === 'needs_review') {
-    return (
-      <span className="seneca-stmt-badge seneca-stmt-badge--review">
-        {listText.statusNeedsReview}
-      </span>
-    );
-  }
-  if (status === 'completed' || status === 'parsed' || status === 'validated') {
-    return (
-      <span className="seneca-stmt-badge seneca-stmt-badge--completed">
-        {listText.statusCompleted}
-      </span>
-    );
-  }
-  return null;
-}
-
 export function StatementsListItem({
   dataTourId,
   statement,
@@ -249,13 +212,8 @@ export function StatementsListItem({
   const isLocalReceipt = statement.source === 'scan';
   const previewSource = isLocalReceipt ? 'receipt' : 'statement';
   const hasError = !!statement.errorMessage || statement.status === 'error';
-  const isPendingStatement = statement.status === 'uploaded' || statement.status === 'processing';
-  const compactAmountLabel = amountLabel.replace(/\s+/g, '');
-  const isZeroAmountLabel = /^0(?:[.,]0+)?\D*$/.test(compactAmountLabel);
-  const isNegativeAmount = amountLabel.startsWith('-') && amountLabel !== '-';
-  const isMissingAmount = amountLabel === '-';
-  const showAmountLoader =
-    !isReceipt && isPendingStatement && (isZeroAmountLabel || isMissingAmount);
+  const { isPendingStatement, isZeroAmountLabel, isMissingAmount, danger, showAmountLoader } =
+    amountState(statement, amountLabel, isReceipt);
   const resolvedDuplicateRole: DuplicateRole = duplicateRole || 'suspected';
   const resolvedDuplicateGroupLabel = duplicateGroupLabel || listText.group.value;
   const duplicateRoleLabel =
@@ -272,7 +230,6 @@ export function StatementsListItem({
   const duplicateTooltipText = `${duplicateBadgeLabel ?? ''} — ${duplicateReason || listText.duplicateReasonSame.value}`;
   const reviewLabel = duplicateActionLabel || listText.review.value;
   const actionLabel = isPossibleDuplicate ? reviewLabel : viewLabel;
-  const { figure: amountFigure, currency: amountCurrency } = splitAmountLabel(amountLabel);
   const typeCaption = isManualExpense
     ? null
     : isReceipt
@@ -454,46 +411,6 @@ export function StatementsListItem({
       </button>
     ) : null;
 
-  const renderAmountCell = (): React.JSX.Element => (
-    <div
-      style={{
-        width: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'flex-end',
-        justifyContent: 'center',
-      }}
-    >
-      <span
-        className={clsx('seneca-stmt-list-item__amount', PRIVATE_CLASS)}
-        style={{
-          color: isNegativeAmount || hasError || isMissingAmount ? c.danger : c.ink900,
-          whiteSpace: amountFigure.includes('\n') ? 'pre-line' : undefined,
-        }}
-      >
-        {showAmountLoader ? (
-          <Spinner style={{ width: 16, height: 16, color: c.ink400 }} />
-        ) : (
-          <>
-            {amountFigure}
-            {amountCurrency ? (
-              <span className="seneca-stmt-list-item__currency"> {amountCurrency}</span>
-            ) : null}
-          </>
-        )}
-      </span>
-      <div
-        style={{ marginTop: 2, display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}
-      >
-        <StatusBadge
-          status={statement.status}
-          isProcessing={isProcessing}
-          errorMessage={statement.errorMessage}
-        />
-      </div>
-    </div>
-  );
-
   const renderActionCell = (): React.JSX.Element => (
     <>
       {/* Every row, Review or not, is as wide as the Review label in this
@@ -549,7 +466,16 @@ export function StatementsListItem({
         />
       );
     if (columnId === 'tag') return renderTagCell();
-    if (columnId === 'amount') return renderAmountCell();
+    if (columnId === 'amount')
+      return (
+        <StatementAmountCell
+          statement={statement}
+          amountLabel={amountLabel}
+          isReceipt={isReceipt}
+          isProcessing={isProcessing}
+          onTeach={() => onIconClick('teach')}
+        />
+      );
     if (columnId === 'action') return renderActionCell();
     if (columnId === 'approved') return renderPlainCell(columnId, approvedLabel);
     if (columnId === 'billable') return renderPlainCell(columnId, billableLabel);
@@ -628,10 +554,12 @@ export function StatementsListItem({
             <span
               className={clsx('seneca-stmt-list-item__mobile-amount', PRIVATE_CLASS)}
               style={{
-                color: isNegativeAmount || hasError || isMissingAmount ? c.danger : undefined,
+                color: danger ? c.danger : undefined,
               }}
             >
-              {showAmountLoader ? (
+              {canTeach(statement) ? (
+                <TeachButton onTeach={() => onIconClick('teach')} />
+              ) : showAmountLoader ? (
                 <Spinner style={{ width: 14, height: 14, color: c.ink400 }} />
               ) : (
                 amountLabel
