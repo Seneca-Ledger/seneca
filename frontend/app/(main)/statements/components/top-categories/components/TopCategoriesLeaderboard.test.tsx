@@ -12,6 +12,7 @@ vi.mock('@/app/i18n', async importOriginal => ({
 
 vi.mock('@/app/lib/user-format-store', () => ({
   formatStoredDate: (value: string) => value,
+  readStoredFormatPreferences: () => ({}),
 }));
 
 function row(overrides: Partial<TopCategoryAggregateRow>): TopCategoryAggregateRow {
