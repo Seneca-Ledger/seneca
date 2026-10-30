@@ -1,8 +1,7 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
 import { appError } from '../../common/errors/app-error';
-import { FileStorageService } from '../../common/services/file-storage.service';
 import { validateFile } from '../../common/utils/file-validator.util';
 import { assertNoTaxLockedTransactions } from '../../common/utils/tax-lock.util';
 import type {
@@ -11,7 +10,7 @@ import type {
   StatementsQuery,
   UpdateStatementBody,
 } from '../../contracts';
-import { Category, WorkspaceMember } from '../../entities';
+import { WorkspaceMember } from '../../entities';
 import { ActorType, AuditAction, EntityType, Severity } from '../../entities/audit-event.entity';
 import { Statement, StatementStatus } from '../../entities/statement.entity';
 import { Transaction } from '../../entities/transaction.entity';
@@ -23,42 +22,11 @@ import { DroppedSampleService } from './dropped-sample.service';
 import { ManualExpenseService } from './manual-expense.service';
 import { ReceiptStatementService } from './services/receipt-statement.service';
 import { ensureCanModifyStatement } from './statement-access';
+import { dateOnly } from './statement-date-only.util';
 import { StatementFilesService } from './statement-files.service';
-import {
-  applyStatementFilters,
-  applyStatementRowFilters,
-  orderStatementList,
-} from './statement-list-query';
-import {
-  EMPTY_TRANSACTION_SUMMARY,
-  loadTransactionSummaries,
-  type StatementTransactionSummary,
-} from './statement-transaction-summary';
+import { StatementListService } from './statement-list.service';
 import { StatementTrashService } from './statement-trash.service';
 import { StatementUploadService } from './statement-upload.service';
-
-type StatementFileAvailability = Awaited<ReturnType<FileStorageService['getFileAvailability']>>;
-type StatementWithFileAvailability = Statement & {
-  hasFileOnDisk?: boolean;
-  hasFileInDb?: boolean;
-  fileAvailability?: StatementFileAvailability;
-  transactionSummary?: StatementTransactionSummary;
-};
-type StatementRepositoryWithOptionalQueryBuilder = Repository<Statement> & {
-  createQueryBuilder?: Repository<Statement>['createQueryBuilder'];
-};
-
-/**
- * YYYY-MM-DD for a `date` column. Postgres returns loaded `date` values as
- * strings although the entity types them as Date; only dates set in this
- * request are Date objects.
- */
-function dateOnly(value: Date | string | null): string | undefined {
-  if (!value) {
-    return undefined;
-  }
-  return (value instanceof Date ? value.toISOString() : String(value)).split('T')[0];
-}
 
 @Injectable()
 export class StatementsService {
@@ -71,11 +39,8 @@ export class StatementsService {
     private transactionRepository: Repository<Transaction>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
-    @InjectRepository(Category)
-    private readonly categoryRepository: Repository<Category>,
     @InjectRepository(WorkspaceMember)
     private readonly workspaceMemberRepository: Repository<WorkspaceMember>,
-    private readonly fileStorageService: FileStorageService,
     private statementProcessingService: StatementProcessingService,
     private readonly statementParsingQueue: StatementParsingQueue,
     private readonly receiptStatementService: ReceiptStatementService,
@@ -85,18 +50,8 @@ export class StatementsService {
     private readonly manualExpenses: ManualExpenseService,
     private readonly uploads: StatementUploadService,
     private readonly droppedSamples: DroppedSampleService,
+    private readonly list: StatementListService,
   ) {}
-
-  private attachFileAvailability<T extends Statement>(
-    statement: T,
-    availability: StatementFileAvailability,
-  ): T & StatementWithFileAvailability {
-    const statementWithAvailability = statement as T & StatementWithFileAvailability;
-    statementWithAvailability.hasFileOnDisk = availability.onDisk;
-    statementWithAvailability.hasFileInDb = availability.inDb;
-    statementWithAvailability.fileAvailability = availability;
-    return statementWithAvailability;
-  }
 
   private async ensureCanModify(
     statement: Statement,
@@ -164,115 +119,11 @@ export class StatementsService {
     page: number;
     limit: number;
   }> {
-    const page = filters.page;
-    const limit = filters.limit ?? (page ? 20 : undefined);
-    const qb = this.statementRepository
-      .createQueryBuilder('statement')
-      .leftJoinAndSelect('statement.user', 'user')
-      .leftJoinAndSelect('statement.category', 'category')
-      .leftJoinAndSelect('statement.tags', 'tags')
-      .where('statement.deletedAt IS NULL')
-      .andWhere('statement.workspaceId = :workspaceId', { workspaceId })
-      .orderBy('statement.createdAt', 'DESC');
-
-    if (page && limit) {
-      qb.skip((page - 1) * limit).take(limit);
-    } else if (!page && limit) {
-      qb.take(limit);
-    }
-
-    applyStatementFilters(qb, filters);
-    const categoryIds =
-      filters.categoryId && filters.categoryId !== 'uncategorized'
-        ? await this.categoryWithDescendants(workspaceId, filters.categoryId)
-        : null;
-    applyStatementRowFilters(qb, filters, this.transactionRepository, workspaceId, categoryIds);
-    orderStatementList(qb, filters.groupBy);
-
-    const [dataRaw, totalCount] = await qb.getManyAndCount();
-    const transactionSummaries = await loadTransactionSummaries(
-      this.transactionRepository,
-      workspaceId,
-      dataRaw.map(statement => statement.id),
-      viewerMemberId,
-    );
-    const data = await Promise.all(
-      dataRaw.map(async st => {
-        const availability = await this.fileStorageService.getFileAvailability(st);
-        const statement = this.attachFileAvailability(st, availability);
-        statement.transactionSummary = transactionSummaries.get(st.id) ?? EMPTY_TRANSACTION_SUMMARY;
-        return statement;
-      }),
-    );
-
-    const total = page ? totalCount : data.length;
-
-    return {
-      data,
-      total,
-      page: page ?? 1,
-      limit: limit ?? total,
-    };
-  }
-
-  /** The category and every category below it, within the workspace. */
-  private async categoryWithDescendants(
-    workspaceId: string,
-    categoryId: string,
-  ): Promise<string[]> {
-    const categories = await this.categoryRepository.find({
-      where: { workspaceId },
-      select: { id: true, parentId: true },
-    });
-    const ids = [categoryId];
-    for (let index = 0; index < ids.length; index++) {
-      for (const category of categories) {
-        if (category.parentId === ids[index] && !ids.includes(category.id)) ids.push(category.id);
-      }
-    }
-    return ids;
+    return this.list.list(workspaceId, filters, viewerMemberId);
   }
 
   async findOne(id: string, workspaceId: string): Promise<Statement> {
-    const statementRepository = this
-      .statementRepository as StatementRepositoryWithOptionalQueryBuilder;
-
-    if (typeof statementRepository.createQueryBuilder !== 'function') {
-      const statement = await this.statementRepository.findOne({
-        where: { id, workspaceId },
-        relations: {
-          transactions: true,
-          user: true,
-        },
-      });
-
-      if (!statement) {
-        throw new NotFoundException(appError('STATEMENT_NOT_FOUND'));
-      }
-
-      const availability = await this.fileStorageService.getFileAvailability(statement);
-      this.attachFileAvailability(statement, availability);
-
-      return statement;
-    }
-
-    const qb = statementRepository
-      .createQueryBuilder('statement')
-      .leftJoinAndSelect('statement.transactions', 'transactions')
-      .leftJoinAndSelect('statement.user', 'owner')
-      .where('statement.id = :id', { id })
-      .andWhere('statement.workspaceId = :workspaceId', { workspaceId });
-
-    const statement = await qb.getOne();
-
-    if (!statement) {
-      throw new NotFoundException(appError('STATEMENT_NOT_FOUND'));
-    }
-
-    const availability = await this.fileStorageService.getFileAvailability(statement);
-    this.attachFileAvailability(statement, availability);
-
-    return statement;
+    return this.list.findOne(id, workspaceId);
   }
 
   async updateMetadata(

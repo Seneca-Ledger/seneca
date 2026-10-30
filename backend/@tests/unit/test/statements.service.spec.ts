@@ -4,6 +4,7 @@ import { calculateFileHash } from '@/common/utils/file-hash.util';
 import { FileType } from '@/entities/statement.entity';
 import { StatementsService } from '@/modules/statements/statements.service';
 import { StatementFilesService } from '@/modules/statements/statement-files.service';
+import { StatementListService } from '@/modules/statements/statement-list.service';
 import { StatementUploadService } from '@/modules/statements/statement-upload.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { workspaceCurrencyStub } from '../../helpers/workspace-currency-stub';
@@ -76,9 +77,7 @@ describe('StatementsService', () => {
       statementRepository as any,
       transactionRepository as any,
       userRepository as any,
-      categoryRepository as any,
       workspaceMemberRepository as any,
-      fileStorageService as any,
       statementProcessingService as any,
       parsingQueue,
       receiptStatementService as any,
@@ -97,6 +96,12 @@ describe('StatementsService', () => {
         eventEmitter as any,
       ),
       {} as any,
+      new StatementListService(
+        statementRepository as any,
+        transactionRepository as any,
+        categoryRepository as any,
+        fileStorageService as any,
+      ),
     );
   });
 
