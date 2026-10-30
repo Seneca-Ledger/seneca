@@ -2,7 +2,7 @@
 FROM oven/bun:1.4.4-debian@sha256:93d5032fe06d163427822dc1598f420363759bb18155c9cc90eb1be05a64a19e AS bun
 
 # --- Base: runtime OS deps shared by every stage ---
-FROM node:24-bookworm-slim@sha256:55fb5f5a527ea2c5c4a95f963e48ef90aa38c7b346054fdc8ee9957a2b55d205 AS base
+FROM node:25-bookworm-slim@sha256:81db02c4b671288a03915da9534dbd54f96d0e7c24d80ccc54f5b36b2e684370 AS base
 
 # Pinned explicitly (not just relying on the base image's default) so a date
 # built from local Date parts (new Date(year, month, day), used throughout
