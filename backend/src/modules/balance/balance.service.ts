@@ -261,9 +261,9 @@ export class BalanceService {
    * What the active credit cards and loans owe at each of `dates`, per
    * currency, as positive amounts: the liability side of what cash leaves out.
    */
-  async getDebtSeries(workspaceId: string, dates: string[]): Promise<Map<string, CurrencyAmounts>> {
+  async getDebtSeries(workspaceId: string, dates: string[], types = DEBT_WALLET_TYPES) {
     const debts = await this.walletRepository.find({
-      where: { workspaceId, isActive: true, type: In([...DEBT_WALLET_TYPES]) },
+      where: { workspaceId, isActive: true, type: In([...types]) },
       select: { id: true, initialBalance: true, currency: true },
     });
     if (debts.length === 0) {

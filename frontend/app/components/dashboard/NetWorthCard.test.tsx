@@ -78,6 +78,7 @@ function netWorth(overrides: Partial<NetWorthData> = {}): NetWorthData {
     savings: { income: 0, kept: 0, rate: null },
     allTimeHigh: null,
     byAssetClass: [],
+    groups: [],
     ...overrides,
   };
 }
