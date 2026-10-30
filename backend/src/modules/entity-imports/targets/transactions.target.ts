@@ -7,6 +7,7 @@ import { generateTransactionFingerprint } from '../../../common/utils/fingerprin
 import { resolveUploadsDir } from '../../../common/utils/uploads.util';
 import { BankName, FileType, Statement, StatementStatus } from '../../../entities/statement.entity';
 import { Transaction, TransactionType } from '../../../entities/transaction.entity';
+import { statementSource } from '../../wallets/wallet-account-match';
 import {
   detectDateOrder,
   isBlank,
@@ -15,6 +16,7 @@ import {
   parseImportNumber,
 } from '../helpers/import-values';
 import { resolveEnumAlias } from '../target-aliases';
+import { accountOfImport, importHeader } from './import-account';
 import type { ImportContext, ImportTarget, RowResult } from './target.types';
 
 interface ParsedTx {
@@ -160,7 +162,13 @@ export class TransactionsTarget implements ImportTarget {
       return results.sort((a, b) => a.index - b.index);
     }
 
-    const statement = await this.createStatement(ctx, fresh);
+    const header = importHeader(ctx.headers);
+    const account = await accountOfImport(
+      ctx,
+      fresh[0]?.currency ?? ctx.currency,
+      statementSource(BankName.OTHER, null, header),
+    );
+    const statement = await this.createStatement(ctx, fresh, header, account?.id ?? null);
     ctx.created.push({ kind: 'statement', id: statement.id });
     const txRepo = ctx.manager.getRepository(Transaction);
     const entities: Transaction[] = [];
@@ -186,6 +194,8 @@ export class TransactionsTarget implements ImportTarget {
           categoryId,
           // Imported from a file: each row is confirmed in Review.
           isVerified: false,
+          walletId: account?.id ?? null,
+          ownerMemberId: account?.ownerMemberId ?? null,
           fingerprint: item.fingerprint,
         }),
       );
@@ -197,7 +207,12 @@ export class TransactionsTarget implements ImportTarget {
     return results.sort((a, b) => a.index - b.index);
   }
 
-  private async createStatement(ctx: ImportContext, items: ParsedTx[]): Promise<Statement> {
+  private async createStatement(
+    ctx: ImportContext,
+    items: ParsedTx[],
+    header: string | undefined,
+    walletId: string | null,
+  ): Promise<Statement> {
     const csv = [
       ['date', 'merchant', 'purpose', 'amount', 'type', 'currency', 'category'].join(','),
       ...items.map(item =>
@@ -244,6 +259,7 @@ export class TransactionsTarget implements ImportTarget {
         totalDebit,
         totalCredit,
         currency: items[0]?.currency ?? ctx.currency,
+        walletId,
         deletedAt: null,
         parsingDetails: {
           detectedBy: 'entity-import',
@@ -252,6 +268,8 @@ export class TransactionsTarget implements ImportTarget {
           transactionsFound: items.length,
           transactionsCreated: items.length,
           importPreview: { source: 'entity-import', fileName: ctx.fileName },
+          // The header row tells the next export of this bank to the same account.
+          metadataExtracted: { normalizedHeader: header },
         },
       }),
     );

@@ -49,3 +49,54 @@ export function pickWalletForAccount<
   );
   return matches.length === 1 ? matches[0] : null;
 }
+
+/**
+ * Where a statement with no account number came from: its bank and the export
+ * layout (a known preset's name, else the CSV header). Null when nothing tells
+ * one source from another.
+ */
+export function statementSource(
+  bankName: string | null | undefined,
+  institution: string | null | undefined,
+  normalizedHeader: string | null | undefined,
+): string | null {
+  const layout = String(institution || normalizedHeader || '').trim();
+  return layout ? `${String(bankName ?? '').toLowerCase()}|${layout.toLowerCase()}` : null;
+}
+
+/**
+ * The account earlier statements of the same source and currency were linked
+ * to, when they all sit in one active account. Unlinking them forgets it; two
+ * accounts fed by the same export leave the choice to the user.
+ */
+export function pickWalletBySource<W extends { id: string; currency: string; isActive: boolean }>(
+  wallets: W[],
+  linked: { walletId: string; source: string | null; currency: string | null }[],
+  source: string | null,
+  currency: string | null | undefined,
+): W | null {
+  if (!source) {
+    return null;
+  }
+  const statementCurrency = normalizeCurrencyCode(currency);
+  const walletIds = new Set(
+    linked
+      .filter(
+        item =>
+          item.source === source && normalizeCurrencyCode(item.currency) === statementCurrency,
+      )
+      .map(item => item.walletId),
+  );
+  if (walletIds.size !== 1) {
+    return null;
+  }
+  const [walletId] = walletIds;
+  return (
+    wallets.find(
+      wallet =>
+        wallet.id === walletId &&
+        wallet.isActive &&
+        normalizeCurrencyCode(wallet.currency) === statementCurrency,
+    ) ?? null
+  );
+}

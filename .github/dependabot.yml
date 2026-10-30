@@ -40,8 +40,8 @@ updates:
       # Typings follow the runtime (Node 24 in Docker and CI), not the latest Node.
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
-  # backend/requirements.txt is the source of truth for the Python deps baked
-  # into both production images (see Dockerfile and backend/Dockerfile).
+  # backend/requirements.in lists the Python deps baked into both production images;
+  # requirements.txt is its pip-compile --generate-hashes output (installs use --require-hashes).
   - package-ecosystem: "pip"
     directory: "/backend"
     schedule:

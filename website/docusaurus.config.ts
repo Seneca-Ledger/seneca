@@ -4,7 +4,7 @@ import { themes as prismThemes } from 'prism-react-renderer';
 const config: Config = {
   title: 'Stoic Budget Docs',
   tagline: 'Open-source financial data platform for bank statements',
-  favicon: 'img/favicon.png',
+  favicon: 'img/favicon.svg',
 
   url: 'https://stoic-budget.github.io',
   baseUrl: '/stoic-budget/',
@@ -44,7 +44,8 @@ const config: Config = {
       title: 'Stoic Budget',
       logo: {
         alt: 'Stoic Budget logo',
-        src: 'img/logo.png',
+        src: 'img/logo.svg',
+        srcDark: 'img/logo-dark.svg',
       },
       items: [
         {
