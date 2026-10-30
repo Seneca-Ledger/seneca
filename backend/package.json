@@ -66,7 +66,7 @@
     "@nestjs/websockets": "^12.2.0",
     "@noble/hashes": "^1.8.0",
     "@react-email/components": "^1.0.4",
-    "@react-email/render": "^2.0.2",
+    "@react-email/render": "^2.1.1",
     "@scure/bip32": "^2.4.0",
     "adm-zip": "^0.6.1",
     "archiver": "^8.0.0",
