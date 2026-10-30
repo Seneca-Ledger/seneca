@@ -2,10 +2,11 @@
 
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import IconButton from '@mui/material/IconButton';
 import Skeleton from '@mui/material/Skeleton';
 import NextLink from 'next/link';
 import { useEffect } from 'react';
-import { Plus } from '@/app/components/icons';
+import { Pencil, Plus, Trash2 } from '@/app/components/icons';
 import { ImportFromFileButton } from '@/app/components/import-wizard/ImportFromFileButton';
 import { useQuickActions } from '@/app/components/mobile/quick-actions-store';
 import { EmptyState } from '@/app/components/ui/EmptyState';
@@ -40,11 +41,19 @@ function BudgetCardSkeleton(): React.JSX.Element {
         sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}
       >
         <Box>
-          <Skeleton variant="text" width={140} height={24} />
-          <Skeleton variant="text" width={100} height={16} />
+          <Skeleton variant="text" width={140} height={28} />
+          <Skeleton variant="text" width={180} height={20} />
+        </Box>
+        <Box sx={{ display: 'flex', gap: 0.5 }}>
+          <IconButton size="small" disabled>
+            <Pencil size={16} />
+          </IconButton>
+          <IconButton size="small" disabled>
+            <Trash2 size={16} />
+          </IconButton>
         </Box>
       </Box>
-      <Skeleton variant="rounded" height={8} sx={{ borderRadius: 4, mb: 1 }} />
+      <Skeleton variant="rounded" height={6} sx={{ borderRadius: '3px', mb: 1 }} />
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Skeleton variant="text" width={120} height={20} />
         <Skeleton variant="text" width={40} height={20} />

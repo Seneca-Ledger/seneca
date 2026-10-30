@@ -4,6 +4,7 @@ import FlagOutlined from '@mui/icons-material/FlagOutlined';
 import Box from '@mui/material/Box';
 import type React from 'react';
 import { GoalCard } from '@/app/(main)/goals/components/GoalCard';
+import { GoalCardSkeleton } from '@/app/(main)/goals/components/GoalCardSkeleton';
 import { useMonthGoals } from '@/app/(main)/goals/hooks/useMonthGoals';
 import { PrivateAmount } from '@/app/components/ui/private-amount';
 import { useIntlayer, useLocale } from '@/app/i18n';
@@ -32,11 +33,24 @@ export function GoalsProgressCard({
   const { goals, isPending, error } = useMonthGoals(month);
   const wide = useIsWideSection();
 
-  // Nothing is drawn until the answer is in: an empty state shown while the
-  // request is still in flight would claim a quiet month that may not be one.
-  // A failed request says nothing either, for the same reason.
-  if (isPending || error) {
+  // A failed request says nothing: an empty state would claim a quiet month
+  // that may not be one.
+  if (error) {
     return null;
+  }
+
+  // While the request is in flight the card keeps its place with a goal's
+  // outline, never with the empty state.
+  if (isPending) {
+    return (
+      <DashboardCard
+        title={goalsText.title}
+        subtitle={monthLabel}
+        action={<CardLink href="/goals">{t.goalsViewAll}</CardLink>}
+      >
+        <GoalCardSkeleton note />
+      </DashboardCard>
+    );
   }
 
   return (

@@ -2,7 +2,6 @@
 
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
-import Skeleton from '@mui/material/Skeleton';
 import { useState } from 'react';
 import { Plus } from '@/app/components/icons';
 import { useQuickActions } from '@/app/components/mobile/quick-actions-store';
@@ -12,42 +11,11 @@ import { LoadError } from '@/app/components/ui/load-error';
 import { PageTitle } from '@/app/components/ui/page-title';
 import { ReadOnlyHint } from '@/app/components/versions/ReadOnlyHint';
 import { useIntlayer, useLocale } from '@/app/i18n';
-import { tokens } from '@/lib/theme-tokens';
 import { ContributionDrawer } from './components/ContributionDrawer';
 import { GoalCard } from './components/GoalCard';
+import { GoalCardSkeleton } from './components/GoalCardSkeleton';
 import { GoalFormDrawer } from './components/GoalFormDrawer';
 import { EMPTY_GOAL_FORM, type Goal, type GoalFormData, useGoals } from './hooks/useGoals';
-
-function GoalCardSkeleton(): React.JSX.Element {
-  return (
-    <Box
-      sx={{
-        border: '1px solid',
-        borderColor: 'divider',
-        borderRadius: tokens.radius.md,
-        bgcolor: 'background.paper',
-        p: 2.5,
-      }}
-    >
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
-        <Box sx={{ minWidth: 0 }}>
-          <Skeleton variant="text" width={140} height={22} />
-          <Skeleton variant="text" width={80} height={16} />
-        </Box>
-        <Skeleton variant="text" width={120} height={22} />
-      </Box>
-      <Skeleton variant="rounded" height={8} sx={{ borderRadius: tokens.radius.full, my: 1.5 }} />
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1 }}>
-        <Skeleton variant="text" width={160} height={20} />
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <Skeleton variant="rounded" width={70} height={30} />
-          <Skeleton variant="rounded" width={50} height={30} />
-          <Skeleton variant="rounded" width={60} height={30} />
-        </Box>
-      </Box>
-    </Box>
-  );
-}
 
 export default function GoalsPage() {
   const t = useIntlayer('goalsPage');
@@ -145,7 +113,22 @@ export default function GoalsPage() {
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {Array.from({ length: 4 }).map((_, index) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: static skeleton list
-            <GoalCardSkeleton key={index} />
+            <GoalCardSkeleton
+              key={index}
+              actions={
+                <>
+                  <Button size="small" variant="outlined" disabled>
+                    {t.addContribution.value}
+                  </Button>
+                  <Button size="small" disabled>
+                    {t.edit.value}
+                  </Button>
+                  <Button size="small" disabled>
+                    {t.remove.value}
+                  </Button>
+                </>
+              }
+            />
           ))}
         </Box>
       )}

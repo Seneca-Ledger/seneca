@@ -12,6 +12,7 @@ import { queryKeys } from '@/app/lib/query-keys';
 import { formatStoredDateWithOptions } from '@/app/lib/user-format-store';
 import { useTodayNote } from './overview-month';
 import { CardEmpty, CardLink, Chip, ChipGroup, DashboardCard, ListRow } from './ui';
+import { ListRowsSkeleton } from './ui/card-skeletons';
 
 const DAYS = 7;
 const VISIBLE_ITEMS = 6;
@@ -67,7 +68,15 @@ export function UpcomingChargesCard({
 
   // Without the list there is nothing to say; a viewer without access gets no card.
   if (!upcoming.data) {
-    return null;
+    return upcoming.isPending ? (
+      <DashboardCard
+        title={t.sections.upcomingCharges}
+        subtitle={today ? `${today} · ${t.upcomingSubtitle.value}` : t.upcomingSubtitle}
+        action={<CardLink href="/subscriptions">{t.allSubscriptions}</CardLink>}
+      >
+        <ListRowsSkeleton rows={3} />
+      </DashboardCard>
+    ) : null;
   }
 
   const relative = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' });

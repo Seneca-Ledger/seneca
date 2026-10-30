@@ -11,7 +11,8 @@ import { SlidersHorizontal } from '@/app/components/icons';
 import type { NetWorthAssetLine } from '../hooks/useNetWorth';
 
 interface AccountFilterProps {
-  lines: NetWorthAssetLine[];
+  /** Null while the page loads: the button holds its place, disabled. */
+  lines: NetWorthAssetLine[] | null;
   excluded: string[];
   onChange: (ids: string[]) => void;
   labels: { accounts: string; showAll: string };
@@ -32,7 +33,7 @@ export function AccountFilter({
 }: AccountFilterProps): React.JSX.Element | null {
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
 
-  if (lines.length === 0) {
+  if (lines?.length === 0) {
     return null;
   }
 
@@ -47,6 +48,7 @@ export function AccountFilter({
           variant="outlined"
           startIcon={<SlidersHorizontal size={16} />}
           sx={{ textTransform: 'none' }}
+          disabled={lines === null}
           onClick={event => setAnchor(event.currentTarget)}
         >
           {labels.accounts}
@@ -54,7 +56,7 @@ export function AccountFilter({
       </Badge>
 
       <Menu anchorEl={anchor} open={anchor !== null} onClose={() => setAnchor(null)}>
-        {lines.map(line => (
+        {(lines ?? []).map(line => (
           <MenuItem key={line.id} dense onClick={() => toggle(line.id)}>
             <Checkbox
               size="small"

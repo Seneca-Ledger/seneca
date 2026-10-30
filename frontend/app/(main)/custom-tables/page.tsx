@@ -1,6 +1,5 @@
 'use client';
 
-import { Skeleton } from '@mui/material';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import { StatementsSearchPopover } from '@/app/(main)/statements/components/filters/StatementsSearchPopover';
@@ -33,6 +32,7 @@ function useListColumns(labels: ListLabels, onDelete: (item: TableListItem) => v
         accessorFn: row => row.name,
         header: labels.columns.name,
         size: 320,
+        meta: { skeleton: { shape: 'text', width: 120 } },
         cell: ({ row }) => (
           <span className="seneca-ct__cell">
             <span className="seneca-ct__cell-text">
@@ -49,6 +49,7 @@ function useListColumns(labels: ListLabels, onDelete: (item: TableListItem) => v
         accessorFn: row => row.source,
         header: labels.columns.source,
         size: 150,
+        meta: { skeleton: { shape: 'rounded', width: 57, height: 20, radius: '999px' } },
         cell: ({ row }) => {
           const kind = row.original.sourceBinding?.kind as SourceKind | undefined;
           let label = row.original.source;
@@ -73,7 +74,11 @@ function useListColumns(labels: ListLabels, onDelete: (item: TableListItem) => v
         header: labels.columns.rows,
         size: 90,
         sortFn: 'basic',
-        meta: { align: 'end', className: 'seneca-grid__cell--numeric' },
+        meta: {
+          align: 'end',
+          className: 'seneca-grid__cell--numeric',
+          skeleton: { shape: 'text', width: 16 },
+        },
         cell: ({ row }) => (row.original.rowsCount === undefined ? '…' : row.original.rowsCount),
       },
       {
@@ -90,7 +95,7 @@ function useListColumns(labels: ListLabels, onDelete: (item: TableListItem) => v
         size: 110,
         enableSorting: false,
         enableHiding: false,
-        meta: { align: 'end', label: labels.actions.rowActions },
+        meta: { align: 'end', label: labels.actions.rowActions, skeleton: { shape: 'none' } },
         cell: ({ row }) => (
           <span className="seneca-ct__list-actions">
             <Button
@@ -165,16 +170,6 @@ export default function CustomTablesPage() {
     initialState: { sorting: [{ id: 'updated', desc: true }] },
   });
 
-  if (authLoading || (list.loading && !list.items.length)) {
-    return (
-      <div className="seneca-ct" aria-busy>
-        <Skeleton variant="text" width={200} height={36} />
-        <Skeleton variant="rounded" height={40} />
-        <Skeleton variant="rounded" height={320} />
-      </div>
-    );
-  }
-
   return (
     <div className="seneca-ct">
       <PageTitle
@@ -220,7 +215,8 @@ export default function CustomTablesPage() {
         <DataGrid
           table={table}
           caption={labels.actions.caption}
-          loading={list.loading}
+          loading={authLoading || list.loading}
+          skeletonRows={6}
           onRowClick={row => router.push(`/custom-tables/${row.original.id}`)}
           emptyState={
             <EmptyState

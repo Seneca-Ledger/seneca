@@ -98,7 +98,7 @@ export default function CategoriesPage() {
               table={table}
               caption={t.title.value}
               loading={categoriesQuery.isPending}
-              skeletonRows={6}
+              skeletonRows={8}
               emptyState={<p className="seneca-categories__none">{t.noData}</p>}
             />
           )}

@@ -76,9 +76,18 @@ function TaxDeclarationContent(): React.ReactElement {
   };
 
   const stepSkeletonId = `tax-declaration-${step}`;
+  // What the step waits for, in renderStep's order. The skeleton is the wrapper's
+  // own loading state, so the layout it remembers is the step, never a skeleton.
+  const stepPending = (): boolean => {
+    if (profile.isError) return false;
+    if (!profile.data) return true;
+    if (step === 'profile' || !profile.data.country) return false;
+    if (step === 'mapping') return !(mappings.isError || mappings.data);
+    return !(draft.isError || draft.data);
+  };
   const renderStep = (): React.ReactNode => {
     if (profile.isError) return <Alert severity="error">{t.loadError}</Alert>;
-    if (!profile.data) return <Loading id={stepSkeletonId} />;
+    if (!profile.data) return null;
 
     if (step === 'profile' || !profile.data.country) {
       return (
@@ -94,7 +103,7 @@ function TaxDeclarationContent(): React.ReactElement {
 
     if (step === 'mapping') {
       if (mappings.isError) return <Alert severity="error">{t.loadError}</Alert>;
-      if (!mappings.data) return <Loading id={stepSkeletonId} />;
+      if (!mappings.data) return null;
       return (
         <MappingStep
           mappings={mappings.data}
@@ -105,7 +114,7 @@ function TaxDeclarationContent(): React.ReactElement {
     }
 
     if (draft.isError) return <Alert severity="error">{t.loadError}</Alert>;
-    if (!draft.data) return <Loading id={stepSkeletonId} />;
+    if (!draft.data) return null;
 
     if (step === 'data') {
       return (
@@ -132,7 +141,7 @@ function TaxDeclarationContent(): React.ReactElement {
 
   const renderBody = (): React.ReactNode => {
     if (disclaimer.isError) return <Alert severity="error">{t.loadError}</Alert>;
-    if (!disclaimer.data) return <Loading id="tax-declaration-body" />;
+    if (!disclaimer.data) return null;
     if (!accepted) {
       return (
         <TaxDisclaimerGate
@@ -253,7 +262,8 @@ function TaxDeclarationContent(): React.ReactElement {
           {step === 'draft' ? null : <AccuracyBanner />}
           <SnapshotSkeleton
             id={stepSkeletonId}
-            loading={false}
+            loading={stepPending()}
+            fallback="panel"
             capture={!(profile.isError || mappings.isError || draft.isError)}
           >
             {renderStep()}
@@ -264,6 +274,33 @@ function TaxDeclarationContent(): React.ReactElement {
   };
 
   return (
+    <PageFrame
+      // The step and year mean nothing until the disclaimer is accepted.
+      summary={
+        accepted ? joinSummary([stepText[step], `${t.taxYearLabel.value}: ${taxYear}`]) : undefined
+      }
+    >
+      <SnapshotSkeleton
+        id="tax-declaration-body"
+        loading={!(disclaimer.data || disclaimer.isError)}
+        fallback="panel"
+        capture={!disclaimer.isError}
+      >
+        {renderBody()}
+      </SnapshotSkeleton>
+    </PageFrame>
+  );
+}
+
+/** The page column and its title, the same while the address is still being read. */
+function PageFrame({
+  summary,
+  children,
+}: {
+  summary?: string;
+  children: React.ReactNode;
+}): React.ReactElement {
+  return (
     <Box
       component="main"
       sx={{ px: { xs: 2, md: 4 }, pt: 'var(--seneca-page-top, 24px)', pb: 3, width: '100%' }}
@@ -271,19 +308,9 @@ function TaxDeclarationContent(): React.ReactElement {
       {/* One centred column: wider, the two cards stopped short of the edge. */}
       <Box sx={{ maxWidth: 1100, mx: 'auto' }}>
         <Box sx={{ mb: 2.5 }}>
-          <PageTitle
-            path="/tax-declaration"
-            // The step and year mean nothing until the disclaimer is accepted.
-            summary={
-              accepted
-                ? joinSummary([stepText[step], `${t.taxYearLabel.value}: ${taxYear}`])
-                : undefined
-            }
-          />
+          <PageTitle path="/tax-declaration" summary={summary} />
         </Box>
-        <SnapshotSkeleton id="tax-declaration-body" loading={false} capture={!disclaimer.isError}>
-          {renderBody()}
-        </SnapshotSkeleton>
+        {children}
       </Box>
     </Box>
   );
@@ -292,7 +319,13 @@ function TaxDeclarationContent(): React.ReactElement {
 export default function TaxDeclarationPage(): React.ReactElement {
   // useSearchParams needs a Suspense boundary for the static render of the route.
   return (
-    <Suspense fallback={<Loading id="tax-declaration" />}>
+    <Suspense
+      fallback={
+        <PageFrame>
+          <Loading id="tax-declaration-body" />
+        </PageFrame>
+      }
+    >
       <TaxDeclarationContent />
     </Suspense>
   );

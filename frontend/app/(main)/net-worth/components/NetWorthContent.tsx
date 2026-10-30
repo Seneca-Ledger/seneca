@@ -53,7 +53,7 @@ export function NetWorthContent() {
         custom={custom}
         view={view}
         window={data ? { from: data.from, to: data.to } : null}
-        lines={data?.assetLines ?? []}
+        lines={data?.assetLines ?? (isPending ? null : [])}
         excluded={excluded}
         denominate={denominate}
         setRange={setRange}

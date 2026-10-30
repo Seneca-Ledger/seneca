@@ -2,7 +2,6 @@
 
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
-import Skeleton from '@mui/material/Skeleton';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useState } from 'react';
@@ -14,6 +13,7 @@ import { ReadOnlyHint } from '@/app/components/versions/ReadOnlyHint';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { formatMoney } from '@/app/lib/format-money';
 import { accountSubtitle } from '../account-types';
+import { AccountDetailSkeleton } from '../components/AccountDetailSkeleton';
 import { AccountFormDrawer } from '../components/AccountFormDrawer';
 import { AccountReconciliation } from '../components/AccountReconciliation';
 import { AccountBadge, AccountBalance } from '../components/AccountRow';
@@ -81,13 +81,7 @@ export default function AccountPage(): React.JSX.Element {
 
       {error && !isPending && <LoadError spacing={6}>{t.notFound}</LoadError>}
 
-      {isPending && (
-        <Box sx={{ display: 'grid', gap: 2 }}>
-          <Skeleton variant="text" width={240} height={32} />
-          <Skeleton variant="text" width={160} height={40} />
-          <Skeleton variant="rounded" height={200} />
-        </Box>
-      )}
+      {isPending && <AccountDetailSkeleton />}
 
       {account && (
         <>

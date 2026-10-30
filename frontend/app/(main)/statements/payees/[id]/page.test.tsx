@@ -161,7 +161,9 @@ describe('PayeePage', () => {
       response: { status: 409, data: { error: { payeeId: '11111111-1111-1111-1111-111111111111' } } },
     });
     renderWithQuery(<PayeePage />);
-    fireEvent.click(await screen.findByRole('button', { name: 'Rename' }));
+    // The loading page already shows a (disabled) Rename; wait for the payee itself.
+    await screen.findByRole('heading', { name: store });
+    fireEvent.click(screen.getByRole('button', { name: 'Rename' }));
     fireEvent.change(screen.getByRole('textbox', { name: 'Rename' }), {
       target: { value: 'ACME' },
     });

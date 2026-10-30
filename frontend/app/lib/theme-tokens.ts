@@ -136,7 +136,7 @@ export const tokens = {
 
       border: '#2e2c29',
       borderStrong: '#3a3733',
-      skeleton: '#2e2c29',
+      skeleton: '#363330',
     },
     shadow: {
       xs: '0 1px 0 0 rgba(0, 0, 0, 0.2)',

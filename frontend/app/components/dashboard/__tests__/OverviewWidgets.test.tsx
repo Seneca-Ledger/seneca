@@ -246,7 +246,8 @@ describe('UpcomingChargesCard', () => {
     const { container } = renderWithQuery(<UpcomingChargesCard formatAmount={money} />);
 
     await waitFor(() => expect(apiGet).toHaveBeenCalled());
-    expect(container).toBeEmptyDOMElement();
+    // The card holds its place while the request is out, then leaves.
+    await waitFor(() => expect(container).toBeEmptyDOMElement());
   });
 });
 

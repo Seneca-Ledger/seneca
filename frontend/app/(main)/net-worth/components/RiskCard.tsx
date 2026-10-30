@@ -49,7 +49,7 @@ interface RiskCardProps {
  * A phone has no room for four columns, so there risk and role go under the
  * name and amount, and the column titles are dropped (the values name themselves).
  */
-const LINE_GRID = {
+export const LINE_GRID = {
   display: 'grid',
   gridTemplateColumns: { xs: 'minmax(0, 1fr) auto', sm: 'minmax(0, 1fr) 120px 140px 140px' },
   columnGap: 3,

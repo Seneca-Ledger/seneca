@@ -37,10 +37,6 @@ function DashboardPageInner(): React.JSX.Element {
     t,
   } = useDashboardPage();
 
-  if (isRedirecting) {
-    return <SnapshotSkeleton id={DASHBOARD_SKELETON_ID} loading />;
-  }
-
   return (
     <Box component="main" sx={MAIN_SX} {...pullHandlers}>
       <Box sx={{ width: '100%', flex: 1, display: 'flex', flexDirection: 'column' }}>
@@ -51,9 +47,10 @@ function DashboardPageInner(): React.JSX.Element {
           isReadyToRefresh={isReadyToRefresh}
           t={t.refresh}
         />
+        {/* While the session and workspace settle, the header already draws. */}
         <DashboardContent
-          error={error}
-          loading={isPending}
+          error={isRedirecting ? null : error}
+          loading={isRedirecting || isPending}
           data={data ?? null}
           onRefresh={() => {
             void refetch();

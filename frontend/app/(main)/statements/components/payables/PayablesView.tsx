@@ -33,7 +33,7 @@ import { CreatePayableDrawer } from './CreatePayableDrawer';
 import { MarkPaidDialog, type MarkPaidResult } from './MarkPaidDialog';
 import PayableFiltersBar from './PayableFiltersBar';
 import PayableSummaryCards from './PayableSummaryCards';
-import PayablesList from './PayablesList';
+import { PayablesListLoading } from './PayablesListLoading';
 import { PayablesViewSkeleton } from './PayablesViewSkeleton';
 import {
   buildPayablesListParams,
@@ -511,8 +511,8 @@ export function PayablesView({ direction = 'payable' }: PayablesViewProps = {}):
       });
   };
 
-  if (authLoading || workspaceLoading || loading) {
-    return <PayablesViewSkeleton />;
+  if (authLoading || workspaceLoading) {
+    return <PayablesViewSkeleton direction={direction} />;
   }
 
   if (!user) {
@@ -624,15 +624,15 @@ export function PayablesView({ direction = 'payable' }: PayablesViewProps = {}):
           }}
         >
           <PayableSummaryCards
-            summary={summary}
+            summary={loading ? null : summary}
             locale={locale}
             currency={(currentWorkspace.currency || FALLBACK_CURRENCY).toUpperCase()}
             direction={direction}
             labels={labels.summary}
           />
 
-          <PayablesList
-            items={items}
+          <PayablesListLoading
+            items={loading ? null : items}
             locale={locale}
             emptyTitle={labels.emptyTitle}
             emptyDescription={labels.emptyDescription}

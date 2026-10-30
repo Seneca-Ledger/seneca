@@ -12,6 +12,7 @@ import { PageTitle } from '@/app/components/ui/page-title';
 import { usePermissions } from '@/app/hooks/usePermissions';
 import { useIntlayer } from '@/app/i18n';
 import { RuleSuggestions } from './RuleSuggestions';
+import { RulesSkeleton } from './RulesSkeleton';
 import { RulesTable } from './RulesTable';
 import { fill } from './rule-text';
 import type { Rule } from './types';
@@ -99,6 +100,8 @@ export function RulesView() {
       {canEdit && <RuleSuggestions categoryName={names.category} />}
 
       {rules.isError && <LoadError>{t.page.loadError}</LoadError>}
+
+      {rules.isPending && <RulesSkeleton canEdit={canEdit} />}
 
       {rules.isSuccess && list.length === 0 && (
         <EmptyState

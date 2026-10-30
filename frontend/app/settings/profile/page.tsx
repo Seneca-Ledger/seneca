@@ -4,9 +4,13 @@ import Box from '@mui/material/Box';
 import { visuallyHidden } from '@mui/utils';
 import React, { type ComponentType, Suspense, useEffect, useState } from 'react';
 import { Alert } from '@/app/components/ui/alert';
+import { SnapshotSkeleton } from '@/app/components/ui/snapshot-skeleton/SnapshotSkeleton';
 import { useAuth } from '@/app/hooks/useAuth';
 import { settingsSectionDomId } from '@/app/settings/profile/components/SettingsAccordion';
-import { SettingsSkeleton } from '@/app/settings/profile/components/SettingsSkeleton';
+import {
+  SettingsSkeleton,
+  settingsTabSnapshotId,
+} from '@/app/settings/profile/components/SettingsSkeleton';
 import {
   SettingsTabs,
   type SettingsTabsLabels,
@@ -82,7 +86,7 @@ function ProfileSettingsPageInner(): React.JSX.Element {
   }, [section, loading, user]);
 
   if (loading) {
-    return <SettingsSkeleton />;
+    return <SettingsSkeleton activeTab={activeTab} />;
   }
 
   if (!user) {
@@ -118,12 +122,18 @@ function ProfileSettingsPageInner(): React.JSX.Element {
           const TabContent = TAB_COMPONENT[tab];
           return (
             <div key={tab} hidden={tab !== activeTab}>
-              <TabContent
-                section={tab === activeTab ? section : null}
-                user={user}
-                setUser={setUser}
-                logout={logout}
-              />
+              <SnapshotSkeleton
+                id={settingsTabSnapshotId(tab)}
+                loading={false}
+                capture={tab === activeTab}
+              >
+                <TabContent
+                  section={tab === activeTab ? section : null}
+                  user={user}
+                  setUser={setUser}
+                  logout={logout}
+                />
+              </SnapshotSkeleton>
             </div>
           );
         })}

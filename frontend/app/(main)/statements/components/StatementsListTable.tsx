@@ -19,6 +19,7 @@ import type { StatementAmountView } from './filters/amount-view';
 import type { DuplicateMeta } from './hooks/useStatementSelection';
 import { StatementsListItem } from './StatementsListItem';
 import { formatPaginationLabel, resolvePendingReview } from './StatementsListView.utils';
+import { StatementsRowsSkeleton } from './StatementsRowsSkeleton';
 import { StatementsUploadSkeletons } from './StatementsUploadSkeletons';
 import { StatementTransactionsPanel } from './StatementTransactionsPanel';
 import { resolveStatementRowData } from './statement-row-data';
@@ -309,16 +310,9 @@ export function StatementsListTable({
       return next;
     });
   const shownColumns = withoutUniformFrom(columns, paginatedStatements);
-  if (loading && skeletonKeys.length === 0) {
-    return (
-      <div className="seneca-stmt-list-view__table">
-        {toolbar}
-        <SnapshotSkeleton id="statements-list" loading fallback="list" />
-      </div>
-    );
-  }
-
-  if (displayStatements.length === 0 && skeletonKeys.length === 0) {
+  // No count to show until the list is in.
+  const paginationStyle = { marginTop: 24, visibility: loading ? 'hidden' : undefined } as const;
+  if (!loading && displayStatements.length === 0 && skeletonKeys.length === 0) {
     return (
       <div className="seneca-stmt-list-view__table">
         {toolbar}
@@ -352,6 +346,12 @@ export function StatementsListTable({
               onToggleSortDirection={onToggleSortDirection}
             />
             <StatementsUploadSkeletons skeletonKeys={skeletonKeys} />
+            {loading && (
+              <StatementsRowsSkeleton
+                columns={getRenderedColumns(shownColumns)}
+                reviewLabel={reviewDuplicateLabel}
+              />
+            )}
             {paginatedStatements.map((statement, index) => {
               const rowData = resolveStatementRowData(statement, labels.scanning, amountView);
               const duplicateMeta = duplicateMetaById.get(statement.id);
@@ -415,7 +415,7 @@ export function StatementsListTable({
         </div>
       </div>
       <DocumentCategoryDrawer target={categoryTarget} onClose={() => setCategoryTarget(null)} />
-      <div className="seneca-stmt-list-view__pagination" style={{ marginTop: 24 }}>
+      <div className="seneca-stmt-list-view__pagination" style={paginationStyle}>
         <div style={{ fontSize: 14, color: 'var(--muted-foreground)' }}>
           {formatPaginationLabel(labels.paginationShown, {
             from: rangeStart,

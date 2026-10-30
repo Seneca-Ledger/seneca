@@ -15,31 +15,9 @@ import type { DuplicateGroups } from '@/app/lib/contracts';
 import { invalidateFinancialData } from '@/app/lib/invalidate-document-lists';
 import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import DuplicateGroupCard from './components/DuplicateGroupCard';
+import { DuplicateGroupCardSkeleton } from './components/DuplicateGroupCardSkeleton';
 
 type DuplicateGroup = DuplicateGroups['groups'][number];
-
-function DuplicateGroupCardSkeleton() {
-  return (
-    <Box sx={{ border: '1px solid var(--border-color)', bgcolor: 'background.paper', p: 3 }}>
-      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
-        <Skeleton variant="rounded" width={18} height={18} sx={{ mt: 0.5 }} />
-        <Box sx={{ flex: 1 }}>
-          <Box
-            sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}
-          >
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Skeleton variant="rounded" width={90} height={24} />
-              <Skeleton variant="text" width={90} height={20} />
-            </Box>
-            <Skeleton variant="text" width={80} height={20} />
-          </Box>
-          <Skeleton variant="rounded" height={72} sx={{ mb: 2 }} />
-          <Skeleton variant="rounded" height={64} />
-        </Box>
-      </Box>
-    </Box>
-  );
-}
 
 function DuplicateGroupsContent({
   loading,

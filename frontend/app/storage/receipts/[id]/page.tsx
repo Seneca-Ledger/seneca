@@ -4,7 +4,6 @@ import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
-import Skeleton from '@mui/material/Skeleton';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useTheme } from 'next-themes';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -29,6 +28,7 @@ import { formatStoredDate } from '@/app/lib/user-format-store';
 import { getWorkspaceHeaders } from '@/app/lib/workspace-headers';
 import { tokens } from '@/lib/theme-tokens';
 import { ReceiptHeaderActions } from './ReceiptHeaderActions';
+import { ReceiptPageSkeleton } from './ReceiptPageSkeleton';
 import {
   buildInitialForm,
   buildParsedDataPayload,
@@ -476,93 +476,7 @@ export default function ReceiptDocumentPage() {
   };
 
   if (loading) {
-    return (
-      <Box
-        className="container-shared"
-        sx={{
-          height: '100%',
-          overflowY: 'auto',
-          overflowX: 'hidden',
-          px: { xs: 2, sm: 3, lg: 4 },
-          py: 4,
-        }}
-      >
-        <Box sx={{ display: 'flex', width: '100%', flexDirection: 'column', gap: 3 }}>
-          <Box
-            sx={{
-              display: 'flex',
-              flexDirection: { xs: 'column', sm: 'row' },
-              gap: 2,
-              borderBottom: `1px solid ${c.ink150}`,
-              pb: 3,
-              alignItems: { sm: 'center' },
-              justifyContent: { sm: 'space-between' },
-            }}
-          >
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-              <Skeleton variant="text" width={60} height={16} />
-              <Skeleton variant="text" width={320} height={36} />
-              <Skeleton variant="text" width={200} height={18} />
-            </Box>
-            <Box sx={{ display: 'flex', gap: 1.5 }}>
-              <Skeleton variant="rounded" width={110} height={36} />
-              <Skeleton variant="rounded" width={140} height={36} />
-              <Skeleton variant="rounded" width={140} height={36} />
-            </Box>
-          </Box>
-
-          <Box
-            sx={{
-              display: 'grid',
-              alignItems: 'stretch',
-              gap: 3,
-              gridTemplateColumns: { xs: '1fr', xl: 'minmax(360px, 0.95fr) minmax(0, 1.05fr)' },
-            }}
-          >
-            <Box
-              sx={{
-                display: 'flex',
-                height: '100%',
-                minHeight: 420,
-                flexDirection: 'column',
-                overflow: 'hidden',
-                border: `1px solid ${c.ink150}`,
-                bgcolor: 'background.paper',
-              }}
-            >
-              <Box sx={{ borderBottom: `1px solid ${c.ink150}`, px: 2.5, py: 2 }}>
-                <Skeleton variant="text" width={140} height={20} />
-              </Box>
-              <Box sx={{ flex: 1, p: 2 }}>
-                <Skeleton
-                  variant="rectangular"
-                  width="100%"
-                  height="100%"
-                  sx={{ minHeight: 360 }}
-                />
-              </Box>
-            </Box>
-
-            <Box
-              sx={{
-                height: '100%',
-                border: `1px solid ${c.ink150}`,
-                bgcolor: 'background.paper',
-                p: 3,
-              }}
-            >
-              <Skeleton variant="text" width={140} height={24} />
-              <Skeleton variant="text" width={260} height={18} />
-              <Box sx={{ mt: 2.5, display: 'flex', flexDirection: 'column', gap: 2 }}>
-                {[0, 1, 2, 3, 4].map(idx => (
-                  <Skeleton key={idx} variant="rounded" width="100%" height={40} />
-                ))}
-              </Box>
-            </Box>
-          </Box>
-        </Box>
-      </Box>
-    );
+    return <ReceiptPageSkeleton />;
   }
 
   if (error || !receipt) {

@@ -103,6 +103,7 @@ function useTagColumns(options: {
         size: 280,
         meta: {
           label: labels.name,
+          skeleton: { shape: 'text', icon: 16, width: 160 },
           headerActions: (
             <input
               type="search"
@@ -161,7 +162,7 @@ function useTagColumns(options: {
         size: 64,
         enableSorting: false,
         enableHiding: false,
-        meta: { align: 'end', label: labels.menu },
+        meta: { align: 'end', label: labels.menu, skeleton: { shape: 'text', width: 18 } },
         cell: ({ row }) => <TagActionsMenu tag={row.original} labels={labels} actions={actions} />,
       },
     ],

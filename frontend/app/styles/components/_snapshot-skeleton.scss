@@ -36,6 +36,12 @@
   }
 }
 
+// MUI's own placeholders take the same tone as the remembered-layout boxes. The
+// extra `body` outranks the class MUI generates; theme.ts is over the size guard.
+body .MuiSkeleton-root {
+  background-color: var(--skeleton);
+}
+
 @keyframes seneca-snapshot-skeleton-pulse {
   50% {
     opacity: 0.5;

@@ -1,5 +1,6 @@
 'use client';
 
+import Skeleton from '@mui/material/Skeleton';
 import { useRouter } from 'next/navigation';
 import React, { useCallback, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
@@ -22,8 +23,9 @@ import { getApiErrorMessage } from '@/app/lib/api-error';
 import { formatMoney } from '@/app/lib/format-money';
 import { type Invoice, type InvoiceStatus, invoicesApi } from '@/app/lib/invoices-api';
 import { InvoiceAgeingPanel } from './InvoiceAgeingPanel';
-import { InvoicesListSkeleton } from './InvoicesSkeletons';
+import { InvoiceRowsSkeleton } from './InvoicesSkeletons';
 import { formatInvoiceDate, getInvoiceStatusVariant } from './invoices-format';
+import { useInvoiceStatusLabels } from './useInvoiceStatusLabels';
 
 const PAGE_SIZE = 20;
 
@@ -138,22 +140,11 @@ export function InvoicesListView(): React.JSX.Element {
       });
   };
 
-  // Read one key at a time: indexing an intlayer dictionary with a variable
-  // types as `any` and silently loses a missing status.
-  const statusLabels: Record<InvoiceStatus, string> = {
-    draft: String(t.statusLabels.draft.value),
-    sent: String(t.statusLabels.sent.value),
-    partially_paid: String(t.statusLabels.partially_paid.value),
-    paid: String(t.statusLabels.paid.value),
-    overdue: String(t.statusLabels.overdue.value),
-    void: String(t.statusLabels.void.value),
-  };
+  const statusLabels = useInvoiceStatusLabels();
 
-  if (authLoading || workspaceLoading || loading) {
-    return <InvoicesListSkeleton />;
-  }
-
-  const noInvoices = items.length === 0 && status === 'all';
+  // While loading, the page keeps its header and table head; only the rows wait.
+  const busy = authLoading || workspaceLoading || loading;
+  const noInvoices = !busy && items.length === 0 && status === 'all';
 
   return (
     <div className="container-shared seneca-stmt-list">
@@ -217,7 +208,7 @@ export function InvoicesListView(): React.JSX.Element {
         </div>
 
         {/* Nothing to filter until there is an invoice; an active filter stays so it can be reset. */}
-        {total > 0 || status !== 'all' ? (
+        {busy || total > 0 || status !== 'all' ? (
           <Select
             size="small"
             value={status}
@@ -241,7 +232,7 @@ export function InvoicesListView(): React.JSX.Element {
 
       <InvoiceAgeingPanel />
 
-      {items.length === 0 && status !== 'all' ? (
+      {!busy && items.length === 0 && status !== 'all' ? (
         <EmptyState
           icon={<SearchLineIcon />}
           title={t.empty.noMatchesTitle}
@@ -257,7 +248,7 @@ export function InvoicesListView(): React.JSX.Element {
             </Button>
           }
         />
-      ) : items.length === 0 ? (
+      ) : noInvoices ? (
         <EmptyState
           fill
           icon={<InvoiceLineIcon />}
@@ -288,106 +279,112 @@ export function InvoicesListView(): React.JSX.Element {
                   </th>
                 </tr>
               </thead>
-              <tbody className="seneca-payable-list__tbody">
-                {items.map(invoice => (
-                  <tr key={invoice.id}>
-                    <td className="seneca-payable-list__td" style={{ fontWeight: 500 }}>
-                      {invoice.invoiceNumber ?? t.statusLabels.draft.value}
-                    </td>
-                    <td className="seneca-payable-list__td">{invoice.client?.name ?? '—'}</td>
-                    <td className="seneca-payable-list__td">
-                      {formatInvoiceDate(invoice.issueDate, locale)}
-                    </td>
-                    <td className="seneca-payable-list__td">
-                      {formatInvoiceDate(invoice.dueDate, locale)}
-                    </td>
-                    <td className="seneca-payable-list__td">
-                      <Badge variant={getInvoiceStatusVariant(invoice.status)}>
-                        {statusLabels[invoice.status] ?? invoice.status}
-                      </Badge>
-                    </td>
-                    <td
-                      className="seneca-payable-list__td"
-                      style={{ textAlign: 'right', fontWeight: 600 }}
-                    >
-                      <PrivateAmount>
-                        {formatMoney(Number(invoice.total), invoice.currency, locale)}
-                      </PrivateAmount>
-                      {/* A part-paid invoice is neither unpaid nor settled. */}
-                      {Number(invoice.amountPaid ?? 0) > 0 &&
-                        Number(invoice.amountDue ?? 0) > 0 && (
-                          <div
-                            style={{
-                              fontWeight: 400,
-                              fontSize: 13,
-                              color: 'var(--text-secondary)',
-                            }}
-                          >
-                            {t.detail.amountDue.value}{' '}
-                            <PrivateAmount>
-                              {formatMoney(Number(invoice.amountDue), invoice.currency, locale)}
-                            </PrivateAmount>
-                          </div>
-                        )}
-                    </td>
-                    <td className="seneca-payable-list__td">
-                      <div className="seneca-payable-list__actions">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => router.push(`/invoices/${invoice.id}`)}
-                        >
-                          {t.actions.edit.value}
-                        </Button>
-                        {invoice.status === 'draft' && (
-                          <Button
-                            size="sm"
-                            variant="soft"
-                            disabled={actingId === invoice.id}
-                            onClick={() => void handleSend(invoice)}
-                          >
-                            {t.actions.send.value}
-                          </Button>
-                        )}
-                        {(invoice.status === 'draft' || invoice.status === 'sent') && (
+              {busy ? (
+                <InvoiceRowsSkeleton />
+              ) : (
+                <tbody className="seneca-payable-list__tbody">
+                  {items.map(invoice => (
+                    <tr key={invoice.id}>
+                      <td className="seneca-payable-list__td" style={{ fontWeight: 500 }}>
+                        {invoice.invoiceNumber ?? t.statusLabels.draft.value}
+                      </td>
+                      <td className="seneca-payable-list__td">{invoice.client?.name ?? '—'}</td>
+                      <td className="seneca-payable-list__td">
+                        {formatInvoiceDate(invoice.issueDate, locale)}
+                      </td>
+                      <td className="seneca-payable-list__td">
+                        {formatInvoiceDate(invoice.dueDate, locale)}
+                      </td>
+                      <td className="seneca-payable-list__td">
+                        <Badge variant={getInvoiceStatusVariant(invoice.status)}>
+                          {statusLabels[invoice.status] ?? invoice.status}
+                        </Badge>
+                      </td>
+                      <td
+                        className="seneca-payable-list__td"
+                        style={{ textAlign: 'right', fontWeight: 600 }}
+                      >
+                        <PrivateAmount>
+                          {formatMoney(Number(invoice.total), invoice.currency, locale)}
+                        </PrivateAmount>
+                        {/* A part-paid invoice is neither unpaid nor settled. */}
+                        {Number(invoice.amountPaid ?? 0) > 0 &&
+                          Number(invoice.amountDue ?? 0) > 0 && (
+                            <div
+                              style={{
+                                fontWeight: 400,
+                                fontSize: 13,
+                                color: 'var(--text-secondary)',
+                              }}
+                            >
+                              {t.detail.amountDue.value}{' '}
+                              <PrivateAmount>
+                                {formatMoney(Number(invoice.amountDue), invoice.currency, locale)}
+                              </PrivateAmount>
+                            </div>
+                          )}
+                      </td>
+                      <td className="seneca-payable-list__td">
+                        <div className="seneca-payable-list__actions">
                           <Button
                             size="sm"
                             variant="ghost"
-                            disabled={actingId === invoice.id}
-                            onClick={() => void handleVoid(invoice)}
+                            onClick={() => router.push(`/invoices/${invoice.id}`)}
                           >
-                            {t.actions.void.value}
+                            {t.actions.edit.value}
                           </Button>
-                        )}
-                        {invoice.status !== 'draft' && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => void handleDownload(invoice)}
-                          >
-                            {t.actions.downloadPdf.value}
-                          </Button>
-                        )}
-                        {invoice.status === 'draft' && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            disabled={deletingId === invoice.id}
-                            onClick={() => void handleDelete(invoice)}
-                          >
-                            {t.actions.delete.value}
-                          </Button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
+                          {invoice.status === 'draft' && (
+                            <Button
+                              size="sm"
+                              variant="soft"
+                              disabled={actingId === invoice.id}
+                              onClick={() => void handleSend(invoice)}
+                            >
+                              {t.actions.send.value}
+                            </Button>
+                          )}
+                          {(invoice.status === 'draft' || invoice.status === 'sent') && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              disabled={actingId === invoice.id}
+                              onClick={() => void handleVoid(invoice)}
+                            >
+                              {t.actions.void.value}
+                            </Button>
+                          )}
+                          {invoice.status !== 'draft' && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => void handleDownload(invoice)}
+                            >
+                              {t.actions.downloadPdf.value}
+                            </Button>
+                          )}
+                          {invoice.status === 'draft' && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              disabled={deletingId === invoice.id}
+                              onClick={() => void handleDelete(invoice)}
+                            >
+                              {t.actions.delete.value}
+                            </Button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              )}
             </table>
           </div>
 
           <div className="seneca-payable-list__pagination-row">
-            <div style={{ fontSize: 14, color: 'var(--text-secondary)' }}>{total}</div>
+            <div style={{ fontSize: 14, color: 'var(--text-secondary)' }}>
+              {busy ? <Skeleton variant="text" width={16} /> : total}
+            </div>
             <AppPagination page={page} total={totalPages} onChange={setPage} />
           </div>
         </div>

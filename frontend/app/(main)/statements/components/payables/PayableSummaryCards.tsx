@@ -1,5 +1,6 @@
 'use client';
 
+import Skeleton from '@mui/material/Skeleton';
 import React from 'react';
 import type { LucideIcon } from '@/app/components/icons';
 import { Card } from '@/app/components/ui/card';
@@ -21,7 +22,8 @@ import { getSummaryCardItems } from './payables-utils';
 const CENTS_BELOW = 100;
 
 interface PayableSummaryCardsProps {
-  summary: PayablesSummary;
+  /** Null while it loads: the cards keep their labels, the figures wait. */
+  summary: PayablesSummary | null;
   locale?: string;
   currency?: string;
   direction?: PayableDirection;
@@ -37,6 +39,7 @@ interface PayableSummaryCardsProps {
 }
 
 const EMPTY = '—';
+const CARD_KEYS = ['toPay', 'overdue', 'dueThisWeek', 'paidTotal'];
 
 /** What each figure is, drawn faintly behind it as on the dashboard tiles. */
 const ICONS: Record<PayableDirection, Record<string, LucideIcon>> = {
@@ -61,15 +64,19 @@ function PayableSummaryCards({
   direction = 'payable',
   labels,
 }: PayableSummaryCardsProps): React.JSX.Element {
-  const items = getSummaryCardItems(summary).map(item => ({
+  const loading = summary === null;
+  const cards = summary
+    ? getSummaryCardItems(summary)
+    : CARD_KEYS.map(key => ({ key, value: 0, count: 0 }));
+  const items = cards.map(item => ({
     ...item,
     label: labels[item.key as keyof typeof labels],
     icon: ICONS[direction][item.key],
   }));
-  const converted = summary.convertedCurrencies ?? [];
+  const converted = summary?.convertedCurrencies ?? [];
   const unbookedText = useIntlayer('payablesUnbooked');
   // Received on paper, not yet in an account: it counts as income once its bank row arrives.
-  const unbooked = summary.unbookedTotal ?? 0;
+  const unbooked = summary?.unbookedTotal ?? 0;
   const money = (value: number) =>
     formatMoney(value, currency, locale, {
       fractionDigits: Math.abs(value) < CENTS_BELOW ? 2 : 0,
@@ -89,10 +96,20 @@ function PayableSummaryCards({
             <div className="seneca-payable-summary__card-content">
               <div className="seneca-payable-summary__label">{item.label}</div>
               <div className={`seneca-payable-summary__value ${PRIVATE_CLASS}`}>
-                {item.value === 0 ? EMPTY : money(item.value)}
+                {loading ? (
+                  <Skeleton variant="text" width={120} />
+                ) : item.value === 0 ? (
+                  EMPTY
+                ) : (
+                  money(item.value)
+                )}
               </div>
               <div className="seneca-payable-summary__count">
-                {item.count} {labels.itemsSuffix}
+                {loading ? (
+                  <Skeleton variant="text" width={56} />
+                ) : (
+                  `${item.count} ${labels.itemsSuffix}`
+                )}
                 {item.key === 'paidTotal' && unbooked > 0 && (
                   <span className="seneca-payable-summary__unbooked">
                     {' · '}

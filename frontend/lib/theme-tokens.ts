@@ -168,7 +168,7 @@ export const tokens = {
       textSecondary: '#a8a196',
       border: '#2e2c29',
       borderStrong: '#3a3733',
-      skeleton: '#2e2c29',
+      skeleton: '#363330',
       catFood: '#f59e0b',
       catTransport: '#38bdf8',
       catHousing: '#a78bfa',

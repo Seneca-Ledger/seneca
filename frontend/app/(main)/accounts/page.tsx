@@ -2,7 +2,6 @@
 
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
-import Skeleton from '@mui/material/Skeleton';
 import { useState } from 'react';
 import { Plus } from '@/app/components/icons';
 import { useQuickActions } from '@/app/components/mobile/quick-actions-store';
@@ -23,6 +22,7 @@ import {
 } from './account-types';
 import { AccountFormDrawer } from './components/AccountFormDrawer';
 import { AccountRow } from './components/AccountRow';
+import { AccountsSkeleton } from './components/AccountsSkeleton';
 import {
   type FoundAccount,
   FoundStatements,
@@ -46,19 +46,6 @@ const cardStyle = {
   padding: 4,
   display: 'grid',
 } as const;
-
-function RowSkeleton(): React.JSX.Element {
-  return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.75 }}>
-      <Skeleton variant="circular" width={36} height={36} />
-      <Box sx={{ flex: 1 }}>
-        <Skeleton variant="text" width={140} height={20} />
-        <Skeleton variant="text" width={90} height={16} />
-      </Box>
-      <Skeleton variant="text" width={90} height={20} />
-    </Box>
-  );
-}
 
 /** "On accounts €12,340 · Owed €1,200": one calm line instead of a row of KPI cards. */
 function Summary({
@@ -195,21 +182,14 @@ export default function AccountsPage() {
 
       {summary && active.length > 0 && <Summary summary={summary} />}
 
+      {isPending && <AccountsSkeleton />}
+
       <FoundStatements
         found={found}
         unlinkedCount={accounts.length > 0 ? toSort.length : 0}
         onCreate={openFromFound}
         onSort={() => setLinkOpen(true)}
       />
-
-      {isPending && (
-        <div style={cardStyle}>
-          {Array.from({ length: 3 }).map((_, index) => (
-            // biome-ignore lint/suspicious/noArrayIndexKey: static skeleton list
-            <RowSkeleton key={index} />
-          ))}
-        </div>
-      )}
 
       {error && !isPending && <LoadError spacing={6}>{t.loadError}</LoadError>}
 

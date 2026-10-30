@@ -1,70 +1,69 @@
 import Skeleton from '@mui/material/Skeleton';
 import type React from 'react';
-import { tokens } from '@/lib/theme-tokens';
+import { Card } from '@/app/components/ui/card';
+import { SkeletonRows } from '@/app/components/ui/table-skeleton';
+import type { PayableDirection } from '@/app/lib/payables-api';
+import { TransactionsPageTitle } from '../TransactionsPageTitle';
 
 const SUMMARY_CARD_KEYS = ['card-0', 'card-1', 'card-2', 'card-3'];
-const PAYABLE_ROW_KEYS = ['row-0', 'row-1', 'row-2', 'row-3', 'row-4', 'row-5', 'row-6'];
+const TOOLBAR_WIDTHS = [72, 84, 150, 130];
+const TD = 'seneca-payable-list__td';
+const ROW_COLUMNS = [
+  { className: TD, shape: 'text', size: 160 },
+  { className: TD, shape: 'text', size: 90 },
+  { className: TD, shape: 'text', size: 80 },
+  { className: `${TD} seneca-payable-list__amount`, shape: 'text', size: 90 },
+  { className: TD, shape: 'none' },
+] as const;
 
-function PayablesSummaryCardSkeleton(): React.JSX.Element {
+/**
+ * The bills page before the account and workspace are known: the page title,
+ * then the toolbar, cards and table in the places the loaded page puts them.
+ */
+export function PayablesViewSkeleton({
+  direction = 'payable',
+}: {
+  direction?: PayableDirection;
+}): React.JSX.Element {
   return (
-    <div
-      style={{
-        border: '1px solid var(--border-color)',
-        borderRadius: tokens.radius.lg,
-        padding: 16,
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Skeleton variant="text" width="50%" height={16} />
-        <Skeleton variant="rounded" width={16} height={16} />
-      </div>
-      <Skeleton variant="text" width="60%" height={28} style={{ marginTop: 8 }} />
-      <Skeleton variant="text" width="40%" height={16} />
-    </div>
-  );
-}
-
-function PayablesRowSkeleton(): React.JSX.Element {
-  return (
-    <tr>
-      <td className="seneca-payable-list__td">
-        <Skeleton variant="text" width="70%" height={18} />
-      </td>
-      <td className="seneca-payable-list__td">
-        <Skeleton variant="text" width="60%" height={16} />
-      </td>
-      <td className="seneca-payable-list__td">
-        <Skeleton variant="text" width="60%" height={16} />
-      </td>
-      <td className="seneca-payable-list__td">
-        <Skeleton variant="rounded" width={72} height={22} />
-      </td>
-      <td className="seneca-payable-list__td" style={{ textAlign: 'right' }}>
-        <Skeleton variant="text" width={80} height={18} style={{ marginLeft: 'auto' }} />
-      </td>
-      <td className="seneca-payable-list__td">
-        <Skeleton variant="rounded" width={120} height={28} style={{ marginLeft: 'auto' }} />
-      </td>
-    </tr>
-  );
-}
-
-export function PayablesViewSkeleton(): React.JSX.Element {
-  return (
-    <div className="container-shared seneca-stmt-list">
-      <div className="seneca-stat-tiles">
-        {SUMMARY_CARD_KEYS.map(key => (
-          <PayablesSummaryCardSkeleton key={key} />
-        ))}
-      </div>
-      <div style={{ marginTop: 16 }}>
-        <table style={{ minWidth: '100%', fontSize: 14, borderCollapse: 'collapse' }}>
-          <tbody>
-            {PAYABLE_ROW_KEYS.map(key => (
-              <PayablesRowSkeleton key={key} />
+    <div className="container-shared seneca-stmt-list" aria-busy="true">
+      <div style={{ marginBottom: 24 }}>
+        <div className="seneca-stmt-toolbar" style={{ width: '100%' }}>
+          <TransactionsPageTitle
+            page={direction === 'receivable' ? 'income' : 'expenses'}
+            span={{ kind: 'allTime' }}
+            extras={[]}
+          />
+          <div className="seneca-stmt-toolbar__group">
+            {TOOLBAR_WIDTHS.map(width => (
+              <Skeleton key={width} variant="rounded" width={width} height={36} />
             ))}
-          </tbody>
-        </table>
+          </div>
+        </div>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div className="seneca-payable-summary">
+          {SUMMARY_CARD_KEYS.map(key => (
+            <Card
+              key={key}
+              className="seneca-payable-summary__card"
+              style={{ border: '1px solid var(--border-color)', boxShadow: 'none' }}
+            >
+              <div className="seneca-payable-summary__card-content">
+                <Skeleton variant="text" width={80} />
+                <Skeleton variant="text" width={120} className="seneca-payable-summary__value" />
+                <Skeleton variant="text" width={56} />
+              </div>
+            </Card>
+          ))}
+        </div>
+        <div className="seneca-payable-list">
+          <div className="seneca-payable-list__table-wrap">
+            <table className="seneca-payable-list__table">
+              <SkeletonRows columns={ROW_COLUMNS} rows={7} />
+            </table>
+          </div>
+        </div>
       </div>
     </div>
   );

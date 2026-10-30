@@ -94,14 +94,13 @@ describe('GoalsProgressCard', () => {
     expect(screen.getByRole('link', { name: /view all goals/i })).toBeInTheDocument();
   });
 
-  it('draws nothing while the month is still loading, so it never claims a quiet month', () => {
+  it('holds its place while the month is still loading, but never claims a quiet month', () => {
     apiGet.mockReturnValue(new Promise(() => {}));
 
-    const { container } = renderWithQuery(
-      <GoalsProgressCard month="2026-09" monthLabel="September 2026" />,
-    );
+    renderWithQuery(<GoalsProgressCard month="2026-09" monthLabel="September 2026" />);
 
-    expect(container).toBeEmptyDOMElement();
+    expect(screen.getByText('Savings goals')).toBeInTheDocument();
+    expect(screen.queryByText('No goal moved forward this month')).not.toBeInTheDocument();
   });
 
   it('puts goals side by side with the row to itself, in one column at half width', async () => {

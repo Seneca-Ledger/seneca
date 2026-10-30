@@ -22,7 +22,7 @@ interface NetWorthControlsProps {
   view: NetWorthView;
   /** The window the answer covers, so the custom picker opens on it. */
   window: NetWorthCustomRange | null;
-  lines: NetWorthAssetLine[];
+  lines: NetWorthAssetLine[] | null;
   excluded: string[];
   denominate: 'XAU' | null;
   setRange: (range: NetWorthRange) => void;

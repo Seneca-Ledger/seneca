@@ -5,6 +5,7 @@ import { PRIVATE_CLASS } from '@/app/components/ui/private-amount';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { formatMoney } from '@/app/lib/format-money';
 import { type AgeingReport, invoicesApi } from '@/app/lib/invoices-api';
+import { AgeingRowsSkeleton } from './InvoicesSkeletons';
 
 /**
  * Who owes what, and for how long.
@@ -38,7 +39,7 @@ export function InvoiceAgeingPanel(): React.JSX.Element | null {
   }, []);
 
   // Nothing owed is nothing to act on: the list below already says so.
-  if (!report || report.rows.length === 0) {
+  if (report?.rows.length === 0) {
     return null;
   }
 
@@ -74,55 +75,59 @@ export function InvoiceAgeingPanel(): React.JSX.Element | null {
               </th>
             </tr>
           </thead>
-          <tbody className="seneca-payable-list__tbody">
-            {report.rows.map(row => (
-              <tr key={`${row.clientId}-${row.currency}`}>
-                <td className="seneca-payable-list__td">
-                  {row.clientName}
-                  <span style={{ color: 'var(--text-secondary)' }}> · {row.currency}</span>
-                </td>
-                {buckets.map(bucket => (
+          {report ? (
+            <tbody className="seneca-payable-list__tbody">
+              {report.rows.map(row => (
+                <tr key={`${row.clientId}-${row.currency}`}>
+                  <td className="seneca-payable-list__td">
+                    {row.clientName}
+                    <span style={{ color: 'var(--text-secondary)' }}> · {row.currency}</span>
+                  </td>
+                  {buckets.map(bucket => (
+                    <td
+                      key={bucket.key}
+                      className={`seneca-payable-list__td ${PRIVATE_CLASS}`}
+                      style={{ textAlign: 'right' }}
+                    >
+                      {row[bucket.key] === 0
+                        ? '—'
+                        : formatMoney(row[bucket.key], row.currency, locale)}
+                    </td>
+                  ))}
                   <td
-                    key={bucket.key}
+                    className={`seneca-payable-list__td ${PRIVATE_CLASS}`}
+                    style={{ textAlign: 'right', fontWeight: 600 }}
+                  >
+                    {formatMoney(row.total, row.currency, locale)}
+                  </td>
+                </tr>
+              ))}
+              {report.totals.map(total => (
+                <tr key={`total-${total.currency}`} style={{ fontWeight: 600 }}>
+                  <td className="seneca-payable-list__td">{total.currency}</td>
+                  {buckets.map(bucket => (
+                    <td
+                      key={bucket.key}
+                      className={`seneca-payable-list__td ${PRIVATE_CLASS}`}
+                      style={{ textAlign: 'right' }}
+                    >
+                      {total[bucket.key] === 0
+                        ? '—'
+                        : formatMoney(total[bucket.key], total.currency, locale)}
+                    </td>
+                  ))}
+                  <td
                     className={`seneca-payable-list__td ${PRIVATE_CLASS}`}
                     style={{ textAlign: 'right' }}
                   >
-                    {row[bucket.key] === 0
-                      ? '—'
-                      : formatMoney(row[bucket.key], row.currency, locale)}
+                    {formatMoney(total.total, total.currency, locale)}
                   </td>
-                ))}
-                <td
-                  className={`seneca-payable-list__td ${PRIVATE_CLASS}`}
-                  style={{ textAlign: 'right', fontWeight: 600 }}
-                >
-                  {formatMoney(row.total, row.currency, locale)}
-                </td>
-              </tr>
-            ))}
-            {report.totals.map(total => (
-              <tr key={`total-${total.currency}`} style={{ fontWeight: 600 }}>
-                <td className="seneca-payable-list__td">{total.currency}</td>
-                {buckets.map(bucket => (
-                  <td
-                    key={bucket.key}
-                    className={`seneca-payable-list__td ${PRIVATE_CLASS}`}
-                    style={{ textAlign: 'right' }}
-                  >
-                    {total[bucket.key] === 0
-                      ? '—'
-                      : formatMoney(total[bucket.key], total.currency, locale)}
-                  </td>
-                ))}
-                <td
-                  className={`seneca-payable-list__td ${PRIVATE_CLASS}`}
-                  style={{ textAlign: 'right' }}
-                >
-                  {formatMoney(total.total, total.currency, locale)}
-                </td>
-              </tr>
-            ))}
-          </tbody>
+                </tr>
+              ))}
+            </tbody>
+          ) : (
+            <AgeingRowsSkeleton />
+          )}
         </table>
       </div>
     </div>

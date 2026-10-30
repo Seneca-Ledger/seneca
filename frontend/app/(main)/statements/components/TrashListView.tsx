@@ -1,6 +1,5 @@
 'use client';
 import { resolveBankLogo } from '@bank-logos';
-import Skeleton from '@mui/material/Skeleton';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTheme } from 'next-themes';
 import { useEffect, useMemo, useState } from 'react';
@@ -25,6 +24,7 @@ import { resolveLocaleTag } from '@/app/lib/user-format';
 import { formatStoredDateWithOptions } from '@/app/lib/user-format-store';
 import { tokens } from '@/lib/theme-tokens';
 import { TrashListItem, type TrashListItemModel } from './TrashListItem';
+import { TrashListSkeleton } from './TrashListSkeleton';
 import {
   resolvePermanentDeletionDate,
   resolveTrashEntityType,
@@ -55,32 +55,6 @@ const resolveDateValue = (file: TrashFile): number => {
   const timestamp = value ? new Date(value).getTime() : 0;
   return Number.isFinite(timestamp) ? timestamp : 0;
 };
-
-const TRASH_ROW_SKELETON_KEYS = ['row-0', 'row-1', 'row-2', 'row-3', 'row-4', 'row-5', 'row-6'];
-
-function TrashListRowSkeleton(): React.JSX.Element {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px' }}>
-      <div style={{ width: 16 }}>
-        <Skeleton variant="rounded" width={16} height={16} />
-      </div>
-      <div style={{ width: 176 }}>
-        <Skeleton variant="text" width="70%" height={16} />
-      </div>
-      <div style={{ width: 440, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-        <Skeleton variant="text" width="80%" height={16} />
-        <Skeleton variant="text" width="80%" height={16} />
-      </div>
-      <div style={{ flex: 1 }}>
-        <Skeleton variant="text" width="50%" height={16} />
-      </div>
-      <div style={{ width: 144, display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-        <Skeleton variant="rounded" width={32} height={32} />
-        <Skeleton variant="rounded" width={32} height={32} />
-      </div>
-    </div>
-  );
-}
 
 export default function TrashListView() {
   const t = useIntlayer('statementsPage');
@@ -451,11 +425,7 @@ export default function TrashListView() {
 
       <div className="seneca-trash-list__body">
         {loading ? (
-          <div className="seneca-trash-list__items">
-            {TRASH_ROW_SKELETON_KEYS.map(key => (
-              <TrashListRowSkeleton key={key} />
-            ))}
-          </div>
+          <TrashListSkeleton labels={labels} />
         ) : filteredFiles.length === 0 ? (
           <div className="seneca-trash-list__empty-state">
             <EmptyStateIllustration name="trash" size="lg" />

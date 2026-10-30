@@ -1,6 +1,5 @@
 'use client';
 
-import Skeleton from '@mui/material/Skeleton';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
@@ -104,17 +103,11 @@ export function PayeeTransactions({ payeeId }: { payeeId: string }): React.JSX.E
       <div className="seneca-all-tx__list-head">
         <h2 className="seneca-all-tx__card-title">{t.transactionsTitle}</h2>
       </div>
-      {list.isPending ? (
-        <div className="seneca-all-tx__state">
-          {Array.from({ length: 4 }, (_, index) => (
-            // biome-ignore lint/suspicious/noArrayIndexKey: static skeleton list
-            <Skeleton key={index} variant="rounded" height={36} />
-          ))}
-        </div>
-      ) : rows.length === 0 ? (
+      {!list.isPending && rows.length === 0 ? (
         <p className="seneca-all-tx__state seneca-all-tx__muted">{t.noTransactions}</p>
       ) : (
         <AllTransactionsTable
+          loading={list.isPending}
           rows={rows}
           categories={categoriesQuery.data ?? []}
           budgetByCategory={budgetByCategory}

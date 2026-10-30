@@ -1,9 +1,6 @@
 'use client';
 
 import Box from '@mui/material/Box';
-import MenuItem from '@mui/material/MenuItem';
-import Select from '@mui/material/Select';
-import Skeleton from '@mui/material/Skeleton';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 import { EmptyState } from '@/app/components/ui/EmptyState';
@@ -14,7 +11,6 @@ import { TextTabs } from '@/app/components/ui/text-tabs';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { formatMoney } from '@/app/lib/format-money';
 import { formatStoredDateWithOptions } from '@/app/lib/user-format-store';
-import { tokens } from '@/lib/theme-tokens';
 import {
   FORECAST_HORIZONS,
   type ForecastEvent,
@@ -23,61 +19,12 @@ import {
 } from '../hooks/useForecast';
 import { ForecastChart } from './ForecastChart';
 import { ForecastEvents } from './ForecastEvents';
-
-const FACTORS = [0.5, 0.8, 0.9, 1, 1.1, 1.25, 1.5];
-
-const fill = (template: string, values: Record<string, string>): string =>
-  Object.entries(values).reduce(
-    (text, [key, value]) => text.replaceAll(`{{${key}}}`, value),
-    template,
-  );
+import { FORECAST_CARD_SX, Kpi } from './ForecastKpi';
+import { ForecastSkeleton } from './ForecastSkeleton';
+import { ForecastUpcomingHeader, fill } from './ForecastUpcomingHeader';
 
 const formatDate = (date: string): string =>
   formatStoredDateWithOptions(date, { day: 'numeric', month: 'short' });
-
-function Kpi({
-  label,
-  value,
-  note,
-  tone,
-}: {
-  label: string;
-  value: React.ReactNode;
-  note?: React.ReactNode;
-  /** Colour only for a real signal: money that runs out, or room to spend. */
-  tone?: 'success' | 'error';
-}) {
-  return (
-    <Box
-      sx={{
-        border: '1px solid',
-        borderColor: 'divider',
-        borderRadius: tokens.radius.md,
-        bgcolor: 'background.paper',
-        p: 2,
-      }}
-    >
-      <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>{label}</Typography>
-      <Typography
-        variant="h6"
-        sx={{
-          fontWeight: 600,
-          fontVariantNumeric: 'tabular-nums',
-
-          color:
-            tone === 'success'
-              ? 'var(--money-up)'
-              : tone === 'error'
-                ? 'var(--money-down)'
-                : 'text.primary',
-        }}
-      >
-        {value}
-      </Typography>
-      {note && <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>{note}</Typography>}
-    </Box>
-  );
-}
 
 export function ForecastContent() {
   const t = useIntlayer('forecastPage');
@@ -166,10 +113,7 @@ export function ForecastContent() {
       </Box>
 
       {isPending && (
-        <Box sx={{ display: 'grid', gap: 2 }}>
-          <Skeleton variant="rounded" height={96} sx={{ borderRadius: tokens.radius.md }} />
-          <Skeleton variant="rounded" height={260} sx={{ borderRadius: tokens.radius.md }} />
-        </Box>
+        <ForecastSkeleton horizon={horizon} scenario={scenario} setFactor={setFactor} />
       )}
 
       {error && <LoadError spacing={2}>{t.error}</LoadError>}
@@ -257,15 +201,7 @@ export function ForecastContent() {
             />
           </Box>
 
-          <Box
-            sx={{
-              border: '1px solid',
-              borderColor: 'divider',
-              borderRadius: tokens.radius.md,
-              bgcolor: 'background.paper',
-              p: 3,
-            }}
-          >
+          <Box sx={FORECAST_CARD_SX}>
             {/* What the curve assumes, above it and in two quiet lines: spending,
                 then income and the overdue bills it treats as paid today. */}
             <Box sx={{ mb: 2, display: 'grid', gap: 0.25 }}>
@@ -308,62 +244,8 @@ export function ForecastContent() {
             />
           </Box>
 
-          <Box
-            sx={{
-              border: '1px solid',
-              borderColor: 'divider',
-              borderRadius: tokens.radius.md,
-              bgcolor: 'background.paper',
-              p: 3,
-            }}
-          >
-            {/* The scenario is a narrow strip over the list it acts on, not a half-empty column. */}
-            <Box
-              sx={{
-                display: 'flex',
-                flexWrap: 'wrap',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: 2,
-              }}
-            >
-              <Typography
-                variant="subtitle1"
-                sx={{
-                  fontWeight: 600,
-                }}
-              >
-                {t.upcoming}
-              </Typography>
-              <Box
-                sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}
-                aria-label={t.scenarios.value}
-                role="group"
-              >
-                {(['incomeFactor', 'expenseFactor'] as const).map(key => (
-                  <Select
-                    key={key}
-                    size="small"
-                    value={scenario[key]}
-                    onChange={event => setFactor(key, Number(event.target.value))}
-                    inputProps={{ 'aria-label': t[key].value }}
-                    sx={{ fontSize: 14 }}
-                  >
-                    {FACTORS.map(factor => (
-                      <MenuItem key={factor} value={factor}>
-                        {fill(t.factorOption.value, {
-                          name: t[key].value,
-                          percent: String(Math.round(factor * 100)),
-                        })}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                ))}
-              </Box>
-            </Box>
-            <Typography sx={{ fontSize: 13, color: 'text.secondary', mt: 1, mb: 2 }}>
-              {t.excludeHint}
-            </Typography>
+          <Box sx={FORECAST_CARD_SX}>
+            <ForecastUpcomingHeader scenario={scenario} setFactor={setFactor} />
             <ForecastEvents
               events={listed}
               excluded={scenario.exclude}
