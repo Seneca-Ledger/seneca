@@ -10,52 +10,59 @@
 }
 
 :root {
-  --ifm-color-primary: #168118;
-  --ifm-color-primary-dark: #126714;
-  --ifm-color-primary-darker: #0e5210;
-  --ifm-color-primary-darkest: #084f09;
-  --ifm-color-primary-light: #1a9b1c;
-  --ifm-color-primary-lighter: #22b824;
-  --ifm-color-primary-lightest: #5cc462;
+  /* The app's palette: sage accent on warm off-white (see .claude/rules/design-tokens.md). */
+  --ifm-color-primary: #5b7b6a;
+  --ifm-color-primary-dark: #526f60;
+  --ifm-color-primary-darker: #4d685a;
+  --ifm-color-primary-darkest: #40564a;
+  --ifm-color-primary-light: #648776;
+  --ifm-color-primary-lighter: #698d7b;
+  --ifm-color-primary-lightest: #7a9c8a;
+  --ifm-background-color: #f3f0ea;
+  --ifm-background-surface-color: #ebe7df;
+  --ifm-font-color-base: #24211e;
+  /* Sage itself is ~4.1:1 on the page; body links take the darker step (~5.3:1). */
+  --ifm-link-color: var(--ifm-color-primary-darker);
   --ifm-code-font-size: 95%;
   --ifm-font-family-base: "Manrope", "Inter", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
   --ifm-heading-font-family: "Manrope", "Inter", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
   --ifm-navbar-height: 72px;
-  --ifm-footer-background-color: #0f172a;
-  --ifm-footer-title-color: #e2e8f0;
-  --ifm-footer-link-color: #cbd5f5;
+  --ifm-footer-background-color: #232220;
+  --ifm-footer-title-color: #ece7de;
+  --ifm-footer-link-color: #a8a196;
 }
 
 [data-theme='dark'] {
-  --ifm-color-primary: #5cc462;
-  --ifm-color-primary-dark: #3e9c35;
-  --ifm-color-primary-darker: #2e7a27;
-  --ifm-color-primary-darkest: #168118;
-  --ifm-color-primary-light: #7dd48c;
-  --ifm-color-primary-lighter: #a4e4ab;
-  --ifm-color-primary-lightest: #c8f0cc;
-  --ifm-background-color: #0f1210;
-  --ifm-background-surface-color: #131710;
+  --ifm-color-primary: #8fb39f;
+  --ifm-color-primary-dark: #7aa48d;
+  --ifm-color-primary-darker: #6f9c83;
+  --ifm-color-primary-darkest: #5b8069;
+  --ifm-color-primary-light: #a4c2b1;
+  --ifm-color-primary-lighter: #aec8ba;
+  --ifm-color-primary-lightest: #c8dacf;
+  --ifm-background-color: #1b1a18;
+  --ifm-background-surface-color: #232220;
+  --ifm-font-color-base: #ece7de;
 }
 
 .hero--primary {
-  background: radial-gradient(120% 120% at 10% 10%, rgba(22, 129, 24, 0.28), transparent 55%),
-    linear-gradient(120deg, #0f1210, #131710 60%, #0f1210);
-  color: #e2e8f0;
+  background: radial-gradient(120% 120% at 10% 10%, rgba(91, 123, 106, 0.28), transparent 55%),
+    linear-gradient(120deg, #1b1a18, #232220 60%, #1b1a18);
+  color: #ece7de;
 }
 
 .hero--primary .button {
-  box-shadow: 0 16px 45px rgba(22, 129, 24, 0.3);
+  box-shadow: 0 16px 45px rgba(91, 123, 106, 0.3);
 }
 
 .hero--primary .button--secondary {
-  color: #e2e8f0;
-  border-color: rgba(226, 232, 240, 0.4);
-  background: rgba(15, 23, 42, 0.35);
+  color: #ece7de;
+  border-color: rgba(236, 231, 222, 0.4);
+  background: rgba(36, 33, 30, 0.35);
 }
 
 .hero--primary .button--secondary:hover {
-  background: rgba(15, 23, 42, 0.55);
+  background: rgba(36, 33, 30, 0.55);
   color: #ffffff;
 }
 
@@ -85,8 +92,8 @@
   border-radius: 16px;
   padding: 1.5rem;
   background: var(--ifm-background-surface-color);
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+  border: 1px solid rgba(168, 161, 150, 0.2);
+  box-shadow: 0 18px 40px rgba(36, 33, 30, 0.08);
 }
 
 .homepage-card h3 {
@@ -99,8 +106,8 @@
   gap: 0.5rem;
   padding: 0.4rem 0.75rem;
   border-radius: 999px;
-  background: rgba(22, 129, 24, 0.12);
-  color: #e2e8f0;
+  background: rgba(91, 123, 106, 0.12);
+  color: #ece7de;
   font-weight: 600;
   font-size: 0.85rem;
 }
@@ -115,8 +122,8 @@
   width: 100%;
   height: auto;
   border-radius: 16px;
-  border: 1px solid rgba(148, 163, 184, 0.25);
-  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.22);
+  border: 1px solid rgba(168, 161, 150, 0.25);
+  box-shadow: 0 24px 60px rgba(36, 33, 30, 0.22);
 }
 
 .homepage-shots {
@@ -170,8 +177,8 @@
 }
 
 .badge-pill {
-  background: rgba(15, 23, 42, 0.08);
-  border: 1px solid rgba(15, 23, 42, 0.12);
+  background: rgba(36, 33, 30, 0.08);
+  border: 1px solid rgba(36, 33, 30, 0.12);
   border-radius: 999px;
   padding: 0.4rem 0.75rem;
   font-weight: 600;
@@ -179,13 +186,13 @@
 }
 
 [data-theme='dark'] .badge-pill {
-  background: rgba(148, 163, 184, 0.15);
-  border-color: rgba(148, 163, 184, 0.2);
+  background: rgba(168, 161, 150, 0.15);
+  border-color: rgba(168, 161, 150, 0.2);
 }
 
 .docs-callout {
   border-radius: 16px;
   padding: 1.5rem;
-  border: 1px solid rgba(22, 129, 24, 0.25);
-  background: rgba(22, 129, 24, 0.08);
+  border: 1px solid rgba(91, 123, 106, 0.25);
+  background: rgba(91, 123, 106, 0.08);
 }

@@ -1,0 +1,13 @@
+# Read by osv-scanner and by OpenSSF Scorecard's Vulnerabilities check (it uses the file next to
+# each lockfile). Each entry says why the finding does not apply; review them when the package changes.
+
+# xlsx comes from the SheetJS CDN at 0.20.3 (package.json), which is
+# past both fixes (0.19.3 and 0.20.2). The npm advisories list no patched version only
+# because SheetJS stopped publishing to the npm registry.
+[[IgnoredVulns]]
+id = "GHSA-4r6h-8v6p-xvw6"
+reason = "xlsx 0.20.3 from cdn.sheetjs.com is past the fix (0.19.3)"
+
+[[IgnoredVulns]]
+id = "GHSA-5pgg-2g8v-p4x9"
+reason = "xlsx 0.20.3 from cdn.sheetjs.com is past the fix (0.20.2)"

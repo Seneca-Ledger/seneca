@@ -115,6 +115,9 @@ export interface Statement {
   statementDateTo?: string | null;
   balanceStart?: number | string | null;
   balanceEnd?: number | string | null;
+  currency?: string;
+  /** The account it belongs to. */
+  walletId?: string | null;
   parsingDetails?: StatementParsingDetails | null;
 }
 

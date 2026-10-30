@@ -19,7 +19,7 @@ WORKDIR /app
 COPY requirements.txt ./
 RUN apt-get update && \
   apt-get install -y --no-install-recommends python3 python3-pip poppler-utils && \
-  pip3 install --no-cache-dir --break-system-packages -r requirements.txt && \
+  pip3 install --no-cache-dir --break-system-packages --require-hashes -r requirements.txt && \
   rm -rf /var/lib/apt/lists/*
 
 # --- Deps: node_modules keyed only by the lockfile ---
