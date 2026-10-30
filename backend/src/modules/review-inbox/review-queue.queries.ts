@@ -2,6 +2,10 @@ import type { ObjectLiteral, Repository, SelectQueryBuilder } from 'typeorm';
 import { onlyFlows } from '../../common/utils/counted-transactions.util';
 import { type Receipt, ReceiptSource, ReceiptStatus } from '../../entities/receipt.entity';
 import type { Transaction } from '../../entities/transaction.entity';
+import {
+  awaitingCategorySql,
+  UNCATEGORIZED_SQL_PARAMS,
+} from '../categories/uncategorized-category';
 
 /**
  * What the Review queue holds, as queries the queue and the dashboard share, so
@@ -58,10 +62,11 @@ export function reviewHoldsStatementRows(
 }
 
 /**
- * Rows with no category, confirmed or not: the "categorised" step of the month
- * close. Only rows that count once confirmed (no duplicates, transfers, rows of
- * a trashed or unread statement, crypto that settles nothing), so every row here
- * changes a number when it gets one.
+ * Rows with no category or still in the Uncategorized fallback, confirmed or
+ * not: the "categorised" step of the month close. Only rows that count once
+ * confirmed (no duplicates, transfers, rows of a trashed or unread statement,
+ * crypto that settles nothing), so every row here changes a number when it
+ * gets one.
  */
 export function uncategorizedRowsQuery(
   transactions: Repository<Transaction>,
@@ -71,7 +76,7 @@ export function uncategorizedRowsQuery(
     .createQueryBuilder('t')
     .leftJoin('t.statement', 's')
     .where('t.workspaceId = :workspaceId', { workspaceId })
-    .andWhere('t.categoryId IS NULL')
+    .andWhere(awaitingCategorySql('t'), UNCATEGORIZED_SQL_PARAMS)
     .andWhere('t.transferPairId IS NULL');
   return onlyFlows(query, 't', { includeUnconfirmed: true });
 }
