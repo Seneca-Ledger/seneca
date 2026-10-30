@@ -1,8 +1,5 @@
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { BadRequestException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { EventEmitter2 } from '@nestjs/event-emitter';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Cache } from 'cache-manager';
 import type { Repository } from 'typeorm';
 import { appError } from '../../common/errors/app-error';
 import { FileStorageService } from '../../common/services/file-storage.service';
@@ -14,7 +11,7 @@ import type {
   StatementsQuery,
   UpdateStatementBody,
 } from '../../contracts';
-import { Category, Wallet, WorkspaceMember } from '../../entities';
+import { Category, WorkspaceMember } from '../../entities';
 import { ActorType, AuditAction, EntityType, Severity } from '../../entities/audit-event.entity';
 import { Statement, StatementStatus } from '../../entities/statement.entity';
 import { Transaction } from '../../entities/transaction.entity';
@@ -22,11 +19,10 @@ import { User } from '../../entities/user.entity';
 import { AuditService } from '../audit/audit.service';
 import { StatementParsingQueue } from '../parsing/queue/statement-parsing.queue';
 import { StatementProcessingService } from '../parsing/services/statement-processing.service';
-import { WorkspaceCurrencyService } from '../workspaces/workspace-currency.service';
 import { DroppedSampleService } from './dropped-sample.service';
 import { ManualExpenseService } from './manual-expense.service';
 import { ReceiptStatementService } from './services/receipt-statement.service';
-import { ensureCanEditStatements, ensureCanModifyStatement } from './statement-access';
+import { ensureCanModifyStatement } from './statement-access';
 import { StatementFilesService } from './statement-files.service';
 import {
   applyStatementFilters,
@@ -100,10 +96,6 @@ export class StatementsService {
     statementWithAvailability.hasFileInDb = availability.inDb;
     statementWithAvailability.fileAvailability = availability;
     return statementWithAvailability;
-  }
-
-  private async ensureCanEditStatements(userId: string, workspaceId: string): Promise<void> {
-    await ensureCanEditStatements(this.workspaceMemberRepository, userId, workspaceId);
   }
 
   private async ensureCanModify(

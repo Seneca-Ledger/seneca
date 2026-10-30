@@ -98,7 +98,6 @@ describe('StatementsService', () => {
       ),
       {} as any,
     );
-    vi.spyOn(service as any, 'ensureCanEditStatements').mockResolvedValue(undefined);
   });
 
   it('orders by createdAt when listing statements', async () => {
