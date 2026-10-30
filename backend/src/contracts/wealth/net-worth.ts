@@ -110,6 +110,43 @@ export const NetWorthDenominated = Schema.Struct({
 });
 export type NetWorthDenominated = Wire<typeof NetWorthDenominated>;
 
+/**
+ * The fixed groups a summary of everything owned and owed is told in, the
+ * same whichever chart of accounts the workspace keeps; listed in display order.
+ */
+export const NetWorthGroupKey = Schema.Literals([
+  'cash',
+  'investments',
+  'crypto',
+  'retirement',
+  'real_estate',
+  'vehicles',
+  'other_assets',
+  'credit_cards',
+  'loans',
+  'mortgage',
+  'other_liabilities',
+]);
+export type NetWorthGroupKey = Wire<typeof NetWorthGroupKey>;
+
+/** One group with its value over the window; `series` follows the dates of the response's own `series`. */
+export const NetWorthGroup = Schema.Struct({
+  key: NetWorthGroupKey,
+  side: Schema.Literals(['asset', 'liability']),
+  amount: Schema.Number,
+  changePercent: Schema.NullOr(Schema.Number),
+  series: Schema.Array(Schema.Number),
+  lines: Schema.Array(
+    Schema.Struct({
+      id: Schema.String,
+      code: Schema.String,
+      name: Schema.String,
+      amount: Schema.Number,
+    }),
+  ),
+});
+export type NetWorthGroup = Wire<typeof NetWorthGroup>;
+
 /** `GET /reports/net-worth`. */
 export const NetWorthResponse = Schema.Struct({
   range: NetWorthRange,
@@ -143,5 +180,7 @@ export const NetWorthResponse = Schema.Struct({
   allTimeHigh: Schema.NullOr(Schema.Struct({ value: Schema.Number, date: DateOnly })),
   /** Investment holdings by asset class; cash and the other sheet lines keep their own buckets. */
   byAssetClass: Schema.Array(NetWorthClassificationItem),
+  /** Assets, then debts, by group, each with its own trend. */
+  groups: Schema.Array(NetWorthGroup),
 });
 export type NetWorthResponse = Wire<typeof NetWorthResponse>;

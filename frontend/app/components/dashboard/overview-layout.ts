@@ -28,6 +28,7 @@ export const OVERVIEW_SECTION_IDS = [
   'spend-calendar',
   'goals',
   'net-worth',
+  'balances',
   'budgets',
   // This month's subscriptions; the id is the old cash runway card's, so saved layouts keep the slot.
   'cash-runway',
@@ -72,6 +73,7 @@ export const DEFAULT_OVERVIEW_ROWS: OverviewRows = [
   ['safe-to-spend', 'cash-runway'],
   ['spend-calendar'],
   ['net-worth', 'upcoming-charges'],
+  ['balances'],
   ['activity'],
   ['advice', 'month-close'],
 ];

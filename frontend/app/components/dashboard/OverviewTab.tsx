@@ -26,7 +26,6 @@ import { GoalsProgressCard } from './GoalsProgressCard';
 import { leftToSpend } from './left-to-spend';
 import { MoneyOwedCard } from './MoneyOwedCard';
 import { MonthCloseCard } from './MonthCloseCard';
-import { NetWorthCard } from './NetWorthCard';
 import { OverviewLayout } from './OverviewLayout';
 import type { KpiSectionId } from './overview-layout';
 import { OverviewMonthProvider } from './overview-month';
@@ -39,6 +38,7 @@ import { UpcomingChargesCard } from './UpcomingChargesCard';
 import { CardLink, DashboardCard, KpiCard, type KpiCardProps } from './ui';
 import { useMonthLabel } from './use-month-label';
 import { WorkspaceActivityCard } from './WorkspaceActivityCard';
+import { wealthSections } from './wealth-sections';
 
 interface OverviewTabProps {
   data: DashboardData;
@@ -389,7 +389,7 @@ export function OverviewTab({
           ),
           'spend-calendar': <SpendCalendarCard displayMonth={displayMonth} />,
           goals: <GoalsProgressCard month={monthKey(displayMonth)} monthLabel={monthLabel} />,
-          'net-worth': <NetWorthCard month={monthKey(displayMonth)} monthLabel={monthLabel} />,
+          ...wealthSections(monthKey(displayMonth), monthLabel),
           budgets: <BudgetSummaryWidget month={monthKey(displayMonth)} monthLabel={monthLabel} />,
           'cash-runway': <SubscriptionsMonthWidget formatAmount={formatAmount} />,
           activity: <WorkspaceActivityCard />,
