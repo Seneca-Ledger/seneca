@@ -13,7 +13,7 @@ import { formatMoney } from '@/app/lib/format-money';
 import { formatStoredDateWithOptions } from '@/app/lib/user-format-store';
 import { monthEndOrToday } from './month-end';
 import { useIsWideSection } from './section-span';
-import { CardEmpty, CardLink, DashboardCard } from './ui';
+import { CardEmpty, CardLink, DashboardCard, Figure } from './ui';
 
 /**
  * The periods the tabs offer, shortest first. A fixed span is labelled short
@@ -97,7 +97,7 @@ export function NetWorthCard({ month, monthLabel }: NetWorthCardProps): React.JS
       }
     >
       <div style={{ opacity: isFetching ? 0.6 : 1, transition: 'opacity 150ms ease' }}>
-        <div className="seneca-chart__total">{whole(data.current)}</div>
+        <Figure className="seneca-chart__total">{whole(data.current)}</Figure>
         <div className="seneca-chart__breakdown">
           <span
             className={

@@ -626,6 +626,14 @@ describe('API contracts (e2e)', () => {
       // A monthly charge lands in every month, paid or still to come.
       expect(status.body.paidCount + status.body.unpaidCount).toBeGreaterThan(0);
       expect(status.body.items.length).toBeGreaterThan(0);
+      // A month that is over is what was charged in it: nothing is left to come.
+      const now = new Date();
+      const last = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const lastMonth = `${last.getFullYear()}-${String(last.getMonth() + 1).padStart(2, '0')}`;
+      const past = await get(`/subscriptions/month-status?month=${lastMonth}`);
+      matches(SubscriptionMonthStatus, past.body);
+      expect(past.body.month).toBe(lastMonth);
+      expect(past.body.unpaidCount).toBe(0);
     });
 
     it('GET /subscriptions/upcoming', async () => {
@@ -1789,6 +1797,10 @@ describe('API contracts (e2e)', () => {
 
     it('GET activity, a usage count, a rate, the daily quote and the map styles', async () => {
       matches(WorkspaceActivity, (await get('/audit-events/activity?limit=8')).body);
+      // A month long past has nothing in it; the activity above all happened now.
+      const longAgo = await get('/audit-events/activity?limit=8&month=2000-01');
+      matches(WorkspaceActivity, longAgo.body);
+      expect(longAgo.body.items).toHaveLength(0);
       const categories = await get('/categories?type=expense');
       matches(CategoryUsageCount, (await get(`/categories/${categories.body[0].id}/usage-count`)).body);
       matches(ExchangeRateQuote, (await get('/exchange-rates?from=USD&to=USD')).body);

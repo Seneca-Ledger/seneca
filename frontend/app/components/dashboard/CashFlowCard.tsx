@@ -12,7 +12,7 @@ import {
   useCashFlowEntries,
 } from '@/app/hooks/useDashboard';
 import { useIntlayer, useLocale } from '@/app/i18n';
-import { CardEmpty, DashboardCard } from './ui';
+import { CardEmpty, DashboardCard, Figure } from './ui';
 
 interface CashFlowCardProps {
   formatAmount: (value: number) => string;
@@ -112,9 +112,9 @@ export function CashFlowCard({
       subtitle={formatMonthLabel(activeMonth, locale)}
       className="seneca-dashboard__cashflow-card"
     >
-      <div className={`seneca-chart__total ${PRIVATE_CLASS}`}>
+      <Figure className={`seneca-chart__total ${PRIVATE_CLASS}`}>
         {netFigure(income - expense, formatAmount)}
-      </div>
+      </Figure>
       <div className="seneca-chart__breakdown">
         <span className="seneca-chart__breakdown-series seneca-chart__breakdown-series--income">
           {t.income.value} <PrivateAmount>{formatAmount(income)}</PrivateAmount>

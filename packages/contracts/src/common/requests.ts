@@ -83,6 +83,11 @@ export const DateOnlyInput = Schema.String.check(
   isExistingDate,
 );
 
+/** A calendar month, `YYYY-MM`. */
+export const MonthInput = Schema.String.check(
+  Schema.isPattern(/^\d{4}-(0[1-9]|1[0-2])$/, { message: 'Expected a month as YYYY-MM' }),
+);
+
 /**
  * A list in a query string: repeated keys (`?a=x&a=y`), comma-separated
  * values (`?a=x,y`) or both, trimmed, empty parts dropped.

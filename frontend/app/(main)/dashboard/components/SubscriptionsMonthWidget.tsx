@@ -5,14 +5,15 @@ import { useQuery } from '@tanstack/react-query';
 import type React from 'react';
 import type { DonutSlice } from '@/app/components/charts/CategoryDonut';
 import { LazyCategoryDonut } from '@/app/components/charts/lazy-charts';
-import { useTodayNote } from '@/app/components/dashboard/overview-month';
+import { currentMonthKey } from '@/app/components/dashboard/month-end';
+import { useOverviewMonth } from '@/app/components/dashboard/overview-month';
 import { CardEmpty, CardLink, DashboardCard, ListRow } from '@/app/components/dashboard/ui';
 import { PrivateAmount } from '@/app/components/ui/private-amount';
 import { VendorIcon } from '@/app/components/VendorIcon';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { formatMoney } from '@/app/lib/format-money';
-import { apiQueryDecoded } from '@/app/lib/query-fn-schema';
+import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import { queryKeys } from '@/app/lib/query-keys';
 import { formatStoredDateWithOptions } from '@/app/lib/user-format-store';
 import { resolveLocale, text } from '../helpers/dashboard-helpers';
@@ -28,28 +29,34 @@ type SubscriptionsMonthWidgetProps = {
 };
 
 /**
- * This month's subscription charges as a ring, paid so far against still to
- * come, beside the subscriptions themselves: icon, name, a dot in the ring's
- * colour with "Paid" or the charge date, and the amount.
+ * The subscription charges of the Overview's month (this month's elsewhere) as
+ * a ring, paid so far against still to come, beside the subscriptions
+ * themselves: icon, name, a dot in the ring's colour with "Paid" or the charge
+ * date, and the amount.
  */
 export function SubscriptionsMonthWidget({
   formatAmount,
 }: SubscriptionsMonthWidgetProps): React.JSX.Element | null {
   const t = useIntlayer('subscriptionsMonthWidget');
   const links = useIntlayer('overviewWidgets');
-  const today = useTodayNote();
+  const shown = useOverviewMonth();
+  const month = shown?.month ?? currentMonthKey();
   const { locale } = useLocale();
   const workspaceId = useWorkspaceId();
   // Cached, so the widget is drawn at once when Overview is opened again.
   const { data, isPending } = useQuery({
-    queryKey: queryKeys.subscriptionsMonthStatus(workspaceId),
+    queryKey: queryKeys.subscriptionsMonthStatus(workspaceId, month),
     queryFn: ({ signal }) =>
       apiQueryDecoded({
         contract: 'SubscriptionMonthStatus',
         url: '/subscriptions/month-status',
+        params: { month } satisfies ContractInput<'SubscriptionMonthStatusQuery'>,
         signal,
       }),
     enabled: Boolean(workspaceId),
+    // Another month keeps the ring in place until its figures arrive.
+    placeholderData: (previous, previousQuery) =>
+      previousQuery?.queryKey[1] === workspaceId ? previous : undefined,
   });
 
   if (isPending) {
@@ -83,7 +90,7 @@ export function SubscriptionsMonthWidget({
         },
       ].filter(slice => slice.value > 0)
     : [];
-  // "Nov 18": the month is always this one, so the year adds nothing.
+  // "Nov 18": the month is the one in the card's subtitle, so the year adds nothing.
   const chargeDay = (value: string | null): string =>
     value
       ? formatStoredDateWithOptions(
@@ -96,7 +103,7 @@ export function SubscriptionsMonthWidget({
   return (
     <DashboardCard
       title={t.title}
-      subtitle={today}
+      subtitle={shown?.label}
       action={<CardLink href="/subscriptions">{links.allSubscriptions}</CardLink>}
     >
       {total === 0 ? (

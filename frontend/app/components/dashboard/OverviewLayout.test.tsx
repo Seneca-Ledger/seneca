@@ -8,6 +8,8 @@ import {
   type OverviewSectionId,
 } from './overview-layout';
 import { OverviewLayout } from './OverviewLayout';
+import { currentMonthKey } from './month-end';
+import { OverviewMonthProvider } from './overview-month';
 
 const api = vi.hoisted(() => ({ get: vi.fn(), put: vi.fn() }));
 
@@ -115,6 +117,32 @@ describe('OverviewLayout', () => {
 
     await waitFor(() => expect(spanOf('top-categories card')).toBe('12'));
     expect(spanOf('cash-runway card')).toBe('6');
+  });
+
+  it('mutes the cards about today while another month is picked, and only them', async () => {
+    api.get.mockResolvedValue({ data: { state: null } });
+
+    const { unmount } = renderWithQuery(
+      <OverviewMonthProvider value="2001-01">
+        <OverviewLayout sections={sections()} />
+      </OverviewMonthProvider>,
+    );
+
+    await waitFor(() =>
+      expect(sectionOf('advice card')).toHaveClass('seneca-overview__section--muted'),
+    );
+    expect(sectionOf('upcoming-charges card')).toHaveClass('seneca-overview__section--muted');
+    expect(sectionOf('cash-runway card')).not.toHaveClass('seneca-overview__section--muted');
+
+    unmount();
+    renderWithQuery(
+      <OverviewMonthProvider value={currentMonthKey()}>
+        <OverviewLayout sections={sections()} />
+      </OverviewMonthProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByText('advice card')).toBeInTheDocument());
+    expect(sectionOf('advice card')).not.toHaveClass('seneca-overview__section--muted');
   });
 
   it('gives every section, each KPI tile included, a grip to drag it by', async () => {

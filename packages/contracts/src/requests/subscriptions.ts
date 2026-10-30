@@ -1,6 +1,7 @@
 import * as Schema from 'effect/Schema';
 import {
   DateOnlyInput,
+  MonthInput,
   NumericInput,
   optionalNullable,
   TrimmedLowercase,
@@ -91,6 +92,10 @@ export type SubscriptionChargeParams = Wire<typeof SubscriptionChargeParams>;
 /** `GET /subscriptions`. */
 export const SubscriptionsQuery = Schema.Struct({ status: Schema.optional(SubscriptionStatus) });
 export type SubscriptionsQuery = Wire<typeof SubscriptionsQuery>;
+
+/** `GET /subscriptions/month-status`: that month's charges; the month we are in when absent. */
+export const SubscriptionMonthStatusQuery = Schema.Struct({ month: Schema.optional(MonthInput) });
+export type SubscriptionMonthStatusQuery = Wire<typeof SubscriptionMonthStatusQuery>;
 
 /** `GET /subscriptions/upcoming`: charges within this many days, default 7. */
 export const UpcomingSubscriptionsQuery = Schema.Struct({
