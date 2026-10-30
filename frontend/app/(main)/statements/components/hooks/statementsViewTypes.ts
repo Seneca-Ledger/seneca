@@ -3,10 +3,18 @@ import type { ReadonlyURLSearchParams } from 'next/navigation';
 import type { RefObject } from 'react';
 import { useWorkspace } from '@/app/contexts/WorkspaceContext';
 import { usePullToRefresh } from '@/app/hooks/usePullToRefresh';
+import type { useIntlayer } from '@/app/i18n';
 import type { StatementParsingDetails } from '@/app/lib/contracts';
 import type { StatementExpenseMode } from '@/app/lib/statement-expense-drawer';
+import type {
+  buildFromOptions,
+  FilterLabels,
+  FilterOptionLabels,
+} from '../StatementsListView.utils';
+import type { StatementUploadLabels } from '../statement-upload';
 import type { useManualExpenseOptions } from './useManualExpenseOptions';
 import type { useStatementPreview } from './useStatementPreview';
+import type { MergeDuplicatesPlan } from './useStatementSelection';
 import type { useStatementsDuplicates } from './useStatementsDuplicates';
 import type { useStatementsFilterState } from './useStatementsFilterState';
 import type { useStatementsListData } from './useStatementsListData';
@@ -76,29 +84,34 @@ export interface UseStatementsViewParams {
 
 export const STATEMENTS_PAGE_SIZE = 30;
 
-export interface StatementsViewState {
+/** Everything the documents list page reads from useStatementsView. */
+export interface StatementsView {
+  // state
   page: number;
   setPage: (p: number) => void;
-  searchInput: string;
-  setSearchInput: (v: string) => void;
   search: string;
+  /** Sets the search and goes back to the first page. */
+  applySearch: (value: string) => void;
   dateSortDirection: 'asc' | 'desc';
   setDateSortDirection: (d: 'asc' | 'desc') => void;
   expenseDrawerOpen: boolean;
   setExpenseDrawerOpen: (v: boolean) => void;
   expenseDrawerMode: StatementExpenseMode;
-  t: any;
-  filterLabels: Record<string, string>;
-  filterOptionLabels: Record<string, string>;
+  // labels
+  t: ReturnType<typeof useIntlayer<'statementsPage'>>;
+  filterLabels: FilterLabels;
+  filterOptionLabels: FilterOptionLabels;
   listHeaderLabels: Record<string, string>;
   paginationLabels: Record<string, string>;
-  uploadLabels: Record<string, string>;
+  uploadLabels: StatementUploadLabels;
+  // options
   typeOptions: Array<{ value: string; label: string }>;
   statusOptions: Array<{ value: string; label: string }>;
   datePresets: Array<{ value: 'thisMonth' | 'lastMonth' | 'yearToDate'; label: string }>;
   dateModes: Array<{ value: 'on' | 'after' | 'before'; label: string }>;
   groupByOptions: Array<{ value: string; label: string }>;
   hasOptions: Array<{ value: string; label: string }>;
+  // hooks
   filterState: ReturnType<typeof useStatementsFilterState>;
   manualExpenseCategories: ReturnType<typeof useManualExpenseOptions>['manualExpenseCategories'];
   manualExpenseTaxRates: ReturnType<typeof useManualExpenseOptions>['manualExpenseTaxRates'];
@@ -106,11 +119,14 @@ export interface StatementsViewState {
   preview: ReturnType<typeof useStatementPreview>['preview'];
   openPreview: ReturnType<typeof useStatementPreview>['openPreview'];
   closePreview: ReturnType<typeof useStatementPreview>['closePreview'];
-  loading: boolean;
+  // data
+  isPending: boolean;
+  /** Placeholder rows above the list for local uploads the server does not list yet. */
   listSkeletonKeys: string[];
   refetchStatements: ReturnType<typeof useStatementsListData>['refetchStatements'];
   refetchReceipts: ReturnType<typeof useStatementsListData>['refetchReceipts'];
   refreshActiveStatements: ReturnType<typeof useStatementsListData>['refreshActiveStatements'];
+  // derived
   displayStatements: StatementsStatement[];
   paginatedDisplayStatements: StatementsStatement[];
   sortedDisplayStatements: StatementsStatement[];
@@ -119,8 +135,12 @@ export interface StatementsViewState {
   rangeStart: number;
   rangeEnd: number;
   duplicateMetaById: ReturnType<typeof useStatementsDuplicates>['duplicateMetaById'];
+  /** Rows each statement still has in Review, by statement id. */
+  statementReviewCounts: Record<string, number>;
   setDuplicateOverrides: ReturnType<typeof useStatementsDuplicates>['setDuplicateOverrides'];
+  // selection
   selectedStatementIds: string[];
+  setSelectedStatementIds: (ids: string[]) => void;
   selectedActionsOpen: boolean;
   setSelectedActionsOpen: (v: boolean | ((prev: boolean) => boolean)) => void;
   allVisibleSelected: boolean;
@@ -128,26 +148,34 @@ export interface StatementsViewState {
   hasSelectedDuplicates: boolean;
   duplicateStatementIds: string[];
   handleToggleStatement: (id: string) => void;
-  handleToggleSelectAll: () => void;
+  handleToggleSelectAll: (checked: boolean) => void;
   handleExportSelected: () => Promise<void>;
   handleDeleteSelected: () => Promise<void>;
-  handleMarkSelectedAsDuplicate: () => Promise<void>;
-  handleDismissSelectedDuplicates: () => Promise<void>;
-  handleSelectDetectedDuplicates: () => Promise<void>;
-  handleMergeSelectedDuplicates: () => Promise<void>;
+  handleMarkSelectedAsDuplicate: () => void;
+  handleDismissSelectedDuplicates: () => void;
+  handleSelectDetectedDuplicates: () => void;
+  handleMergeSelectedDuplicates: () => void;
+  mergePlan: MergeDuplicatesPlan | null;
+  mergeRunning: boolean;
+  confirmMergeSelectedDuplicates: () => Promise<void>;
+  cancelMergeSelectedDuplicates: () => void;
+  // pull-to-refresh
   pullToRefreshHandlers: ReturnType<typeof usePullToRefresh>['handlers'];
   pullDistance: number;
   pullRefreshing: boolean;
   isReadyToRefresh: boolean;
+  // computed
   activeFilterCount: number;
   routeFilterLabel: string | null;
-  resetRouteCategoryFilter: () => void;
+  resetRouteFilters: () => void;
+  resetAllFilters: () => void;
   visibleFilterScreens: string[];
-  fromOptions: ReturnType<typeof useStatementsFilterState>['draftColumns'];
+  fromOptions: ReturnType<typeof buildFromOptions>;
   currencyOptions: string[];
   appliedColumnsWithLabels: ReturnType<typeof useStatementsFilterState>['columns'];
   columnsWithLabels: ReturnType<typeof useStatementsFilterState>['draftColumns'];
   currentExchangeRateLabels: Record<string, string>;
+  // workspace
   currentWorkspace: ReturnType<typeof useWorkspace>['currentWorkspace'];
   isMobile: boolean;
 }
