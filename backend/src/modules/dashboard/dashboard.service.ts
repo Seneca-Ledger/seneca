@@ -46,8 +46,8 @@ import {
   uncategorizedRowsQuery,
   unconfirmedRowsQuery,
 } from '../review-inbox/review-queue.queries';
-import { documentHref, findScanReceipts } from '../search/document-href';
 import { BANK_DISPLAY_NAMES } from './bank-display-names';
+import { recentRowHrefs } from './bill-hrefs';
 import {
   type CashFlowRange,
   type DashboardWindow,
@@ -840,18 +840,9 @@ export class DashboardService {
         parsingDetails: Statement['parsingDetails'];
       }>();
 
-    // A transaction has no page of its own: a click opens its document. One
-    // entered by hand has none, so it gets no link rather than a dead one.
-    const documents = rows.map(row =>
-      row.statementId
-        ? { id: row.statementId, status: row.statementStatus, parsingDetails: row.parsingDetails }
-        : null,
-    );
-    const scanReceipts = await findScanReceipts(
-      this.receiptRepo,
-      workspaceId,
-      documents.filter(document => document !== null),
-    );
+    // A transaction has no page of its own: a click opens its document, or for
+    // one entered by hand the bill it settled; with neither it gets no link.
+    const hrefOf = await recentRowHrefs(this.receiptRepo, this.payableRepo, workspaceId, rows);
 
     return Promise.all(
       rows.map(async (row, index) => {
@@ -879,7 +870,7 @@ export class DashboardService {
           categoryName: row.categoryName,
           categoryColor: row.categoryColor || OTHER_CATEGORY_COLOR,
           categoryIcon: row.categoryIcon,
-          href: documents[index] ? documentHref(documents[index], scanReceipts) : null,
+          href: hrefOf(index),
         };
       }),
     );

@@ -1,0 +1,52 @@
+import * as Schema from 'effect/Schema';
+import type { Wire } from '../common/wire';
+
+/** The picture of what a transaction or a bill was for. */
+export const ItemImage = Schema.Struct({
+  /** The transaction or bill the list asked about. */
+  subjectId: Schema.String,
+  /** A stored upload, served from the API's /uploads. */
+  url: Schema.String,
+  /** What the picture shows, as Wikidata names it. */
+  label: Schema.NullOr(Schema.String),
+});
+export type ItemImage = Wire<typeof ItemImage>;
+
+/** Who a transaction paid, when it paid a subscription: the vendor's mark stands in for a picture. */
+export const ItemVendor = Schema.Struct({
+  subjectId: Schema.String,
+  name: Schema.String,
+  /** For the favicon; null when the subscription has no site set. */
+  domain: Schema.NullOr(Schema.String),
+});
+export type ItemVendor = Wire<typeof ItemVendor>;
+
+/**
+ * The kind of thing a row names, for its line icon until a picture is picked.
+ * Open: the dictionary the server matches with is data it is rebuilt from.
+ */
+export const ItemKind = Schema.Struct({ subjectId: Schema.String, kind: Schema.String });
+export type ItemKind = Wire<typeof ItemKind>;
+
+export const ItemImageList = Schema.Struct({
+  images: Schema.Array(ItemImage),
+  /** Transactions only: the subscription vendors of the rows asked about. */
+  vendors: Schema.optional(Schema.Array(ItemVendor)),
+  kinds: Schema.optional(Schema.Array(ItemKind)),
+});
+export type ItemImageList = Wire<typeof ItemImageList>;
+
+/** A Wikidata item that has a picture. */
+export const ItemImageCandidate = Schema.Struct({
+  id: Schema.String,
+  label: Schema.String,
+  description: Schema.NullOr(Schema.String),
+});
+export type ItemImageCandidate = Wire<typeof ItemImageCandidate>;
+
+export const ItemImageSearchResults = Schema.Struct({
+  /** The words that found them, after trailing ones were dropped. */
+  query: Schema.String,
+  results: Schema.Array(ItemImageCandidate),
+});
+export type ItemImageSearchResults = Wire<typeof ItemImageSearchResults>;

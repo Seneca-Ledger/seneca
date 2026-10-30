@@ -1347,6 +1347,18 @@
     align-items: flex-start;
     justify-content: space-between;
     gap: 12px;
+
+    // The picture of what the bill is for sits before the name; the amount stays right.
+    > .seneca-payable-list__vendor {
+      margin-right: auto;
+      align-self: center;
+    }
+  }
+
+  &__vendor-cell {
+    display: flex;
+    align-items: center;
+    gap: 12px;
   }
 
   &__mobile-row-data {

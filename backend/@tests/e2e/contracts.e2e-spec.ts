@@ -257,6 +257,7 @@ import {
   WelcomeTutorialSeen,
   WorkspaceFavorite,
   XRechnungCheck,
+  ItemImageList,
 } from '../../src/contracts';
 import {
   deleteUserByEmail,
@@ -1302,6 +1303,60 @@ describe('API contracts (e2e)', () => {
       const tagged = await get(`/payables?direction=payable&tagId=${one.body.tags[0].id}`);
       matches(PayableListPage, tagged.body);
       expect(tagged.body.data.map((bill: { id: string }) => bill.id)).toEqual([payableId]);
+    });
+
+    it('GET /item-images/payables and /item-images/transactions, with data', async () => {
+      const send = (url: string, body: object) =>
+        request(app.getHttpServer())
+          .post(url)
+          .set('Authorization', `Bearer ${owner.token}`)
+          .set('x-workspace-id', owner.workspaceId)
+          .send(body)
+          .expect(201);
+      const sale = await send('/payables', {
+        direction: 'receivable',
+        vendor: 'Sold electric guitar',
+        amount: 300,
+        currency: 'USD',
+      });
+      const [transaction] = await dataSource.query(
+        'SELECT id FROM transactions WHERE workspace_id = $1 ORDER BY created_at LIMIT 1',
+        [owner.workspaceId],
+      );
+      const subscription = await send('/subscriptions', {
+        vendorName: 'Contract Stream',
+        amount: 5,
+        frequency: 'monthly',
+        currency: 'USD',
+        vendorDomain: 'example.com',
+      });
+      // Picking a picture needs Wikidata, and matching a charge needs a bank row: both straight in.
+      await dataSource.query(
+        `INSERT INTO subscription_charges
+           (workspace_id, subscription_id, transaction_id, amount, currency, charge_date, expected_amount, match_status)
+         VALUES ($1, $2, $3, 5, 'USD', CURRENT_DATE, 5, 'matched')`,
+        [owner.workspaceId, subscription.body.id, transaction.id],
+      );
+      await dataSource.query(
+        `INSERT INTO item_images (workspace_id, transaction_id, payable_id, file_name, label)
+         VALUES ($1, $2, NULL, 'contract-item.png', 'Example Mini'),
+                ($1, NULL, $3, 'contract-bill.png', NULL)`,
+        [owner.workspaceId, transaction.id, payableId],
+      );
+
+      const bills = await get(`/item-images/payables?ids=${payableId},${sale.body.id}`);
+      matches(ItemImageList, bills.body);
+      expect(bills.body.images).toEqual([
+        { subjectId: payableId, url: '/uploads/item-images/contract-bill.png', label: null },
+      ]);
+      expect(bills.body.kinds).toEqual([{ subjectId: sale.body.id, kind: 'guitar' }]);
+
+      const rows = await get(`/item-images/transactions?ids=${transaction.id}`);
+      matches(ItemImageList, rows.body);
+      expect(rows.body.images[0].label).toBe('Example Mini');
+      expect(rows.body.vendors).toEqual([
+        { subjectId: transaction.id, name: 'Contract Stream', domain: 'example.com' },
+      ]);
     });
 
     it('GET /payables/summary, payments and payment candidates', async () => {

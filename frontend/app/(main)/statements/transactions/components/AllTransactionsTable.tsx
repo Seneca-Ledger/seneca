@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import StatementCategoryDrawer from '@/app/(main)/statements/[id]/edit/StatementCategoryDrawer';
 import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, ChevronDown } from '@/app/components/icons';
+import { ItemImageBadge } from '@/app/components/item-images/ItemImageBadge';
 import { Checkbox } from '@/app/components/ui/checkbox';
 import {
   DropdownMenu,
@@ -152,7 +153,11 @@ export function AllTransactionsTable({
               return (
                 <tr key={row.id} className={clsx(selected.has(row.id) && 'is-selected')}>
                   <td className="seneca-all-tx__col-direction">
-                    <Icon size={16} aria-label={t[direction].value} />
+                    {/* The vendor's mark or the item's picture, where there is one; the sign of the amount
+                        still says which way the money went. */}
+                    <ItemImageBadge transactionId={row.id} size={22} name={row.counterpartyName}>
+                      <Icon size={16} aria-label={t[direction].value} />
+                    </ItemImageBadge>
                   </td>
                   <td className="seneca-all-tx__description" data-label={t.description.value}>
                     <button

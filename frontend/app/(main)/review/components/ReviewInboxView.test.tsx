@@ -13,6 +13,8 @@ vi.mock('@/app/i18n', async importOriginal => ({
 }));
 
 const routerPush = vi.fn();
+// The picture tile fetches on its own and has its own tests.
+vi.mock('@/app/components/item-images/ItemThumb', () => ({ ItemThumb: () => null }));
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: routerPush }),
   usePathname: () => '/review',

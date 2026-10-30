@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { MoreHorizontal, Tag } from '@/app/components/icons';
+import { ItemThumb } from '@/app/components/item-images/ItemThumb';
 import { Button } from '@/app/components/ui/button';
 import {
   DropdownMenu,
@@ -19,11 +20,12 @@ import { useIsMobile } from '@/app/hooks/useIsMobile';
 import { useIntlayer } from '@/app/i18n';
 import type { Payable } from '@/app/lib/payables-api';
 import {
+  daysOverdue,
   formatMoney,
   formatPayableDate,
   isPayableOverdue,
-  parsePayableDate,
   toNumber,
+  toneOf,
 } from './payables-utils';
 
 interface PayablesListProps {
@@ -72,30 +74,6 @@ const fillTemplate = (template: string, values: Record<string, string | number>)
     (result, [key, value]) => result.replace(`{${key}}`, String(value)),
     template,
   );
-
-/** Whole days a due date is behind today, by the calendar. */
-function daysOverdue(dueDate: string | null | undefined): number {
-  const due = parsePayableDate(dueDate);
-  if (!due) {
-    return 0;
-  }
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  due.setHours(0, 0, 0, 0);
-  return Math.round((today.getTime() - due.getTime()) / 86_400_000);
-}
-
-type StatusTone = 'overdue' | 'done' | 'partial' | 'neutral';
-
-function toneOf(payable: Payable, overdue: boolean): StatusTone {
-  if (overdue) {
-    return 'overdue';
-  }
-  if (payable.status === 'paid') {
-    return 'done';
-  }
-  return payable.status === 'partially_paid' ? 'partial' : 'neutral';
-}
 
 function PayablesList({
   items,
@@ -222,6 +200,7 @@ function PayablesList({
               className="seneca-payable-list__mobile-row"
             >
               <div className="seneca-payable-list__mobile-row-top">
+                <ItemThumb subject="payable" id={payable.id} name={payable.vendor} size={32} />
                 <button
                   type="button"
                   className="seneca-payable-list__vendor"
@@ -269,18 +248,28 @@ function PayablesList({
                   onClick={() => onEdit(payable)}
                 >
                   <td className="seneca-payable-list__td">
-                    {/* The keyboard way into the bill; a click anywhere on the row does the same. */}
-                    <button
-                      type="button"
-                      className="seneca-payable-list__vendor"
-                      onClick={event => {
-                        event.stopPropagation();
-                        onEdit(payable);
-                      }}
-                    >
-                      {payable.vendor}
-                    </button>
-                    {renderTags(payable)}
+                    <div className="seneca-payable-list__vendor-cell">
+                      <ItemThumb
+                        subject="payable"
+                        id={payable.id}
+                        name={payable.vendor}
+                        size={32}
+                      />
+                      <div>
+                        {/* The keyboard way into the bill; a click anywhere on the row does the same. */}
+                        <button
+                          type="button"
+                          className="seneca-payable-list__vendor"
+                          onClick={event => {
+                            event.stopPropagation();
+                            onEdit(payable);
+                          }}
+                        >
+                          {payable.vendor}
+                        </button>
+                        {renderTags(payable)}
+                      </div>
+                    </div>
                   </td>
                   <td className="seneca-payable-list__td seneca-payable-list__muted">
                     {formatPayableDate(payable.dueDate, locale)}

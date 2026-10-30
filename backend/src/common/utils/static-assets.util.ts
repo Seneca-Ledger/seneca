@@ -44,5 +44,12 @@ export function resolveStaticAssetMounts(
       prefix: '/uploads/metal-photos',
       ensure: true,
     },
+    // Pictures of bought and sold items, copied from Commons. Same trade as the
+    // covers: a public picture behind an unguessable uuid name.
+    {
+      root: path.join(uploadsDir, 'item-images'),
+      prefix: '/uploads/item-images',
+      ensure: true,
+    },
   ];
 }

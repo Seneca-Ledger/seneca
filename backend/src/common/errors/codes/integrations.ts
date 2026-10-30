@@ -75,6 +75,9 @@ export const INTEGRATIONS_ERRORS = {
   BANK_SYNC_ENABLEBANKING_TIMEOUT: 'Enable Banking did not answer in time',
   BANK_SYNC_ENABLEBANKING_UNREADABLE: 'Enable Banking sent an unreadable answer',
   BANK_SYNC_ENABLEBANKING_UNREACHABLE: 'Enable Banking could not be reached',
+  // ── item-images ─────────────────────────────────────────────────
+  ITEM_IMAGE_NOT_FOUND: 'No picture for this item',
+  ITEM_IMAGES_UNAVAILABLE: 'Picture search is unavailable right now',
   // ── maps ────────────────────────────────────────────────────────
   MAPS_TILE_UNKNOWN: 'Unknown map style or tile',
   MAPS_TILES_UNAVAILABLE: 'Map tiles are unavailable',

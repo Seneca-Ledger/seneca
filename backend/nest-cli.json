@@ -12,6 +12,10 @@
       {
         "include": "config-assets/brands/**/*",
         "outDir": "dist"
+      },
+      {
+        "include": "config-assets/item-kinds/**/*",
+        "outDir": "dist"
       }
     ]
   }

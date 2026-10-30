@@ -182,3 +182,27 @@ export const getSummaryCardItems = (summary: PayablesSummary): readonly SummaryC
     { key: 'dueThisWeek', value: summary.dueThisWeek, count: summary.dueThisWeekCount ?? 0 },
     { key: 'paidTotal', value: summary.paidTotal, count: summary.paidTotalCount },
   ] as readonly SummaryCardItem[];
+
+/** Whole days a due date is behind today, by the calendar. */
+export function daysOverdue(dueDate: string | null | undefined): number {
+  const due = parsePayableDate(dueDate);
+  if (!due) {
+    return 0;
+  }
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  due.setHours(0, 0, 0, 0);
+  return Math.round((today.getTime() - due.getTime()) / 86_400_000);
+}
+
+export type StatusTone = 'overdue' | 'done' | 'partial' | 'neutral';
+
+export function toneOf(payable: Payable, overdue: boolean): StatusTone {
+  if (overdue) {
+    return 'overdue';
+  }
+  if (payable.status === 'paid') {
+    return 'done';
+  }
+  return payable.status === 'partially_paid' ? 'partial' : 'neutral';
+}

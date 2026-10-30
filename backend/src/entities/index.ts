@@ -44,6 +44,7 @@ export * from './invoice-counter.entity';
 export * from './invoice-delivery.entity';
 export * from './invoice-line-item.entity';
 export * from './invoice-settings.entity';
+export * from './item-image.entity';
 export * from './journal-entry.entity';
 export * from './journal-line.entity';
 export * from './ledger-account.entity';
