@@ -2,106 +2,80 @@ import apiClient from '@/app/lib/api';
 import { getApiErrorMessage } from '@/app/lib/api-error';
 import { invalidateDocumentLists } from '@/app/lib/invalidate-document-lists';
 import { getQueryClient } from '@/app/lib/query-client';
-import { type ContractInput, checkBody } from '@/app/lib/query-fn-schema';
-import type { Transaction } from '../editHelpers';
+import type { ContractInput } from '@/app/lib/query-fn-schema';
+import type { CategoryOption, Transaction } from '../editHelpers';
 
-// What PUT /transactions/:id accepts (UpdateTransactionDto). The row being edited
-// is a copy of the whole transaction (id, category, branch, …), and the API's
-// validation rejects any field it doesn't know.
-const EDITABLE_FIELDS = [
-  'transactionDate',
-  'documentNumber',
-  'counterpartyName',
-  'counterpartyBin',
-  'counterpartyAccount',
-  'counterpartyBank',
-  'debit',
-  'credit',
-  'amountForeign',
-  'exchangeRate',
-  'currency',
-  'paymentPurpose',
-  'categoryId',
-  'branchId',
-  'walletId',
-  'article',
-  'transactionType',
-  'comments',
-] as const satisfies ReadonlyArray<keyof Transaction>;
-
-const NUMERIC_FIELDS = new Set<keyof Transaction>([
-  'debit',
-  'credit',
-  'amountForeign',
-  'exchangeRate',
-]);
-const ID_FIELDS = new Set<keyof Transaction>(['categoryId', 'branchId', 'walletId']);
-
-// Inputs hand back strings: amounts go out as numbers, a cleared select as null
-// (an empty string fails the API's UUID check).
-function toApiValue(field: keyof Transaction, value: unknown): unknown {
-  if (NUMERIC_FIELDS.has(field)) {
-    return value === '' || value === null || value === undefined ? null : Number(value);
+function findCategory(nodes: CategoryOption[], id: string): CategoryOption | undefined {
+  for (const node of nodes) {
+    const found = node.id === id ? node : findCategory(node.children ?? [], id);
+    if (found) {
+      return found;
+    }
   }
-  if (ID_FIELDS.has(field)) {
-    return value === '' ? null : value;
-  }
-  return value;
+  return undefined;
 }
 
-/** Only the fields the user actually changed, in the shape the API validates. */
-export function buildTransactionUpdate(
-  original: Transaction | undefined,
-  edited: Partial<Transaction>,
-): Partial<Record<keyof Transaction, unknown>> {
-  const update: Partial<Record<keyof Transaction, unknown>> = {};
-  for (const field of EDITABLE_FIELDS) {
-    if (!(field in edited)) {
-      continue;
-    }
-    const next = toApiValue(field, edited[field]);
-    // Unchanged amounts may differ only in type ("100.00" from the API vs 100).
-    if (next === toApiValue(field, original?.[field] ?? null)) {
-      continue;
-    }
-    update[field] = next;
-  }
-  return update;
-}
-
-type SaveCtx = {
-  original: Transaction | undefined;
+export type CategoryCtx = {
+  categories: CategoryOption[];
   setTransactions: (fn: (prev: Transaction[]) => Transaction[]) => void;
-  setEditingRow: (v: string | null) => void;
-  setSuccess: (v: boolean) => void;
   setError: (v: string) => void;
-  editedData: Record<string, Partial<Transaction>>;
   messages: { saveTransactionError: string };
 };
 
-export async function saveTransactionAction(txId: string, ctx: SaveCtx): Promise<void> {
+/**
+ * Files rows under one category (an empty id clears it), each row to its own
+ * entry of `categoryIds`. Answers whether it was saved.
+ */
+export async function saveCategoriesAction(
+  categoryIds: Record<string, string>,
+  ctx: CategoryCtx,
+): Promise<boolean> {
+  const ids = Object.keys(categoryIds);
+  if (ids.length === 0) {
+    return true;
+  }
   try {
-    const updates = buildTransactionUpdate(ctx.original, ctx.editedData[txId] ?? {});
-    if (Object.keys(updates).length > 0) {
+    const [onlyId] = ids;
+    if (ids.length === 1 && onlyId) {
       // PUT: the API has no PATCH route for transactions.
-      await apiClient.put(
-        `/transactions/${txId}`,
-        await checkBody('UpdateTransactionBody', updates, '/transactions/:id'),
-      );
-      ctx.setTransactions(prev =>
-        prev.map(t => (t.id === txId ? ({ ...t, ...updates } as Transaction) : t)),
-      );
-      // The dashboard and transaction lists show these rows too.
-      const queryClient = getQueryClient();
-      void queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      void queryClient.invalidateQueries({ queryKey: ['transactions'] });
-      invalidateDocumentLists();
+      await apiClient.put(`/transactions/${onlyId}`, {
+        categoryId: categoryIds[onlyId] || null,
+      } satisfies ContractInput<'UpdateTransactionBody'>);
+    } else {
+      await apiClient.post('/transactions/bulk-update', {
+        items: ids.map(id => ({ id, updates: { categoryId: categoryIds[id] || null } })),
+      } satisfies ContractInput<'BulkUpdateRequestBody'>);
     }
-    ctx.setEditingRow(null);
-    ctx.setSuccess(true);
-    setTimeout(() => ctx.setSuccess(false), 3000);
+    const categoryOf = (categoryId: string | undefined): Transaction['category'] => {
+      const node = categoryId ? findCategory(ctx.categories, categoryId) : undefined;
+      return node
+        ? {
+            id: node.id,
+            name: node.name,
+            isEnabled: node.isEnabled,
+            source: node.source,
+            isSystem: node.isSystem,
+          }
+        : undefined;
+    };
+    ctx.setTransactions(prev =>
+      prev.map(t => {
+        if (!(t.id in categoryIds)) {
+          return t;
+        }
+        const category = categoryOf(categoryIds[t.id]);
+        return { ...t, categoryId: category?.id, category };
+      }),
+    );
+    // The dashboard and transaction lists show these rows too.
+    const queryClient = getQueryClient();
+    void queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    void queryClient.invalidateQueries({ queryKey: ['transactions'] });
+    invalidateDocumentLists();
+    return true;
   } catch (err: unknown) {
     ctx.setError(getApiErrorMessage(err, ctx.messages.saveTransactionError));
+    return false;
   }
 }
 
@@ -121,39 +95,6 @@ export async function deleteTransactionAction(txId: string, ctx: DeleteCtx): Pro
     setTimeout(() => ctx.setSuccess(false), 3000);
   } catch (err: unknown) {
     ctx.setError(getApiErrorMessage(err, ctx.messages.deleteTransactionError));
-  }
-}
-
-type BulkCtx = {
-  selectedRows: Set<string>;
-  editedData: Record<string, Partial<Transaction>>;
-  setSaving: (v: boolean) => void;
-  setSelectedRows: (v: Set<string>) => void;
-  setEditedData: (v: Record<string, Partial<Transaction>>) => void;
-  setSuccess: (v: boolean) => void;
-  setError: (v: string) => void;
-  messages: { updateTransactionsError: string };
-};
-
-export async function bulkUpdateAction(loadData: () => Promise<void>, ctx: BulkCtx): Promise<void> {
-  try {
-    ctx.setSaving(true);
-    const updates = Array.from(ctx.selectedRows)
-      .filter(id => ctx.editedData[id])
-      .map(id => ({ id, updates: ctx.editedData[id] }));
-    await apiClient.post('/transactions/bulk-update', {
-      items: updates,
-    } satisfies ContractInput<'BulkUpdateRequestBody'>);
-    await loadData();
-    invalidateDocumentLists();
-    ctx.setSelectedRows(new Set());
-    ctx.setEditedData({});
-    ctx.setSuccess(true);
-    setTimeout(() => ctx.setSuccess(false), 3000);
-  } catch (err: unknown) {
-    ctx.setError(getApiErrorMessage(err, ctx.messages.updateTransactionsError));
-  } finally {
-    ctx.setSaving(false);
   }
 }
 

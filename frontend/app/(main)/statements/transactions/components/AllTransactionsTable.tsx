@@ -14,6 +14,7 @@ import {
 } from '@/app/components/ui/dropdown-menu';
 import { PRIVATE_CLASS } from '@/app/components/ui/private-amount';
 import { useIntlayer, useLocale } from '@/app/i18n';
+import { isSuggestion } from '@/app/lib/category-suggestion';
 import type { CategoryList } from '@/app/lib/contracts';
 import { formatMoney } from '@/app/lib/format-money';
 import { useCategoryName } from '@/app/lib/use-category-name';
@@ -167,7 +168,10 @@ export function AllTransactionsTable({
                   {destination ?? '–'}
                 </td>
                 <td data-label={tTable.columnCategory.value}>
-                  {row.category ? categoryName(row.category.name) : t.uncategorized}
+                  {/* A suggested category is dashed until the row is confirmed. */}
+                  <span className={isSuggestion(row) ? 'seneca-suggested-category' : undefined}>
+                    {row.category ? categoryName(row.category.name) : t.uncategorized}
+                  </span>
                 </td>
                 <td data-label={t.budget.value}>{budget ?? ''}</td>
                 <td className="seneca-all-tx__col-actions">

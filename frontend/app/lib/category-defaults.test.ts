@@ -31,7 +31,7 @@ describe('category-defaults', () => {
   });
 
   it('falls back to neutral colour and the tag glyph for unknown names', () => {
-    const visual = resolveCategoryVisual({ name: 'Groceries', color: null });
+    const visual = resolveCategoryVisual({ name: 'Example Hobby Fund', color: null });
     expect(visual.color).toBe(NEUTRAL_CATEGORY_COLOR);
     expect(visual.Icon).toBe(CATEGORY_DEFAULTS.uncategorized.Icon);
     expect(visual.iconUrl).toBeNull();

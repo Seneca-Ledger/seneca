@@ -2326,6 +2326,10 @@ describe('API contracts (e2e)', () => {
       const transactions = await get('/transactions?page=1&limit=50');
       matches(TransactionListPage, transactions.body);
       expect(transactions.body.data[0]).toHaveProperty('statementId');
+      // The statement editor groups its rows by this payee.
+      expect(
+        transactions.body.data.some((row: { payee?: { name?: string } | null }) => row.payee?.name),
+      ).toBe(true);
       const ledger = await get('/transactions?page=1&limit=50&running_balance=1');
       matches(TransactionListPage, ledger.body);
       expect(ledger.body.data[0]).toHaveProperty('runningBalance');

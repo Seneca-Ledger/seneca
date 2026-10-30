@@ -3,20 +3,19 @@
 import { useCallback, useEffect } from 'react';
 import { useAutoSave } from '@/app/hooks/useAutoSave';
 import type { Transaction } from '../editHelpers';
+import { applyCategoryToTarget, type SpreadMessages } from './category-target';
 import {
   convertDroppedSampleAction,
   exportToCustomTable,
   loadStatementData,
   metadataAutoSave,
-  updateStatementCategoryAction,
 } from './statement-edit-async';
 import {
   applyBulkCategoryAction,
   bulkDeleteAction,
-  bulkUpdateAction,
   deleteTransactionAction,
-  saveTransactionAction,
 } from './statement-edit-sync';
+import { useResuggest } from './useResuggest';
 import type { UseStatementEditFormReturn } from './useStatementEditFormTypes';
 import { useStatementFormState } from './useStatementFormState';
 
@@ -30,7 +29,6 @@ export interface UseStatementEditFormOptions {
     loadDataError: string;
     saveTransactionError: string;
     deleteTransactionError: string;
-    updateTransactionsError: string;
     deleteTransactionsError: string;
     assignCategoryError: string;
     exportLoading: string;
@@ -38,8 +36,7 @@ export interface UseStatementEditFormOptions {
     exportFailure: string;
     exportDescription: string;
     statementNamePrefix: string;
-    categoryUpdated: string;
-    categoryUpdateFailed: string;
+    spread: SpreadMessages;
   };
   /** Translated column titles for a table filled from this statement. */
   sourceColumnTitles: Record<string, string>;
@@ -68,8 +65,6 @@ export function useStatementEditForm({
         setStatement: s.setStatement,
         setTransactions: s.setTransactions,
         setCategories: s.setCategories,
-        setBranches: s.setBranches,
-        setWallets: s.setWallets,
         setMetadataForm: s.setMetadataForm,
         setError: s.setError,
         // Replace, not push: Back must not return to the editor it just left.
@@ -85,8 +80,6 @@ export function useStatementEditForm({
     s.setStatement,
     s.setTransactions,
     s.setCategories,
-    s.setBranches,
-    s.setWallets,
     s.setMetadataForm,
     s.setError,
   ]);
@@ -96,6 +89,8 @@ export function useStatementEditForm({
       void loadData();
     }
   }, [user, statementId, loadData]);
+
+  useResuggest(statementId, s.transactions, loadData);
 
   const handleMetadataAutoSave = useCallback(
     async (formData: Parameters<typeof metadataAutoSave>[0]['formData']): Promise<void> => {
@@ -138,39 +133,6 @@ export function useStatementEditForm({
     } else {
       s.setSelectedRows(new Set(s.transactions.map(t => t.id)));
     }
-  };
-
-  const handleEdit = (transaction: Transaction): void => {
-    s.setEditingRow(transaction.id);
-    s.setEditedData({ [transaction.id]: { ...transaction } });
-  };
-
-  const handleFieldChange = (
-    transactionId: string,
-    field: keyof Transaction,
-    value: Transaction[keyof Transaction],
-  ): void => {
-    s.setEditedData(prev => ({
-      ...prev,
-      [transactionId]: { ...prev[transactionId], [field]: value },
-    }));
-  };
-
-  const handleSave = async (transactionId: string): Promise<void> => {
-    await saveTransactionAction(transactionId, {
-      original: s.transactions.find(t => t.id === transactionId),
-      setTransactions: s.setTransactions,
-      setEditingRow: s.setEditingRow,
-      setSuccess: s.setSuccess,
-      setError: s.setError,
-      editedData: s.editedData,
-      messages: { saveTransactionError: messages.saveTransactionError },
-    });
-  };
-
-  const handleCancel = (): void => {
-    s.setEditingRow(null);
-    s.setEditedData({});
   };
 
   const handleMetadataChange = (field: string, value: string): void => {
@@ -218,19 +180,6 @@ export function useStatementEditForm({
     });
   };
 
-  const handleBulkUpdate = async (): Promise<void> => {
-    await bulkUpdateAction(loadData, {
-      selectedRows: s.selectedRows,
-      editedData: s.editedData,
-      setSaving: s.setSaving,
-      setSelectedRows: s.setSelectedRows,
-      setEditedData: s.setEditedData,
-      setSuccess: s.setSuccess,
-      setError: s.setError,
-      messages: { updateTransactionsError: messages.updateTransactionsError },
-    });
-  };
-
   const handleBulkDelete = async (confirmMessage: string): Promise<void> => {
     await bulkDeleteAction(confirmMessage, loadData, {
       selectedRows: s.selectedRows,
@@ -250,7 +199,39 @@ export function useStatementEditForm({
     s.setBulkCategoryDialogOpen(true);
   };
 
-  const handleApplyBulkCategory = async (categoryId: string): Promise<void> => {
+  const handleOpenRowCategory = (transaction: Transaction): void => {
+    s.setCategoryTarget({ ids: [transaction.id], spread: true });
+    s.setBulkCategoryDialogOpen(true);
+  };
+
+  const handleOpenRowsCategory = (rows: Transaction[]): void => {
+    s.setCategoryTarget({ ids: rows.map(row => row.id), spread: false });
+    s.setBulkCategoryDialogOpen(true);
+  };
+
+  const handleCloseCategory = (): void => {
+    s.setBulkCategoryDialogOpen(false);
+    s.setCategoryTarget(null);
+  };
+
+  const handleApplyCategory = async (categoryId: string): Promise<void> => {
+    const target = s.categoryTarget;
+    if (target) {
+      handleCloseCategory();
+      await applyCategoryToTarget({
+        target,
+        categoryId,
+        transactions: s.transactions,
+        ctx: {
+          categories: s.categories,
+          setTransactions: s.setTransactions,
+          setError: s.setError,
+          messages: { saveTransactionError: messages.saveTransactionError },
+        },
+        messages: messages.spread,
+      });
+      return;
+    }
     await applyBulkCategoryAction(loadData, {
       bulkCategoryId: categoryId,
       selectedRows: s.selectedRows,
@@ -261,21 +242,6 @@ export function useStatementEditForm({
       setSuccess: s.setSuccess,
       setError: s.setError,
       messages: { assignCategoryError: messages.assignCategoryError },
-    });
-  };
-
-  const handleStatementCategorySelect = async (categoryId: string): Promise<void> => {
-    await updateStatementCategoryAction({
-      statement: s.statement,
-      categoryId,
-      messages: {
-        categoryUpdated: messages.categoryUpdated,
-        categoryUpdateFailed: messages.categoryUpdateFailed,
-      },
-      statementCategorySaving: s.statementCategorySaving,
-      setStatementCategorySaving: s.setStatementCategorySaving,
-      setStatement: s.setStatement,
-      setError: s.setError,
     });
   };
 
@@ -294,16 +260,10 @@ export function useStatementEditForm({
     setSuccess: s.setSuccess,
     selectedRows: s.selectedRows,
     setSelectedRows: s.setSelectedRows,
-    editingRow: s.editingRow,
-    editedData: s.editedData,
     categories: s.categories,
-    branches: s.branches,
-    wallets: s.wallets,
     bulkCategoryDialogOpen: s.bulkCategoryDialogOpen,
     setBulkCategoryDialogOpen: s.setBulkCategoryDialogOpen,
-    statementCategoryDrawerOpen: s.statementCategoryDrawerOpen,
-    setStatementCategoryDrawerOpen: s.setStatementCategoryDrawerOpen,
-    statementCategorySaving: s.statementCategorySaving,
+    categoryTarget: s.categoryTarget,
     bulkCategoryId: s.bulkCategoryId,
     setBulkCategoryId: s.setBulkCategoryId,
     metadataForm: s.metadataForm,
@@ -318,18 +278,15 @@ export function useStatementEditForm({
     handleExportToCustomTable,
     handleRowSelect,
     handleSelectAll,
-    handleEdit,
-    handleFieldChange,
-    handleSave,
-    handleCancel,
     handleMetadataChange,
     handleResolveParsingWarning,
     handleConvertDroppedSample,
     handleDelete,
-    handleBulkUpdate,
     handleBulkDelete,
     handleOpenBulkCategory,
-    handleApplyBulkCategory,
-    handleStatementCategorySelect,
+    handleOpenRowCategory,
+    handleOpenRowsCategory,
+    handleCloseCategory,
+    handleApplyCategory,
   };
 }

@@ -100,6 +100,16 @@ export const ClassifiedTransaction = TransactionListItem.mapFields(
 );
 export type ClassifiedTransaction = Wire<typeof ClassifiedTransaction>;
 
+/**
+ * `POST /classification/statements/:id/suggestions`: rows of a statement given
+ * a fresh suggestion (or a rule's category), and rows left as they were.
+ */
+export const StatementSuggestionsResult = Schema.Struct({
+  suggested: Schema.Number,
+  unchanged: Schema.Number,
+});
+export type StatementSuggestionsResult = Wire<typeof StatementSuggestionsResult>;
+
 /** `POST /classification/bulk`: how the re-run went, row by row for the failures. */
 export const ClassifyBulkResult = Schema.Struct({
   total: Schema.Number,

@@ -10,4 +10,7 @@ export const UNDECIDED_CATEGORY_SOURCES: readonly TransactionCategorySource[] = 
   TransactionCategorySource.HISTORY,
   TransactionCategorySource.LEARNED,
   TransactionCategorySource.KEYWORD,
+  TransactionCategorySource.KIND,
+  TransactionCategorySource.BRAND,
+  TransactionCategorySource.RECEIPT,
 ];
