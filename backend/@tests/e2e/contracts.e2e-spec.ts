@@ -194,6 +194,7 @@ import {
   TelegramReportPage,
   TransactionAttachmentList,
   TransactionCandidates,
+  TransactionGoalLink,
   TransactionList,
   TrialBalance,
   TwoFactorSetup,
@@ -462,6 +463,60 @@ describe('API contracts (e2e)', () => {
     it('GET /goals/:id/flow and /plan', async () => {
       matches(GoalFlowResponse, (await get(`/goals/${goalId}/flow?month=${month}`)).body);
       matches(GoalPlanResponse, (await get(`/goals/${goalId}/plan`)).body);
+    });
+
+    it('PUT/GET /transactions/:id/goal takes an expense out of the goal', async () => {
+      const files = await get('/storage/files');
+      const rows = await get(`/transactions?statement_id=${files.body[0].id}`);
+      const transactionId = rows.body.data[0].id;
+      const put = (goal: string | null) =>
+        request(app.getHttpServer())
+          .put(`/transactions/${transactionId}/goal`)
+          .set('Authorization', `Bearer ${owner.token}`)
+          .set('x-workspace-id', owner.workspaceId)
+          .send({ goalId: goal })
+          .expect(200);
+
+      const item = await request(app.getHttpServer())
+        .post(`/goals/${goalId}/items`)
+        .set('Authorization', `Bearer ${owner.token}`)
+        .set('x-workspace-id', owner.workspaceId)
+        .send({ name: 'Moving boxes', estimatedAmount: 50 })
+        .expect(201);
+      const itemId = item.body.items[0].id;
+
+      const linked = await request(app.getHttpServer())
+        .put(`/transactions/${transactionId}/goal`)
+        .set('Authorization', `Bearer ${owner.token}`)
+        .set('x-workspace-id', owner.workspaceId)
+        .send({ goalId, goalItemId: itemId })
+        .expect(200);
+      matches(TransactionGoalLink, linked.body);
+      expect(linked.body).toEqual({
+        goal: expect.objectContaining({ id: goalId }),
+        amount: -42.5,
+        itemId,
+      });
+      expect((await get(`/goals/${goalId}/items`)).body.items[0]).toEqual(
+        expect.objectContaining({ status: 'paid', actualAmount: 42.5 }),
+      );
+      matches(TransactionGoalLink, (await get(`/transactions/${transactionId}/goal`)).body);
+
+      const detail = await get(`/goals/${goalId}`);
+      matches(GoalDetail, detail.body);
+      expect(detail.body.currentAmount).toBe(57.5);
+      expect(detail.body.contributions).toContainEqual(
+        expect.objectContaining({
+          amount: -42.5,
+          transaction: expect.objectContaining({ id: transactionId, counterpartyName: 'Contract Coffee' }),
+        }),
+      );
+
+      expect((await put(null)).body).toEqual({ goal: null, amount: null, itemId: null });
+      expect((await get(`/goals/${goalId}`)).body.currentAmount).toBe(100);
+      expect((await get(`/goals/${goalId}/items`)).body.items[0]).toEqual(
+        expect.objectContaining({ status: 'planned', actualAmount: null }),
+      );
     });
   });
 
@@ -2424,6 +2479,10 @@ describe('API contracts (e2e)', () => {
       const transactions = await get('/transactions?page=1&limit=50');
       matches(TransactionListPage, transactions.body);
       expect(transactions.body.data[0]).toHaveProperty('statementId');
+      // The statement editor groups its rows by this payee.
+      expect(
+        transactions.body.data.some((row: { payee?: { name?: string } | null }) => row.payee?.name),
+      ).toBe(true);
       const ledger = await get('/transactions?page=1&limit=50&running_balance=1');
       matches(TransactionListPage, ledger.body);
       expect(ledger.body.data[0]).toHaveProperty('runningBalance');

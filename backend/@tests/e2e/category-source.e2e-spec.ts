@@ -185,12 +185,12 @@ describe('Category source (e2e)', () => {
 
     it('does not learn from rows nobody has confirmed', async () => {
       for (const terminal of ['5555', '6666', '7777']) {
-        await book(`MAGNUM CASH AND CARRY ${terminal}`, {
+        await book(`ZORVEX QUILLAN ${terminal}`, {
           categoryId: payeeCategoryIds[3],
           isVerified: false,
         });
       }
-      const fresh = await book('MAGNUM CASH AND CARRY 8888', {});
+      const fresh = await book('ZORVEX QUILLAN 8888', {});
 
       const classified = await classify(fresh.id);
 

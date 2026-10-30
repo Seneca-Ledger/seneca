@@ -11,8 +11,8 @@
  *   xpub → 1… (P2PKH)   ypub → 3… (P2SH-wrapped SegWit)   zpub → bc1… (SegWit)
  */
 
-import { ripemd160 } from '@noble/hashes/legacy';
-import { sha256 } from '@noble/hashes/sha2';
+import { ripemd160 } from '@noble/hashes/legacy.js';
+import { sha256 } from '@noble/hashes/sha2.js';
 import { base58check as base58checkWith, bech32 } from '@scure/base';
 import { HDKey } from '@scure/bip32';
 

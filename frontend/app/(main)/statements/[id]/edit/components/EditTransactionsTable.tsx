@@ -8,13 +8,9 @@ import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import { Checkbox } from '@/app/components/ui/checkbox';
-import type { BranchOption, CategoryOption, FieldChangeParams, Transaction } from '../editHelpers';
+import type { Transaction } from '../editHelpers';
 import type { ColumnLabels } from '../helpers/transactionDisplayHelpers';
-import {
-  getColumnLabels,
-  getEditedTransaction,
-  getEditTableLabels,
-} from '../helpers/transactionDisplayHelpers';
+import { getColumnLabels, getEditTableLabels } from '../helpers/transactionDisplayHelpers';
 import { TransactionRow } from './TransactionRow';
 
 /** Sentence case, grey and small: column titles label, they do not shout. */
@@ -63,44 +59,28 @@ function TableHeaderRow({
 
 export type EditTransactionsTableProps = {
   transactions: Transaction[];
-  editingRow: string | null;
-  editedData: Record<string, Partial<Transaction>>;
   selectedRows: Set<string>;
-  categories: CategoryOption[];
-  branches: BranchOption[];
-  wallets: BranchOption[];
   locale: string;
   formatNumber: (n?: number | null) => string;
   columns: Record<string, { value?: string }>;
   labels: Record<string, { value?: string } | undefined>;
   onSelectAll: () => void;
   onRowSelect: (id: string) => void;
-  onEdit: (transaction: Transaction) => void;
-  onSave: (id: string) => void;
-  onCancel: () => void;
+  onCategoryClick: (transaction: Transaction) => void;
   onDelete: (id: string) => Promise<void>;
-  onFieldChange: (params: FieldChangeParams) => void;
 };
 
 export function EditTransactionsTable({
   transactions,
-  editingRow,
-  editedData,
   selectedRows,
-  categories,
-  branches,
-  wallets,
   locale,
   formatNumber,
   columns,
   labels,
   onSelectAll,
   onRowSelect,
-  onEdit,
-  onSave,
-  onCancel,
+  onCategoryClick,
   onDelete,
-  onFieldChange,
 }: EditTransactionsTableProps): React.ReactElement {
   const colLabels = getColumnLabels(columns);
   const editLabels = getEditTableLabels(labels);
@@ -127,27 +107,19 @@ export function EditTransactionsTable({
             <TransactionRow
               key={transaction.id}
               transaction={transaction}
-              isEditing={editingRow === transaction.id}
-              edited={getEditedTransaction(editedData, transaction)}
               selectedRows={selectedRows}
-              categories={categories}
-              branches={branches}
-              wallets={wallets}
               locale={locale}
               formatNumber={formatNumber}
               confirmDeleteLabel={editLabels.confirmDelete}
               deleteLabel={editLabels.deleteAction}
               moreActionsLabel={editLabels.moreActions}
               cancelLabel={editLabels.cancel}
-              notSelectedLabel={editLabels.notSelected}
               noCategoryLabel={editLabels.noCategory}
               assignCategoryLabel={editLabels.assignCategory}
+              suggestedLabel={editLabels.suggested}
               onRowSelect={onRowSelect}
-              onEdit={onEdit}
-              onSave={onSave}
-              onCancel={onCancel}
+              onCategoryClick={onCategoryClick}
               onDelete={onDelete}
-              onFieldChange={onFieldChange}
             />
           ))}
         </TableBody>

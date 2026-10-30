@@ -1,0 +1,80 @@
+{"counterpartyName": "REWE SAGT DANKE 1234 //CITY/DE", "paymentPurpose": "REWE SAGT DANKE 1234 //CITY/DE", "type": "expense", "currency": "EUR", "expectKey": "groceries", "note": "brand rewe"}
+{"counterpartyName": "LIDL SAGT DANKE", "paymentPurpose": "LIDL SAGT DANKE", "type": "expense", "currency": "EUR", "expectKey": "groceries", "note": "brand lidl"}
+{"counterpartyName": "ALDI SUED 0042", "paymentPurpose": "ALDI SUED 0042", "type": "expense", "currency": "EUR", "expectKey": "groceries", "note": "brand aldi"}
+{"counterpartyName": "EDEKA CENTER 12", "paymentPurpose": "EDEKA CENTER 12", "type": "expense", "currency": "EUR", "expectKey": "groceries", "note": "brand edeka"}
+{"counterpartyName": "NETTO MARKEN-DISCOUNT 4321", "paymentPurpose": "NETTO MARKEN-DISCOUNT 4321", "type": "expense", "currency": "EUR", "expectKey": "groceries", "note": "brand netto"}
+{"counterpartyName": "PENNY 0815", "paymentPurpose": "PENNY 0815", "type": "expense", "currency": "EUR", "expectKey": "groceries", "note": "brand penny"}
+{"counterpartyName": "Albert Heijn 1234", "paymentPurpose": "Albert Heijn 1234", "type": "expense", "currency": "EUR", "expectKey": "groceries", "note": "brand albert"}
+{"counterpartyName": "CARREFOUR MARKET 42", "paymentPurpose": "CARREFOUR MARKET 42", "type": "expense", "currency": "EUR", "expectKey": "groceries", "note": "brand carrefour"}
+{"counterpartyName": "TESCO STORES 1234", "paymentPurpose": "TESCO STORES 1234", "type": "expense", "currency": "GBP", "expectKey": "groceries", "note": "brand tesco"}
+{"counterpartyName": "SAINSBURYS S/MKTS", "paymentPurpose": "SAINSBURYS S/MKTS", "type": "expense", "currency": "GBP", "expectKey": "groceries", "note": "brand sainsburys"}
+{"counterpartyName": "WALMART SUPERCENTER #1234", "paymentPurpose": "WALMART SUPERCENTER #1234", "type": "expense", "currency": "USD", "expectKey": "groceries", "note": "brand walmart"}
+{"counterpartyName": "KROGER #042", "paymentPurpose": "KROGER #042", "type": "expense", "currency": "USD", "expectKey": "groceries", "note": "brand kroger"}
+{"counterpartyName": "MCDONALDS 1234", "paymentPurpose": "MCDONALDS 1234", "type": "expense", "currency": "EUR", "expectKey": "dining", "note": "brand mcdonalds"}
+{"counterpartyName": "POS PURCHASE MCDONALD'S 0042", "paymentPurpose": "POS PURCHASE MCDONALD'S 0042", "type": "expense", "currency": "CAD", "expectKey": "dining", "note": "brand pos"}
+{"counterpartyName": "STARBUCKS 12345", "paymentPurpose": "STARBUCKS 12345", "type": "expense", "currency": "USD", "expectKey": "dining", "note": "brand starbucks"}
+{"counterpartyName": "BURGER KING 0042", "paymentPurpose": "BURGER KING 0042", "type": "expense", "currency": "EUR", "expectKey": "dining", "note": "brand burger"}
+{"counterpartyName": "KFC 1234", "paymentPurpose": "KFC 1234", "type": "expense", "currency": "INR", "expectKey": "dining", "note": "brand kfc"}
+{"counterpartyName": "DOMINOS PIZZA 0042", "paymentPurpose": "DOMINOS PIZZA 0042", "type": "expense", "currency": "INR", "expectKey": "dining", "note": "brand dominos"}
+{"counterpartyName": "SHELL 1234 CITY", "paymentPurpose": "SHELL 1234 CITY", "type": "expense", "currency": "EUR", "expectKey": "fuel", "note": "brand shell"}
+{"counterpartyName": "ESSO STATION 42", "paymentPurpose": "ESSO STATION 42", "type": "expense", "currency": "EUR", "expectKey": "fuel", "note": "brand esso"}
+{"counterpartyName": "ARAL TANKSTELLE", "paymentPurpose": "ARAL TANKSTELLE", "type": "expense", "currency": "EUR", "expectKey": "fuel", "note": "brand aral"}
+{"counterpartyName": "IKEA 042 CITY", "paymentPurpose": "IKEA 042 CITY", "type": "expense", "currency": "EUR", "expectKey": "shopping", "note": "brand ikea"}
+{"counterpartyName": "H&M 1234", "paymentPurpose": "H&M 1234", "type": "expense", "currency": "EUR", "expectKey": "shopping", "note": "brand h&m"}
+{"counterpartyName": "ZARA 0042", "paymentPurpose": "ZARA 0042", "type": "expense", "currency": "EUR", "expectKey": "shopping", "note": "brand zara"}
+{"counterpartyName": "DECATHLON 1234", "paymentPurpose": "DECATHLON 1234", "type": "expense", "currency": "EUR", "expectKey": "shopping", "note": "brand decathlon"}
+{"counterpartyName": "DM DROGERIE MARKT 1234", "paymentPurpose": "DM DROGERIE MARKT 1234", "type": "expense", "currency": "EUR", "expectKey": "shopping", "note": "brand dm"}
+{"counterpartyName": "ROSSMANN 4242", "paymentPurpose": "ROSSMANN 4242", "type": "expense", "currency": "EUR", "expectKey": "shopping", "note": "brand rossmann"}
+{"counterpartyName": "NETFLIX.COM 1234", "paymentPurpose": "NETFLIX.COM 1234", "type": "expense", "currency": "EUR", "expectKey": "subscriptions", "note": "brand netflix.com"}
+{"counterpartyName": "PAYPAL *SPOTIFY", "paymentPurpose": "PAYPAL *SPOTIFY", "type": "expense", "currency": "EUR", "expectKey": "subscriptions", "note": "brand paypal"}
+{"counterpartyName": "SPOTIFY P1234ABCD", "paymentPurpose": "SPOTIFY P1234ABCD", "type": "expense", "currency": "GBP", "expectKey": "subscriptions", "note": "brand spotify"}
+{"counterpartyName": "UBER *TRIP 1234", "paymentPurpose": "UBER *TRIP 1234", "type": "expense", "currency": "USD", "expectKey": "transport", "note": "brand uber"}
+{"counterpartyName": "UBER EATS 0042", "paymentPurpose": "UBER EATS 0042", "type": "expense", "currency": "EUR", "expectKey": "dining", "note": "brand uber"}
+{"counterpartyName": "Jio Prepaid Recharges", "paymentPurpose": "Jio Prepaid Recharges", "type": "expense", "currency": "INR", "expectKey": "phone_internet", "note": "brand jio"}
+{"counterpartyName": "AIRTEL PREPAID", "paymentPurpose": "AIRTEL PREPAID", "type": "expense", "currency": "INR", "expectKey": "phone_internet", "note": "brand airtel"}
+{"counterpartyName": "SWIGGY ORDER 1234", "paymentPurpose": "SWIGGY ORDER 1234", "type": "expense", "currency": "INR", "expectKey": "dining", "note": "brand swiggy"}
+{"counterpartyName": "ZOMATO ONLINE ORDER", "paymentPurpose": "ZOMATO ONLINE ORDER", "type": "expense", "currency": "INR", "expectKey": "dining", "note": "brand zomato"}
+{"counterpartyName": "PREPAID DEBIT VODACOM 0000 CARD NO. 0001", "paymentPurpose": "PREPAID DEBIT VODACOM 0000 CARD NO. 0001", "type": "expense", "currency": "ZAR", "expectKey": "phone_internet", "note": "brand prepaid"}
+{"counterpartyName": "Telekom Deutschland GmbH", "paymentPurpose": "Telekom Deutschland GmbH", "type": "expense", "currency": "EUR", "expectKey": "phone_internet", "note": "brand telekom"}
+{"counterpartyName": "APOLLO PHARMACY 1234", "paymentPurpose": "APOLLO PHARMACY 1234", "type": "expense", "currency": "INR", "expectKey": "health", "note": "brand apollo"}
+{"counterpartyName": "DOUGLAS 0042", "paymentPurpose": "DOUGLAS 0042", "type": "expense", "currency": "EUR", "expectKey": "shopping", "note": "brand douglas"}
+{"counterpartyName": "EXAMPLE MOBILE BANKING PAYMENT 1234 TO MEMBER ONE", "paymentPurpose": "EXAMPLE MOBILE BANKING PAYMENT 1234 TO MEMBER ONE", "type": "expense", "currency": "AUD", "expectKey": null, "note": "mobile banking"}
+{"counterpartyName": "MOBILE Bill Payment", "paymentPurpose": "MOBILE Bill Payment", "type": "expense", "currency": "CAD", "expectKey": null, "note": "mobile bill"}
+{"counterpartyName": "FREE NOW", "paymentPurpose": "FREE NOW", "type": "expense", "currency": "EUR", "expectKey": null, "note": "taxi app named free"}
+{"counterpartyName": "House of Example Wonder", "paymentPurpose": "House of Example Wonder", "type": "expense", "currency": "EUR", "expectKey": null, "note": "house"}
+{"counterpartyName": "Example Garage", "paymentPurpose": "Example Garage", "type": "expense", "currency": "USD", "expectKey": null, "note": "garage"}
+{"counterpartyName": "Online payment", "paymentPurpose": "Online payment", "type": "expense", "currency": "EUR", "expectKey": null, "note": "online"}
+{"counterpartyName": "PAYMENT TO MEMBER ONE REF SHELL", "paymentPurpose": "PAYMENT TO MEMBER ONE REF SHELL", "type": "expense", "currency": "EUR", "expectKey": null, "note": "brand deep inside"}
+{"counterpartyName": "Paytm Payments Bank", "paymentPurpose": "Paytm Payments Bank", "type": "expense", "currency": "INR", "expectKey": null, "note": "payment app"}
+{"counterpartyName": "PhonePe", "paymentPurpose": "PhonePe", "type": "expense", "currency": "INR", "expectKey": null, "note": "payment app 2"}
+{"counterpartyName": "Five Elephant", "paymentPurpose": "Five Elephant", "type": "expense", "currency": "EUR", "expectKey": null, "note": "cafe le five trap"}
+{"counterpartyName": "Nobelhart & Schmutzig", "paymentPurpose": "Nobelhart & Schmutzig", "type": "expense", "currency": "EUR", "expectKey": null, "note": "hart trap"}
+{"counterpartyName": "Cafe Example Berlin", "paymentPurpose": "Cafe Example Berlin", "type": "expense", "currency": "EUR", "expectKey": null, "note": "cafe generic"}
+{"counterpartyName": "Example Coffee Roasters", "paymentPurpose": "Example Coffee Roasters", "type": "expense", "currency": "EUR", "expectKey": null, "note": "coffee roasters"}
+{"counterpartyName": "SPACESHIP EXAMPLE", "paymentPurpose": "SPACESHIP EXAMPLE", "type": "expense", "currency": "EUR", "expectKey": null, "note": "spaces trap"}
+{"counterpartyName": "Example Energy", "paymentPurpose": "Example Energy", "type": "expense", "currency": "EUR", "expectKey": null, "note": "energy"}
+{"counterpartyName": "City Parking Example", "paymentPurpose": "City Parking Example", "type": "expense", "currency": "EUR", "expectKey": null, "note": "parking generic"}
+{"counterpartyName": "Green Example Market", "paymentPurpose": "Green Example Market", "type": "expense", "currency": "EUR", "expectKey": null, "note": "green market"}
+{"counterpartyName": "Royal Example Hotel", "paymentPurpose": "Royal Example Hotel", "type": "expense", "currency": "EUR", "expectKey": null, "note": "royal hotel"}
+{"counterpartyName": "Example Fitness Club", "paymentPurpose": "Example Fitness Club", "type": "expense", "currency": "EUR", "expectKey": null, "note": "fitness"}
+{"counterpartyName": "GROWW", "paymentPurpose": "GROWW", "type": "expense", "currency": "INR", "expectKey": null, "note": "investment app"}
+{"counterpartyName": "CRED CLUB", "paymentPurpose": "CRED CLUB", "type": "expense", "currency": "INR", "expectKey": null, "note": "card bill app"}
+{"counterpartyName": "ZERODHA BROKING", "paymentPurpose": "ZERODHA BROKING", "type": "expense", "currency": "INR", "expectKey": null, "note": "broker"}
+{"counterpartyName": "Example Insurance AG", "paymentPurpose": "Example Insurance AG", "type": "expense", "currency": "EUR", "expectKey": null, "note": "insurer"}
+{"counterpartyName": "EXAMPLE BANK ATM 0042", "paymentPurpose": "EXAMPLE BANK ATM 0042", "type": "expense", "currency": "EUR", "expectKey": null, "note": "bank atm"}
+{"counterpartyName": "Example Hospital Trust", "paymentPurpose": "Example Hospital Trust", "type": "expense", "currency": "GBP", "expectKey": null, "note": "hospital generic"}
+{"counterpartyName": "Example Taxi Service", "paymentPurpose": "Example Taxi Service", "type": "expense", "currency": "EUR", "expectKey": null, "note": "taxi generic"}
+{"counterpartyName": "Example Corner Shop", "paymentPurpose": "Example Corner Shop", "type": "expense", "currency": "GBP", "expectKey": null, "note": "corner shop"}
+{"counterpartyName": "Big Example Store", "paymentPurpose": "Big Example Store", "type": "expense", "currency": "USD", "expectKey": null, "note": "big store"}
+{"counterpartyName": "Happy Example Kitchen", "paymentPurpose": "Happy Example Kitchen", "type": "expense", "currency": "USD", "expectKey": null, "note": "happy kitchen"}
+{"counterpartyName": "Example Auto Service", "paymentPurpose": "Example Auto Service", "type": "expense", "currency": "USD", "expectKey": null, "note": "auto service"}
+{"counterpartyName": "EXAMPLE GAS AND ELECTRIC", "paymentPurpose": "EXAMPLE GAS AND ELECTRIC", "type": "expense", "currency": "USD", "expectKey": null, "note": "utility"}
+{"counterpartyName": "Example Water Company", "paymentPurpose": "Example Water Company", "type": "expense", "currency": "GBP", "expectKey": null, "note": "water"}
+{"counterpartyName": "Metro Example Line", "paymentPurpose": "Metro Example Line", "type": "expense", "currency": "EUR", "expectKey": null, "note": "metro"}
+{"counterpartyName": "Global Example Group", "paymentPurpose": "Global Example Group", "type": "expense", "currency": "EUR", "expectKey": null, "note": "global group"}
+{"counterpartyName": "Example Pizza", "paymentPurpose": "Example Pizza", "type": "expense", "currency": "EUR", "expectKey": null, "note": "pizza generic"}
+{"counterpartyName": "New Example Bakery", "paymentPurpose": "New Example Bakery", "type": "expense", "currency": "USD", "expectKey": null, "note": "new bakery"}
+{"counterpartyName": "Smart Example Solutions", "paymentPurpose": "Smart Example Solutions", "type": "expense", "currency": "EUR", "expectKey": null, "note": "smart"}
+{"counterpartyName": "United Example Traders", "paymentPurpose": "United Example Traders", "type": "expense", "currency": "INR", "expectKey": null, "note": "united"}
+{"counterpartyName": "Example Burger Bar", "paymentPurpose": "Example Burger Bar", "type": "expense", "currency": "EUR", "expectKey": null, "note": "burger"}
+{"counterpartyName": "Quick Example Mart", "paymentPurpose": "Quick Example Mart", "type": "expense", "currency": "USD", "expectKey": null, "note": "quick mart"}

@@ -75,6 +75,11 @@ export const queryKeys = {
     ['reports', 'spend-flow', o.workspaceId, o.params] as const,
   goalItems: (o: { workspaceId: string | null; goalId: string }) =>
     ['goals', 'items', o.workspaceId, o.goalId] as const,
+  // Under the goals prefix: a goal saved anywhere refreshes the link's name too.
+  transactionGoal: (o: { workspaceId: string | null; transactionId: string }) =>
+    ['goals', 'transaction-link', o.workspaceId, o.transactionId] as const,
+  goalDetail: (o: { workspaceId: string | null; goalId: string }) =>
+    ['goals', 'detail', o.workspaceId, o.goalId] as const,
   // Локаль в ключе: сервер отдаёт текст совета на языке интерфейса, поэтому
   // один и тот же воркспейс на разных языках — разные данные.
   insights: (workspaceId: string | null, locale: string) =>
@@ -243,6 +248,8 @@ export const queryKeys = {
   // edit that refreshes the figures refreshes it too.
   receiptTax: (o: { workspaceId: string | null; receiptId: string }) =>
     ['transactions', 'receipt-tax', o.workspaceId, o.receiptId] as const,
+  transactionRecord: (o: { workspaceId: string | null; transactionId: string }) =>
+    ['transactions', 'record', o.workspaceId, o.transactionId] as const,
   /** Instance-wide (the running containers), so the one key without a workspace. */
   systemUpdate: () => ['system-update'] as const,
   /** Instance-wide too: every workspace's statements, as counts per bank and layout. */

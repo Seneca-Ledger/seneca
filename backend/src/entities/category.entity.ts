@@ -48,6 +48,11 @@ export enum StoicClass {
   unique: true,
   where: "name = 'Private' AND parent_id IS NULL",
 })
+// One category per default role and workspace (migration 1787571000000).
+@Index('UQ_categories_system_key', ['workspaceId', 'systemKey'], {
+  unique: true,
+  where: 'system_key IS NOT NULL',
+})
 export class Category {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -92,6 +97,14 @@ export class Category {
 
   @Column({ name: 'is_system', default: false })
   isSystem: boolean;
+
+  /**
+   * Which default category this is (modules/categories/system-categories.ts),
+   * whatever it is called now. Code looks default categories up by it, never
+   * by name. Null for the user's own categories.
+   */
+  @Column({ name: 'system_key', type: 'varchar', length: 32, nullable: true })
+  systemKey: string | null;
 
   @Column({ type: 'varchar', default: CategorySource.USER })
   source: CategorySource;

@@ -40,7 +40,8 @@
     "parse:diff": "ts-node -r tsconfig-paths/register scripts/parse-diff.ts",
     "storage:verify": "ts-node -r tsconfig-paths/register scripts/storage-verify.ts",
     "storage:repair": "ts-node -r tsconfig-paths/register scripts/storage-verify.ts --repair",
-    "cleanup:misdated-rates": "ts-node -r tsconfig-paths/register scripts/cleanup-misdated-rates.ts"
+    "cleanup:misdated-rates": "ts-node -r tsconfig-paths/register scripts/cleanup-misdated-rates.ts",
+    "suggestion-report": "ts-node --transpile-only -r tsconfig-paths/register scripts/suggestion-report.ts"
   },
   "keywords": [],
   "author": "",
@@ -64,7 +65,7 @@
     "@nestjs/throttler": "^6.7.1",
     "@nestjs/typeorm": "^12.0.2",
     "@nestjs/websockets": "^12.2.0",
-    "@noble/hashes": "^1.8.0",
+    "@noble/hashes": "^2.4.0",
     "@react-email/components": "^1.0.12",
     "@react-email/render": "^2.2.0",
     "@scure/bip32": "^2.4.0",

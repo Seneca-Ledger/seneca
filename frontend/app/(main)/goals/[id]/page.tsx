@@ -25,8 +25,10 @@ import {
 import { GoalFlowSankey } from './components/GoalFlowSankey';
 import { GoalItemDialog } from './components/GoalItemDialog';
 import { GoalItemsCard } from './components/GoalItemsCard';
+import { GoalMovementsCard } from './components/GoalMovementsCard';
 import { GoalPlanCard } from './components/GoalPlanCard';
 import { GoalProgressHeader } from './components/GoalProgressHeader';
+import { useGoalDetail } from './hooks/useGoalDetail';
 import { useGoalFlow } from './hooks/useGoalFlow';
 import { useGoalItems } from './hooks/useGoalItems';
 import { useGoalPlan } from './hooks/useGoalPlan';
@@ -45,6 +47,7 @@ export default function GoalDetailPage(): React.JSX.Element {
   const showSkeleton = isPending && !data;
   const plan = useGoalPlan(goalId);
   const items = useGoalItems(goalId);
+  const detail = useGoalDetail(goalId);
 
   // `editing === undefined` means the dialog is closed; null means it is open
   // for a new line. One state instead of an open flag plus a selection, which
@@ -182,6 +185,15 @@ export default function GoalDetailPage(): React.JSX.Element {
         <GoalPlanSkeleton />
       ) : (
         plan.data && <GoalPlanCard plan={plan.data} locale={locale} formatAmount={money} />
+      )}
+
+      {!showSkeleton && detail.data && (
+        <GoalMovementsCard
+          contributions={detail.data.contributions}
+          formatAmount={money}
+          removing={detail.removing}
+          onRemove={detail.removeContribution}
+        />
       )}
 
       {(showSkeleton || items.isPending) && <GoalItemsSkeleton />}

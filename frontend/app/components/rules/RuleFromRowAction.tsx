@@ -7,6 +7,10 @@ import { usePermissions } from '@/app/hooks/usePermissions';
 import { useIntlayer } from '@/app/i18n';
 import { newRuleHref } from './rule-seed';
 
+/** What a rule is drafted from: a row, or a receipt's vendor (no direction). */
+type RuleSource = Pick<Transaction, 'counterpartyName' | 'isPrivate'> &
+  Partial<Pick<Transaction, 'transactionType'>>;
+
 /**
  * The drawer's "make a rule from this row" action: the rule editor, filled in
  * with the payee as the bank wrote it, the row's direction and its category.
@@ -15,7 +19,7 @@ export function RuleFromRowAction({
   transaction,
   categoryId,
 }: {
-  transaction: Transaction;
+  transaction: RuleSource;
   categoryId: string;
 }): React.JSX.Element | null {
   const tRules = useIntlayer('categorizationRules');

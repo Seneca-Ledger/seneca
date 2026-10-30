@@ -2,7 +2,8 @@
 
 import type {
   StatementParsingDetails as ContractStatementParsingDetails,
-  TransactionListItem,
+  ListedTransactions,
+  TransactionCategorySource,
 } from '@/app/lib/contracts';
 import { resolveLocaleTag } from '@/app/lib/user-format';
 import { formatStoredDate } from '@/app/lib/user-format-store';
@@ -15,16 +16,6 @@ export interface CategoryOption {
   source?: 'system' | 'user' | 'parsing';
   isSystem?: boolean;
   children?: CategoryOption[];
-}
-
-export interface BranchOption {
-  id: string;
-  name: string;
-}
-
-export interface WalletOption {
-  id: string;
-  name: string;
 }
 
 export interface Transaction {
@@ -58,13 +49,17 @@ export interface Transaction {
   };
   branch?: { id: string; name: string };
   wallet?: { id: string; name: string };
+  payee?: { id: string; name: string };
+  /** Which step set the category; with `isVerified` it tells a suggestion from a decision. */
+  categorySource?: TransactionCategorySource | null;
+  transferPairId?: string | null;
 }
 
 /**
  * A row of `GET /transactions` as the edit page holds it: amounts as numbers
  * (the API sends decimal strings), absent values as undefined.
  */
-export function toEditableTransaction(row: TransactionListItem): Transaction {
+export function toEditableTransaction(row: ListedTransactions[number]): Transaction {
   const amount = (value: string | null) => (value === null ? undefined : Number(value));
   const text = (value: string | null) => value ?? undefined;
   return {
@@ -91,6 +86,9 @@ export function toEditableTransaction(row: TransactionListItem): Transaction {
     category: row.category ?? undefined,
     branch: row.branch ?? undefined,
     wallet: row.wallet ?? undefined,
+    payee: row.payee ?? undefined,
+    categorySource: row.categorySource ?? null,
+    transferPairId: row.transferPairId,
   };
 }
 
@@ -197,12 +195,6 @@ export const formatLabel = (
 // ---------------------------------------------------------------------------
 // Reconstructed helpers consumed across the Statement Edit page
 // ---------------------------------------------------------------------------
-
-export interface FieldChangeParams {
-  id: string;
-  field: keyof Transaction;
-  value: string;
-}
 
 export type MetadataHints = {
   startDate: string;

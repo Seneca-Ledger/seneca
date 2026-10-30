@@ -85,38 +85,46 @@ describe('CategoriesService', () => {
     await expect(service.remove('missing', 'w1', 'u1')).rejects.toThrow(NotFoundException);
   });
 
-  it('createSystemCategories skips existing entries from new defaults', async () => {
+  it('createSystemCategories skips a default the workspace already has under its key', async () => {
     categoryRepository.findOne = vi.fn(async ({ where }: any) =>
-      where?.name === 'Sales' ? ({ id: 'exists' } as any) : null,
+      where?.systemKey === 'sales' ? ({ id: 'exists', systemKey: 'sales' } as any) : null,
     );
 
     await service.createSystemCategories('w1');
 
-    expect(categoryRepository.findOne).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { workspaceId: 'w1', name: 'Sales' } }),
-    );
-    expect(categoryRepository.findOne).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { workspaceId: 'w1', name: 'Utilities' } }),
-    );
     expect(categoryRepository.save).toHaveBeenCalled();
     expect(categoryRepository.save).not.toHaveBeenCalledWith(
       expect.objectContaining({ name: 'Sales' }),
     );
   });
 
-  it('createSystemCategories seeds English default names that clients localise by slug', async () => {
+  it('createSystemCategories gives the role to a same-named category instead of a twin', async () => {
+    categoryRepository.update = vi.fn(async () => ({ affected: 1 }));
+    categoryRepository.findOne = vi.fn(async ({ where }: any) =>
+      where?.name === 'Groceries' ? ({ id: 'own-groceries', systemKey: null } as any) : null,
+    );
+
+    await service.createSystemCategories('w1');
+
+    expect(categoryRepository.update).toHaveBeenCalledWith(
+      { id: 'own-groceries', workspaceId: 'w1' },
+      { systemKey: 'groceries' },
+    );
+    expect(categoryRepository.save).not.toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'Groceries' }),
+    );
+  });
+
+  it('createSystemCategories seeds English default names under their keys', async () => {
     categoryRepository.findOne = vi.fn(async () => null);
 
     await service.createSystemCategories('w1');
 
-    expect(categoryRepository.findOne).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { workspaceId: 'w1', name: 'Sales' } }),
-    );
-    expect(categoryRepository.findOne).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { workspaceId: 'w1', name: 'Utilities' } }),
+    expect(categoryRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'Sales', systemKey: 'sales', isSystem: true }),
     );
     expect(categoryRepository.save).toHaveBeenCalledWith(
-      expect.objectContaining({ name: 'Sales', isSystem: true }),
+      expect.objectContaining({ name: 'Transfers to people', systemKey: 'transfers_people' }),
     );
   });
 

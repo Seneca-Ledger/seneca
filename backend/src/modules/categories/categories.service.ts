@@ -24,37 +24,7 @@ import { Category, CategorySource, CategoryType, StoicClass } from '../../entiti
 import { AuditService } from '../audit/audit.service';
 import type { CategoryChangedEvent } from '../notifications/events/notification-events';
 import { type CategoryUsage, mergeCategoryUsage } from './category-usage';
-
-const DEFAULT_SYSTEM_CATEGORIES: ReadonlyArray<{
-  name: string;
-  type: CategoryType;
-}> = [
-  // Seeded in English; clients resolve the display name through the
-  // systemCategories dictionary, keyed on the stored name.
-  { name: 'Sales', type: CategoryType.INCOME },
-  { name: 'Services', type: CategoryType.INCOME },
-  { name: 'Interest income', type: CategoryType.INCOME },
-  { name: 'Other income', type: CategoryType.INCOME },
-  { name: 'Advertising', type: CategoryType.EXPENSE },
-  { name: 'Benefits and compensation', type: CategoryType.EXPENSE },
-  { name: 'Vehicle expenses', type: CategoryType.EXPENSE },
-  { name: 'Equipment', type: CategoryType.EXPENSE },
-  { name: 'Fees and charges', type: CategoryType.EXPENSE },
-  { name: 'Home office', type: CategoryType.EXPENSE },
-  { name: 'Insurance', type: CategoryType.EXPENSE },
-  { name: 'Interest', type: CategoryType.EXPENSE },
-  { name: 'Payroll', type: CategoryType.EXPENSE },
-  { name: 'Maintenance and repairs', type: CategoryType.EXPENSE },
-  { name: 'Materials', type: CategoryType.EXPENSE },
-  { name: 'Meals and entertainment', type: CategoryType.EXPENSE },
-  { name: 'Office supplies', type: CategoryType.EXPENSE },
-  { name: 'Other expenses', type: CategoryType.EXPENSE },
-  { name: 'Professional services', type: CategoryType.EXPENSE },
-  { name: 'Rent', type: CategoryType.EXPENSE },
-  { name: 'Taxes', type: CategoryType.EXPENSE },
-  { name: 'Travel', type: CategoryType.EXPENSE },
-  { name: 'Utilities', type: CategoryType.EXPENSE },
-];
+import { DEFAULT_SYSTEM_CATEGORIES } from './system-categories';
 
 /** Columns an update may not empty: a null sent for them leaves them as they are. */
 const REQUIRED_CATEGORY_FIELDS: ReadonlySet<string> = new Set([
@@ -427,19 +397,24 @@ export class CategoriesService {
   }
 
   async createSystemCategories(workspaceId: string, userId?: string): Promise<void> {
-    for (const catData of DEFAULT_SYSTEM_CATEGORIES) {
-      const existing = await this.categoryRepository.findOne({
-        where: { workspaceId, name: catData.name },
-      });
+    for (const { key, name, type } of DEFAULT_SYSTEM_CATEGORIES) {
+      const existing =
+        (await this.categoryRepository.findOne({ where: { workspaceId, systemKey: key } })) ??
+        (await this.categoryRepository.findOne({ where: { workspaceId, name, type } }));
 
-      if (!existing) {
+      if (existing && !existing.systemKey) {
+        // The user's own "Groceries" takes the role instead of a second one.
+        await this.categoryRepository.update({ id: existing.id, workspaceId }, { systemKey: key });
+      } else if (!existing) {
         const category = this.categoryRepository.create({
           workspaceId,
           userId,
+          name,
+          type,
+          systemKey: key,
           isSystem: true,
           source: CategorySource.SYSTEM,
           isEnabled: true,
-          ...catData,
         });
         await this.categoryRepository.save(category);
       }

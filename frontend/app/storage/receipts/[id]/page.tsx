@@ -11,13 +11,13 @@ import toast from 'react-hot-toast';
 import { AlertCircle, ArrowLeft } from '@/app/components/icons';
 import { EInvoicePanel } from '@/app/components/receipts/EInvoicePanel';
 import { ReceiptLocationSection } from '@/app/components/receipts/location/ReceiptLocationSection';
+import { ReceiptLinks } from '@/app/components/receipts/ReceiptLinks';
 import { ReceiptParsedDataForm } from '@/app/components/receipts/ReceiptParsedDataForm';
 import { ReceiptTransactionMatch } from '@/app/components/receipts/ReceiptTransactionMatch';
 import type {
   EditableReceiptParsedData,
   ReceiptCategoryOption,
 } from '@/app/components/receipts/receipt-types';
-import { ReceiptTagsField } from '@/app/components/tags/RecordTagsField';
 import { Spinner } from '@/app/components/ui/spinner';
 import { useIntlayer } from '@/app/i18n';
 import apiClient, { apiBaseUrl, type ReceiptRecord, receiptsApi } from '@/app/lib/api';
@@ -741,7 +741,7 @@ export default function ReceiptDocumentPage() {
               receiptId={receipt.id}
             />
 
-            <ReceiptTagsField receiptId={receipt.id} />
+            <ReceiptLinks receipt={receipt} />
 
             {receipt.parsedData?.einvoice ? (
               <EInvoicePanel

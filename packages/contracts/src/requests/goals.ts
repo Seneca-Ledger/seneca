@@ -70,6 +70,21 @@ export type GoalParams = Wire<typeof GoalParams>;
 export const GoalItemParams = Schema.Struct({ id: Uuid, itemId: Uuid });
 export type GoalItemParams = Wire<typeof GoalItemParams>;
 
+/**
+ * `PUT /transactions/:id/goal`: count a transaction toward a goal, or `null`
+ * to stop counting it. Income adds to the goal, an expense takes from it.
+ * `goalItemId` marks one of the goal's cost lines paid by it; left out, the
+ * line already linked stays.
+ */
+export const SetTransactionGoalBody = Schema.Struct({
+  goalId: Schema.NullOr(Uuid),
+  goalItemId: optionalNullable(Uuid),
+});
+export type SetTransactionGoalBody = Wire<typeof SetTransactionGoalBody>;
+
+export const TransactionGoalParams = Schema.Struct({ id: Uuid });
+export type TransactionGoalParams = Wire<typeof TransactionGoalParams>;
+
 export const GoalContributionParams = Schema.Struct({ id: Uuid, contributionId: Uuid });
 export type GoalContributionParams = Wire<typeof GoalContributionParams>;
 

@@ -191,15 +191,9 @@ export function ReviewInboxView({ state }: Props) {
     (dateApplied?.mode && dateModes.find(o => o.value === dateApplied.mode)?.label) ||
     buildFilterLabels(statementsText).date;
 
-  const sourceLabels: Record<string, string> = {
-    manual: drawer.categorySource.manual.value,
-    rule: drawer.categorySource.rule.value,
-    keyword: drawer.categorySource.keyword.value,
-    learned: drawer.categorySource.learned.value,
-    history: drawer.categorySource.history.value,
-    ai: drawer.categorySource.ai.value,
-    default: drawer.categorySource.default.value,
-  };
+  const sourceLabels: Record<string, string> = Object.fromEntries(
+    Object.entries(drawer.categorySource).map(([source, label]) => [source, label.value]),
+  );
   const issueLabels: Record<string, string> = {
     missing_amount: t.issueMissingAmount.value,
     missing_date: t.issueMissingDate.value,
@@ -427,7 +421,10 @@ export function ReviewInboxView({ state }: Props) {
     const source =
       item.categorySource && item.categorySource !== 'manual'
         ? `${sourceLabels[item.categorySource] ?? item.categorySource}${
-            item.categoryReason ? ` · ${item.categoryReason}` : ''
+            // `kind:p2p`, `brand:Q123`, `receipt:<id>` are for code; the source label says it.
+            item.categoryReason && !/^(kind|brand|receipt):/.test(item.categoryReason)
+              ? ` · ${item.categoryReason}`
+              : ''
           }`
         : null;
     return (

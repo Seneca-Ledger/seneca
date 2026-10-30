@@ -1,7 +1,7 @@
 import * as Schema from 'effect/Schema';
 import { DateOnly, DecimalString, type Wire } from '../common/wire';
 import { PayeeRef } from '../payees/payees';
-import { TransactionListItem } from './transaction-list';
+import { TransactionCategorySource, TransactionListItem } from './transaction-list';
 
 /**
  * One transaction as stored: `GET /transactions/:id` and the writes that
@@ -12,9 +12,7 @@ export const TransactionRecord = Schema.Struct({
   ...TransactionListItem.fields,
   payeeId: Schema.NullOr(Schema.String),
   payee: Schema.NullOr(PayeeRef),
-  categorySource: Schema.NullOr(
-    Schema.Literals(['manual', 'rule', 'keyword', 'learned', 'history', 'ai', 'default']),
-  ),
+  categorySource: Schema.NullOr(TransactionCategorySource),
   /** The parts of one split share the group; `splitIndex` orders them. */
   splitGroupId: Schema.NullOr(Schema.String),
   splitIndex: Schema.NullOr(Schema.Number),

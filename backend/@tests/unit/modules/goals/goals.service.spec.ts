@@ -79,6 +79,7 @@ function createService(options: {
       contributionRepository,
       auditService,
       workspaceCurrencyStub() as never,
+      { describe: vi.fn(async () => new Map()) } as never,
     ),
     goalRepository,
     contributionRepository,

@@ -14,6 +14,8 @@ import { GoalCoversService } from './goal-covers.service';
 import { GoalFlowService } from './goal-flow.service';
 import { GoalItemsService } from './goal-items.service';
 import { GoalPlanService } from './goal-plan.service';
+import { GoalTransactionLinkController } from './goal-transaction-link.controller';
+import { GoalTransactionLinkService } from './goal-transaction-link.service';
 import { GoalsController } from './goals.controller';
 import { GoalsService } from './goals.service';
 
@@ -33,8 +35,15 @@ import { GoalsService } from './goals.service';
     AuditModule,
     WorkspaceCurrencyModule,
   ],
-  controllers: [GoalsController],
-  providers: [GoalsService, GoalFlowService, GoalItemsService, GoalPlanService, GoalCoversService],
+  controllers: [GoalsController, GoalTransactionLinkController],
+  providers: [
+    GoalsService,
+    GoalFlowService,
+    GoalItemsService,
+    GoalPlanService,
+    GoalCoversService,
+    GoalTransactionLinkService,
+  ],
   exports: [GoalsService, GoalFlowService, GoalItemsService, GoalPlanService, GoalCoversService],
 })
 export class GoalsModule {}
