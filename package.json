@@ -47,7 +47,7 @@
     "concurrently": "^10.0.6",
     "husky": "^9.1.7",
     "knip": "^6.43.0",
-    "license-checker-rseidelsohn": "^4.4.2",
+    "license-checker-rseidelsohn": "^5.0.1",
     "typescript": "^7.0.2"
   },
   "overrides": {
