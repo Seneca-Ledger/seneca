@@ -7,21 +7,37 @@ const MIN_RESPACED = 6;
 
 const compact = (payeeKey: string): string => payeeKey.replace(/ /gu, '');
 
+/** Whether `letters` letters into `key` (spaces not counted) fall inside a word. */
+function cutsAWord(key: string, letters: number): boolean {
+  let seen = 0;
+  for (let index = 0; index < key.length; index += 1) {
+    if (key[index] !== ' ') {
+      seen += 1;
+    }
+    if (seen === letters) {
+      return index + 1 < key.length && key[index + 1] !== ' ';
+    }
+  }
+  return false;
+}
+
 /**
  * Whether two payee keys can be one payee whose name a bank cut short or
  * spaced differently: "mamta kum", "mamtakum" and "mamta kumari das" all can.
- * The shorter, spaces left out, must start the longer and be long enough not
- * to be a common first word.
+ * The shorter, spaces left out, must start the longer, be long enough not to
+ * be a common first word, and end inside one of the longer's words: "acme
+ * store" is a whole name of its own next to "acme store berlin", not a cut.
  */
 export function sameTruncatedName(a: string, b: string): boolean {
-  const [short, long] = [compact(a), compact(b)].sort((x, y) => x.length - y.length);
+  const [shortKey, longKey] = [a, b].sort((x, y) => compact(x).length - compact(y).length);
+  const [short, long] = [compact(shortKey), compact(longKey)];
   if (!(short && long)) {
     return false;
   }
   if (short === long) {
     return short.length >= MIN_RESPACED;
   }
-  return short.length >= MIN_PREFIX && long.startsWith(short);
+  return short.length >= MIN_PREFIX && long.startsWith(short) && cutsAWord(longKey, short.length);
 }
 
 /**

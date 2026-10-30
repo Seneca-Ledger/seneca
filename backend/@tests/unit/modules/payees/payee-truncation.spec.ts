@@ -15,6 +15,8 @@ describe('sameTruncatedName', () => {
     ['ravi', 'ravi kumar'], // too short to be a cut-off rather than a first name
     ['acme shop', 'acme shoes'],
     ['member one', 'member two'],
+    ['acme store', 'acme store berlin'], // whole words: a branch, not a cut-off
+    ['example bakery', 'example bakery gmbh'],
   ])('keeps "%s" and "%s" apart', (a, b) => {
     expect(sameTruncatedName(a, b)).toBe(false);
   });

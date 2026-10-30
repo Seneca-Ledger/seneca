@@ -14,7 +14,7 @@ import { ActorType, AuditAction, EntityType } from '../../../entities/audit-even
 import { Branch } from '../../../entities/branch.entity';
 import { CategorizationRule } from '../../../entities/categorization-rule.entity';
 import { Category, CategorySource, CategoryType } from '../../../entities/category.entity';
-import { Payee } from '../../../entities/payee.entity';
+import { Payee, PayeeMode } from '../../../entities/payee.entity';
 import { PayeeAlias } from '../../../entities/payee-alias.entity';
 import {
   Transaction,
@@ -32,7 +32,7 @@ import {
   type ClassificationCondition,
   type ClassificationRule,
 } from '../interfaces/classification-rule.interface';
-import { payeeIdOf, suggestCategory } from './auto-category';
+import { newestHistoryByPayee, payeeIdOf, suggestCategory } from './auto-category';
 
 /** A category plus the step that found it and the payload the UI shows as "why". */
 export type AutoCategoryMatch = {
@@ -289,10 +289,12 @@ export class ClassificationService {
     // fees and interest, or the kind of the operation. A suggestion stays
     // unconfirmed until a person accepts it, so it reaches no budget and fires
     // no overspend alert on its own (onlyCounted).
-    const match = workspaceId
-      ? ((await this.matchByPayeeHistory(transaction, workspaceId)) ??
-        (await suggestCategory(this.categoryRepository, transaction, transactionType, workspaceId)))
-      : undefined;
+    // null: the payee is set to "never", so no suggestion either.
+    const fromPayee = workspaceId ? await this.matchByPayeeHistory(transaction, workspaceId) : null;
+    const match =
+      fromPayee === undefined && workspaceId
+        ? await suggestCategory(this.categoryRepository, transaction, transactionType, workspaceId)
+        : fromPayee;
     if (match) {
       return match;
     }
@@ -318,8 +320,13 @@ export class ClassificationService {
   private async matchByPayeeHistory(
     transaction: Transaction,
     workspaceId: string,
-  ): Promise<AutoCategoryMatch | undefined> {
+  ): Promise<AutoCategoryMatch | null | undefined> {
     const payeeId = await payeeIdOf(this.payeeAliasRepository, transaction, workspaceId);
+    const payee =
+      payeeId && (await this.payeeRepository.findOne({ where: { id: payeeId, workspaceId } }));
+    if (payee && payee.mode === PayeeMode.NEVER) {
+      return null;
+    }
     return payeeId ? this.categoryForPayee(workspaceId, payeeId) : undefined;
   }
 
@@ -369,15 +376,7 @@ export class ClassificationService {
         .getMany(),
     ]);
 
-    // Newest first per payee, the most recent PAYEE_HISTORY_DEPTH of them.
-    const historyOf = new Map<string, Array<{ categoryId: string }>>();
-    for (const row of evidence) {
-      const history = historyOf.get(row.payeeId as string) ?? [];
-      if (history.length < PAYEE_HISTORY_DEPTH) {
-        history.push({ categoryId: row.categoryId as string });
-      }
-      historyOf.set(row.payeeId as string, history);
-    }
+    const historyOf = newestHistoryByPayee(evidence, PAYEE_HISTORY_DEPTH);
 
     for (const payee of payees) {
       const decision = decidePayeeCategory({

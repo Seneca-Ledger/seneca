@@ -65,9 +65,7 @@ export const TransactionPayeeResult = Schema.Struct({
   id: Schema.String,
   payee: Schema.Struct({ id: Schema.String, name: Schema.String }),
   categoryId: Schema.NullOr(Schema.String),
-  categorySource: Schema.NullOr(
-    TransactionCategorySource,
-  ),
+  categorySource: Schema.NullOr(TransactionCategorySource),
 });
 export type TransactionPayeeResult = Wire<typeof TransactionPayeeResult>;
 

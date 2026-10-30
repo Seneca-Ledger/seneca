@@ -14,9 +14,7 @@ export const TransactionRecord = Schema.Struct({
   ...TransactionListItem.fields,
   payeeId: Schema.NullOr(Schema.String),
   payee: Schema.NullOr(PayeeRef),
-  categorySource: Schema.NullOr(
-    TransactionCategorySource,
-  ),
+  categorySource: Schema.NullOr(TransactionCategorySource),
   /** The parts of one split share the group; `splitIndex` orders them. */
   splitGroupId: Schema.NullOr(Schema.String),
   splitIndex: Schema.NullOr(Schema.Number),
