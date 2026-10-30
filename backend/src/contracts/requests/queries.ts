@@ -380,7 +380,7 @@ export type SpendFlowQuery = Wire<typeof SpendFlowQuery>;
 
 /** `/view-preferences/:scope`: the pages that remember how they were left. */
 export const ViewScopeParams = Schema.Struct({
-  scope: Schema.Literals(['transactions', 'review', 'reports', 'dashboard', 'onboarding']),
+  scope: Schema.Literals(['transactions', 'review', 'reports', 'dashboard', 'onboarding', 'rules']),
 });
 export type ViewScopeParams = Wire<typeof ViewScopeParams>;
 
