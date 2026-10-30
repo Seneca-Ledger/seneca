@@ -120,68 +120,50 @@
     }
   }
 
+  // The ⋮ menu: a small card in the theme's own colours, both themes.
   &__dropdown-menu {
     position: absolute;
     right: 20px;
-    top: calc(100% + 12px);
+    top: calc(100% + 6px);
     z-index: 40;
-    width: 360px;
+    min-width: 200px;
     max-width: calc(100vw - 90px);
     border-radius: $seneca-radius-md;
-    border: 1px solid #d8ddd8;
-    background-color: $seneca-color-surface;
-    padding: 8px;
-    box-shadow: 0 14px 28px rgba(17, 24, 39, 0.14);
-
-    @include dark {
-      border-color: rgba(100, 116, 139, 0.6);
-      background-color: #111827;
-    }
+    border: 1px solid var(--border);
+    background-color: var(--card);
+    padding: 4px;
+    box-shadow: $seneca-shadow-lg;
   }
 
   &__dropdown-item {
     display: flex;
     width: 100%;
     align-items: center;
-    gap: 16px;
+    gap: 10px;
     border-radius: $seneca-radius-sm;
-    padding: 16px 20px;
+    padding: 8px 12px;
     text-align: left;
     background: none;
     border: none;
     cursor: pointer;
-    transition: background-color 200ms;
+    transition: background-color 150ms;
 
     &:hover {
-      background-color: #f5f8f5;
-    }
-
-    &:hover {
-      @include dark {
-        background-color: rgba(255, 255, 255, 0.05);
-      }
+      background-color: var(--surface-soft);
     }
   }
 
   &__dropdown-icon {
-    width: 28px;
-    height: 28px;
-    color: #99a39d;
-
-    @include dark {
-      color: #94a3b8;
-    }
+    width: 18px;
+    height: 18px;
+    color: var(--text-muted);
   }
 
   &__dropdown-label {
-    font-size: 22px;
-    font-weight: 600;
-    line-height: 1;
-    color: #0f3428;
-
-    @include dark {
-      color: #f1f5f9;
-    }
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 20px;
+    color: var(--foreground);
   }
 
   &__content {
@@ -476,6 +458,7 @@
   }
 
   &__pdf-page-wrap {
+    position: relative;
     display: flex;
     width: 100%;
     justify-content: center;

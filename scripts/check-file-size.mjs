@@ -25,6 +25,7 @@ const EXEMPT = [
   /[.-]translations\.ts$/,
   /(^|\/)migrations\//,
   /^backend\/src\/contracts\//,
+  /contributed-layouts\.data\.ts$/,
   /^frontend\/app\/lib\/contracts\//,
   /\.d\.ts$/,
   /^website\//,

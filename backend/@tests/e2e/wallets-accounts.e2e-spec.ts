@@ -34,6 +34,8 @@ describe('Accounts (e2e)', () => {
   const emails = {
     owner: `accounts-owner-${stamp}@example.com`,
     other: `accounts-other-${stamp}@example.com`,
+    exporter: `accounts-exporter-${stamp}@example.com`,
+    importer: `accounts-importer-${stamp}@example.com`,
   };
   let owner: E2eAccount;
   let other: E2eAccount;
@@ -50,7 +52,11 @@ describe('Accounts (e2e)', () => {
   const server = () => app.getHttpServer();
 
   /** A parsed bank statement with one income and one spending row, held by no account. */
-  async function seedStatement(account: E2eAccount, statementCurrency: string): Promise<string> {
+  async function seedStatement(
+    account: E2eAccount,
+    statementCurrency: string,
+    overrides: Partial<Statement> = {},
+  ): Promise<string> {
     const statement = await dataSource.getRepository(Statement).save(
       dataSource.getRepository(Statement).create({
         userId: account.userId,
@@ -69,6 +75,7 @@ describe('Accounts (e2e)', () => {
         balanceEnd: closing,
         totalTransactions: 2,
         status: StatementStatus.COMPLETED,
+        ...overrides,
       }),
     );
     const rows = dataSource.getRepository(Transaction);
@@ -331,5 +338,95 @@ describe('Accounts (e2e)', () => {
       await as(other, request(server()).get('/wallets/unlinked-statements')).expect(200)
     ).body as Array<{ id: string }>;
     expect(unlinkedForOther.map(row => row.id)).not.toContain(ownersStatement);
+  });
+
+  it('suggests the account earlier statements of the same export went to', async () => {
+    const exporter = await registerAccount(app, emails.exporter, 'Member Three');
+    const exporterCurrency = (
+      await as(exporter, request(server()).get('/wallets/summary')).expect(200)
+    ).body.currency;
+    const export1 = {
+      accountNumber: 'Unknown',
+      parsingDetails: { metadataExtracted: { institution: 'ACME Bank' } },
+    } as Partial<Statement>;
+    const export2 = {
+      accountNumber: 'Unknown',
+      parsingDetails: { metadataExtracted: { normalizedHeader: 'date amount memo' } },
+    } as Partial<Statement>;
+    const suggestionOf = async (id: string) =>
+      (
+        (await as(exporter, request(server()).get('/wallets/unlinked-statements')).expect(200))
+          .body as Array<{ id: string; suggestedWalletId: string | null }>
+      ).find(row => row.id === id)?.suggestedWalletId;
+
+    const walletId: string = (
+      await as(
+        exporter,
+        request(server()).post('/wallets').send({ name: 'Online', type: 'checking' }),
+      ).expect(201)
+    ).body.id;
+    const first = await seedStatement(exporter, exporterCurrency, export1);
+    expect(await suggestionOf(first)).toBeNull();
+    await as(
+      exporter,
+      request(server())
+        .post(`/wallets/${walletId}/statements`)
+        .send({ statementIds: [first] }),
+    ).expect(201);
+
+    const next = await seedStatement(exporter, exporterCurrency, export1);
+    const unrelated = await seedStatement(exporter, exporterCurrency, export2);
+    expect(await suggestionOf(next)).toBe(walletId);
+    expect(await suggestionOf(unrelated)).toBeNull();
+
+    await as(exporter, request(server()).delete(`/wallets/${walletId}/statements/${first}`)).expect(
+      200,
+    );
+    expect(await suggestionOf(next)).toBeNull();
+  });
+
+  it('imports a sheet into the chosen account, and the next one with its header by itself', async () => {
+    const importer = await registerAccount(app, emails.importer, 'Member Four');
+    const sheetCurrency = (
+      await as(importer, request(server()).get('/wallets/summary')).expect(200)
+    ).body.currency;
+    const walletId: string = (
+      await as(
+        importer,
+        request(server())
+          .post('/wallets')
+          .send({ name: 'Online', type: 'checking', currency: sheetCurrency }),
+      ).expect(201)
+    ).body.id;
+    const headers = ['Date', 'Merchant', 'Amount'];
+    const importSheet = async (rows: string[][], walletOption?: string) =>
+      (
+        await as(
+          importer,
+          request(server())
+            .post('/entity-imports')
+            .send({
+              target: 'transactions',
+              mapping: { date: 0, merchant: 1, amount: 2 },
+              rows,
+              headers,
+              fileName: 'export.csv',
+              options: { currency: sheetCurrency, categorize: false, walletId: walletOption },
+            }),
+        ).expect(201)
+      ).body.rows.map((row: { id: string }) => row.id) as string[];
+    const walletOfRows = async (ids: string[]) =>
+      (
+        await dataSource.getRepository(Transaction).find({
+          where: ids.map(id => ({ id })),
+          relations: { statement: true },
+        })
+      ).map(row => [row.walletId, row.statement?.walletId]);
+
+    const first = await importSheet([['2026-09-01', 'Corner Cafe', '-4.50']], walletId);
+    expect(await walletOfRows(first)).toEqual([[walletId, walletId]]);
+
+    const next = await importSheet([['2026-10-01', 'Corner Cafe', '-5.00']]);
+    expect(await walletOfRows(next)).toEqual([[walletId, walletId]]);
   });
 });

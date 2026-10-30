@@ -28,6 +28,7 @@
       "!**/@tests/**",
       "!**/backend/scripts/**",
       "!**/backend/src/contracts/**",
+      "!**/backend/src/modules/parsing/helpers/contributed-layouts.data.ts",
       "!**/frontend/app/lib/contracts/**",
       "!**/*.scss",
       "!**/*.md",

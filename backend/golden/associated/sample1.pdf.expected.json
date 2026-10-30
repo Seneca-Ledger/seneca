@@ -1,0 +1,145 @@
+{
+  "metadata": {
+    "accountNumber": "6279121496",
+    "currency": "USD",
+    "dateFrom": "2020-02-17T00:00:00",
+    "dateTo": "2020-03-16T00:00:00",
+    "balanceStart": 2.24,
+    "balanceEnd": 4.06
+  },
+  "transactions": [
+    {
+      "transactionDate": "2020-02-18T00:00:00",
+      "counterpartyName": "RML1 ACME CO PAYROLL RMLXXXXXX0136 OWNER SAMPLE",
+      "paymentPurpose": "RML1 ACME CO PAYROLL RMLXXXXXX0136 OWNER SAMPLE",
+      "currency": "USD",
+      "credit": 862.79
+    },
+    {
+      "transactionDate": "2020-02-25T00:00:00",
+      "counterpartyName": "RML1 ACME CO PAYROLL RMLXXXXXX0136 OWNER SAMPLE",
+      "paymentPurpose": "RML1 ACME CO PAYROLL RMLXXXXXX0136 OWNER SAMPLE",
+      "currency": "USD",
+      "credit": 1028.24
+    },
+    {
+      "transactionDate": "2020-03-01T00:00:00",
+      "counterpartyName": "ATM DEP ASSOCIATED 1 MAIN ST EXAMPLE WI",
+      "paymentPurpose": "ATM DEP ASSOCIATED 1 MAIN ST EXAMPLE WI 499832738946",
+      "currency": "USD",
+      "credit": 105.0
+    },
+    {
+      "transactionDate": "2020-03-04T00:00:00",
+      "counterpartyName": "RML1 ACME CO PAYROLL RMLXXXXXX0136 OWNER SAMPLE",
+      "paymentPurpose": "RML1 ACME CO PAYROLL RMLXXXXXX0136 OWNER SAMPLE",
+      "currency": "USD",
+      "credit": 1063.04
+    },
+    {
+      "transactionDate": "2020-03-11T00:00:00",
+      "counterpartyName": "RML1 ACME CO PAYROLL RMLXXXXXX0136 OWNER SAMPLE",
+      "paymentPurpose": "RML1 ACME CO PAYROLL RMLXXXXXX0136 OWNER SAMPLE",
+      "currency": "USD",
+      "credit": 830.47
+    },
+    {
+      "transactionDate": "2020-03-16T00:00:00",
+      "counterpartyName": "ATM DEP ASSOCIATED 1 MAIN ST EXAMPLE WI",
+      "paymentPurpose": "ATM DEP ASSOCIATED 1 MAIN ST EXAMPLE WI 810561654103",
+      "currency": "USD",
+      "credit": 20.0
+    },
+    {
+      "transactionDate": "2020-02-18T00:00:00",
+      "counterpartyName": "CHECKING/MMA WD",
+      "paymentPurpose": "CHECKING/MMA WD",
+      "currency": "USD",
+      "debit": 360.0
+    },
+    {
+      "transactionDate": "2020-02-19T00:00:00",
+      "counterpartyName": "ACME REMIT 4910051150 CO",
+      "paymentPurpose": "DDA PUR ACME REMIT 4910051150 CO 178731884161",
+      "currency": "USD",
+      "debit": 500.99
+    },
+    {
+      "transactionDate": "2020-02-25T00:00:00",
+      "counterpartyName": "CHECKING/MMA WD",
+      "paymentPurpose": "CHECKING/MMA WD",
+      "currency": "USD",
+      "debit": 510.0
+    },
+    {
+      "transactionDate": "2020-02-26T00:00:00",
+      "counterpartyName": "ACME REMIT 4910051150 CO",
+      "paymentPurpose": "DDA PUR ACME REMIT 4910051150 CO 304168784383",
+      "currency": "USD",
+      "debit": 500.99
+    },
+    {
+      "transactionDate": "2020-03-01T00:00:00",
+      "counterpartyName": "ACME REMIT 4910051150 CO",
+      "paymentPurpose": "DDA PUR ACME REMIT 4910051150 CO 859405487791",
+      "currency": "USD",
+      "debit": 100.99
+    },
+    {
+      "transactionDate": "2020-03-04T00:00:00",
+      "counterpartyName": "CHECKING/MMA WD",
+      "paymentPurpose": "CHECKING/MMA WD",
+      "currency": "USD",
+      "debit": 470.0
+    },
+    {
+      "transactionDate": "2020-03-05T00:00:00",
+      "counterpartyName": "ACME REMIT 4910051150 CO",
+      "paymentPurpose": "DDA PUR ACME REMIT 4910051150 CO 814748462634",
+      "currency": "USD",
+      "debit": 500.99
+    },
+    {
+      "transactionDate": "2020-03-05T00:00:00",
+      "counterpartyName": "ACME INSUR 800-555-0100 OH",
+      "paymentPurpose": "DDA PUR ACME INSUR 800-555-0100 OH 228285100463",
+      "currency": "USD",
+      "debit": 110.5
+    },
+    {
+      "transactionDate": "2020-03-10T00:00:00",
+      "counterpartyName": "ACME FUEL ACME FUEL 1061 EXAMPLE TOWN WI",
+      "paymentPurpose": "DDA PUR ACME FUEL ACME FUEL 1061 EXAMPLE TOWN WI 182534438963",
+      "currency": "USD",
+      "debit": 5.28
+    },
+    {
+      "transactionDate": "2020-03-11T00:00:00",
+      "counterpartyName": "CHECKING/MMA WD",
+      "paymentPurpose": "CHECKING/MMA WD",
+      "currency": "USD",
+      "debit": 520.0
+    },
+    {
+      "transactionDate": "2020-03-12T00:00:00",
+      "counterpartyName": "ACME REMIT 4910051150 CO",
+      "paymentPurpose": "DDA PUR ACME REMIT 4910051150 CO 315282051776",
+      "currency": "USD",
+      "debit": 300.99
+    },
+    {
+      "transactionDate": "2020-03-16T00:00:00",
+      "counterpartyName": "ACME REMIT 4910051150 CO",
+      "paymentPurpose": "DDA PUR ACME REMIT 4910051150 CO 683060362460",
+      "currency": "USD",
+      "debit": 22.99
+    },
+    {
+      "transactionDate": "2020-03-16T00:00:00",
+      "counterpartyName": "SERVICE FEE",
+      "paymentPurpose": "SERVICE FEE",
+      "currency": "USD",
+      "debit": 4.0
+    }
+  ]
+}

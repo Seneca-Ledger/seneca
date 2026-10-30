@@ -54,7 +54,6 @@ function PaletteBody({ onOpenHelp }: { onOpenHelp: () => void }): React.JSX.Elem
       previousMonth: shortcutLabels.previousMonth.value,
       nextMonth: shortcutLabels.nextMonth.value,
       settings: navLabelText(userMenu.settings),
-      whatsNew: navLabelText(userMenu.whatsNew),
       reportBug: navLabelText(shell.reportBug),
     },
     navItems: [...buildNavItems(nav), ...buildUserMenuNavItems(nav)],

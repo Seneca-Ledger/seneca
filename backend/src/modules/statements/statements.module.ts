@@ -20,6 +20,7 @@ import { StatementFilesService } from './statement-files.service';
 import { StatementListService } from './statement-list.service';
 import { StatementTrashService } from './statement-trash.service';
 import { StatementUploadService } from './statement-upload.service';
+import { StatementTeachController } from './statement-teach.controller';
 import { StatementUploadsController } from './statement-uploads.controller';
 import { StatementsController } from './statements.controller';
 import { StatementsService } from './statements.service';
@@ -42,7 +43,7 @@ import { StatementsService } from './statements.service';
     ReceiptsModule,
     WorkspaceCurrencyModule,
   ],
-  controllers: [StatementUploadsController, StatementsController],
+  controllers: [StatementUploadsController, StatementsController, StatementTeachController],
   providers: [
     StatementsService,
     StatementFilesService,

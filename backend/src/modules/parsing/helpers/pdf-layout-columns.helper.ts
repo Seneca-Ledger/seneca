@@ -10,15 +10,21 @@ export type ColumnRole =
   | 'debit'
   | 'credit'
   | 'amount'
-  | 'balance';
+  | 'balance'
+  /** A column of none of ours after the money ('Init. Br', a branch code): its words are no text of the row. */
+  | 'other';
 
 export interface LayoutColumn {
   role: ColumnRole;
   x0: number;
   x1: number;
+  /** The heading as read, folded: a known phrase, or the word of an `other` column. */
+  heading?: string;
+  /** Words of the header no heading knows, kept beside the column they sit by. */
+  extra?: string[];
 }
 
-const TEXT_ROLES: ColumnRole[] = ['date', 'otherDate', 'description', 'counterparty'];
+const TEXT_ROLES: ColumnRole[] = ['date', 'otherDate', 'description', 'counterparty', 'other'];
 const MONEY_ROLES: ColumnRole[] = ['debit', 'credit', 'amount', 'balance'];
 
 /**
@@ -34,6 +40,8 @@ const HEADINGS: Record<ColumnRole, string[]> = {
     'booking date',
     'transaction date',
     'datum',
+    'dia',
+    'data',
     'boekdatum',
     'fecha',
   ],
@@ -58,6 +66,8 @@ const HEADINGS: Record<ColumnRole, string[]> = {
     'libelle',
     'concepto',
     'descripcion',
+    'historico',
+    'descricao',
     'buchungstext',
     'verwendungszweck',
   ],
@@ -65,6 +75,8 @@ const HEADINGS: Record<ColumnRole, string[]> = {
   debit: [
     'withdrawal',
     'withdrawals',
+    'money out of your account',
+    'debits to your account',
     'debit',
     'debits',
     'cheques et debits',
@@ -72,11 +84,16 @@ const HEADINGS: Record<ColumnRole, string[]> = {
     'money out',
     'cargos',
     'retiros',
+    'debito',
+    'debitos',
+    'saidas',
     'af',
   ],
   credit: [
     'deposit',
     'deposits',
+    'money into your account',
+    'credits to your account',
     'credit',
     'credits',
     'depots et credits',
@@ -84,10 +101,23 @@ const HEADINGS: Record<ColumnRole, string[]> = {
     'money in',
     'abonos',
     'depositos',
+    'credito',
+    'creditos',
+    'entradas',
     'bij',
   ],
-  amount: ['amount', '$ amount', 'bedrag', 'montant', 'importe', 'betrag', 'transaction amount'],
+  amount: [
+    'amount',
+    '$ amount',
+    'bedrag',
+    'montant',
+    'importe',
+    'betrag',
+    'transaction amount',
+    'valor',
+  ],
   balance: ['balance', 'running balance', 'solde', 'saldo', 'kontostand'],
+  other: [],
 };
 
 const PHRASES = new Map<string, ColumnRole>(
@@ -95,25 +125,35 @@ const PHRASES = new Map<string, ColumnRole>(
     phrases.map(phrase => [phrase, role] as [string, ColumnRole]),
   ),
 );
-const LONGEST_PHRASE = Math.max(...Array.from(PHRASES.keys(), phrase => phrase.split(' ').length));
+const wordCount = (phrase: string) => phrase.split(' ').length;
+const LONGEST_PHRASE = Math.max(...Array.from(PHRASES.keys(), wordCount));
 
 /** Gap under which a stray word ("(-)", "($)") belongs to the heading beside it. */
 const ATTACH_GAP = 8;
 
-function headingWord(item: PdfTextItem): string {
-  return foldText(item.text).replace(/[:]/g, '');
+/** A heading's words, folded, without colons and the unit in brackets ("Balance ($)"). */
+export function headingWord(item: PdfTextItem): string {
+  return foldText(item.text)
+    .replace(/[:]|\([^)]*\)/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
+/** Headings a workspace taught for its own statements, folded as `headingWord` reads them. */
+export type TaughtHeadings = ReadonlyMap<string, ColumnRole>;
+
 /** The longest heading that starts at `index`, and how many words it spans. */
-function matchHeading(items: PdfTextItem[], index: number) {
-  for (let length = Math.min(LONGEST_PHRASE, items.length - index); length > 0; length -= 1) {
+function matchHeading(items: PdfTextItem[], index: number, taught?: TaughtHeadings) {
+  const longest = Math.max(LONGEST_PHRASE, ...Array.from(taught?.keys() ?? [], wordCount));
+  for (let length = Math.min(longest, items.length - index); length > 0; length -= 1) {
     const phrase = items
       .slice(index, index + length)
       .map(headingWord)
+      .filter(Boolean)
       .join(' ');
-    const role = PHRASES.get(phrase);
+    const role = taught?.get(phrase) ?? PHRASES.get(phrase);
     if (role) {
-      return { role, length };
+      return { role, length, phrase };
     }
   }
   return null;
@@ -122,27 +162,52 @@ function matchHeading(items: PdfTextItem[], index: number) {
 /**
  * Reads a row as a table header. Returns its columns left to right, or null
  * when the row does not look like one: it needs a money column and a date or
- * description column, and at least three headings in all.
+ * description column, and at least three headings in all. `taught` headings
+ * are read before the built-in ones.
  */
-export function readHeaderRow(row: PdfTextRow): LayoutColumn[] | null {
+export function readHeaderRow(row: PdfTextRow, taught?: TaughtHeadings): LayoutColumn[] | null {
   const items = [...row.items].sort((a, b) => a.x - b.x);
   const columns: LayoutColumn[] = [];
   let pendingX0: number | null = null;
+  // Words no heading knows, until a column is there to keep them.
+  let strays: string[] = [];
 
   for (let index = 0; index < items.length; ) {
-    const heading = matchHeading(items, index);
+    const heading = matchHeading(items, index, taught);
     if (heading) {
       const last = items[index + heading.length - 1];
       columns.push({
         role: heading.role,
         x0: pendingX0 ?? items[index].x,
         x1: last.x + last.width,
+        heading: heading.phrase,
+        ...(strays.length > 0 ? { extra: strays } : {}),
       });
       pendingX0 = null;
+      strays = [];
       index += heading.length;
       continue;
     }
 
+    const previous = columns[columns.length - 1];
+    if (
+      previous &&
+      MONEY_ROLES.includes(previous.role) &&
+      items[index].x - previous.x1 > ATTACH_GAP
+    ) {
+      const word = headingWord(items[index]);
+      columns.push({
+        role: 'other',
+        // Its figures are right-aligned under the heading and start left of
+        // it: the column begins right after the money column before it.
+        x0: previous.x1 + 1,
+        x1: items[index].x + items[index].width,
+        heading: word,
+      });
+      index += 1;
+      continue;
+    }
+    keepUnknownWord(headingWord(items[index]), previous, strays);
     pendingX0 = attachStrayWord(
       items[index],
       columns[columns.length - 1],
@@ -156,6 +221,15 @@ export function readHeaderRow(row: PdfTextRow): LayoutColumn[] | null {
   const hasMoney = roles.has('debit') || roles.has('credit') || roles.has('amount');
   const hasText = roles.has('date') || roles.has('description');
   return columns.length >= 3 && hasMoney && hasText ? columns : null;
+}
+
+/** A header word no heading knows stays with the column before it, or waits for the first one. */
+function keepUnknownWord(word: string, previous: LayoutColumn | undefined, strays: string[]) {
+  if (word && previous) {
+    previous.extra = [...(previous.extra ?? []), word];
+  } else if (word) {
+    strays.push(word);
+  }
 }
 
 /**
@@ -202,9 +276,23 @@ function moneyColumnFor(x1: number, columns: LayoutColumn[]): LayoutColumn | nul
   return best && best.distance <= MONEY_EDGE_TOLERANCE ? best.column : null;
 }
 
+/** Text this far right of a date heading is no part of the date. */
+const DATE_CELL_GAP = 12;
+
+/**
+ * The text column a word starts in. A date column holds the date alone: a word
+ * well right of its heading belongs to the column after it, whose heading may
+ * be centred over a cell that starts further left ("Particulars" over text at
+ * the date's right).
+ */
 function textColumnFor(x: number, columns: LayoutColumn[]): ColumnRole {
   const text = columns.filter(column => TEXT_ROLES.includes(column.role));
   const owner = [...text].reverse().find(column => column.x0 <= x + 4) ?? text[0];
+  const isDate = owner?.role === 'date' || owner?.role === 'otherDate';
+  const next = text.find(column => column.x0 > (owner?.x1 ?? 0));
+  if (isDate && next && x > owner.x1 + DATE_CELL_GAP) {
+    return next.role;
+  }
   return owner?.role ?? 'description';
 }
 
@@ -220,7 +308,10 @@ export function layOutRow(items: PdfTextItem[], columns: LayoutColumn[]): LaidOu
   for (let index = 0; index < sorted.length; ) {
     const cell = moneyCellAt(sorted, index, columns);
     if (cell) {
-      result.amounts.push(cell.amount);
+      // A figure OCR misread ("3541" for "35.41") is no amount, and no text either.
+      if (cell.amount) {
+        result.amounts.push(cell.amount);
+      }
       index = cell.end;
       continue;
     }
@@ -249,6 +340,9 @@ function moneyCellAt(sorted: PdfTextItem[], start: number, columns: LayoutColumn
   const run = sorted.slice(start, end);
   const value = parseStatementAmount(run.map(item => item.text).join(' '));
   const last = run[run.length - 1];
-  const column = value !== null ? moneyColumnFor(last.x + last.width, columns) : null;
-  return column && value !== null ? { amount: { role: column.role, value }, end } : null;
+  const column = moneyColumnFor(last.x + last.width, columns);
+  if (!column) {
+    return null;
+  }
+  return { amount: value === null ? null : { role: column.role, value }, end };
 }

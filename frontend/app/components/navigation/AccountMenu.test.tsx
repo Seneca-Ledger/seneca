@@ -4,7 +4,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { setPrivacyMode } from '@/app/lib/privacy-mode';
 import { AccountMenu } from './AccountMenu';
 
-vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }));
+const push = vi.hoisted(() => vi.fn());
+const permissions = vi.hoisted(() => ({ granted: [] as string[] }));
+
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push }) }));
 vi.mock('next-themes', () => ({ useTheme: () => ({ setTheme: vi.fn(), resolvedTheme: 'light' }) }));
 vi.mock('@/app/hooks/useAuth', () => ({
   useAuth: () => ({
@@ -13,19 +16,23 @@ vi.mock('@/app/hooks/useAuth', () => ({
     setUser: vi.fn(),
   }),
 }));
-vi.mock('@/app/hooks/usePermissions', () => ({ usePermissions: () => ({ hasPermission: () => false }) }));
+vi.mock('@/app/hooks/usePermissions', () => ({
+  usePermissions: () => ({ hasPermission: (permission: string) => permissions.granted.includes(permission) }),
+}));
 vi.mock('./hooks/useThemePreference', () => ({
   useThemePreference: () => ({ handleThemePreferenceChange: vi.fn() }),
 }));
 vi.mock('@/app/i18n', () => ({
   useIntlayer: () => ({
-    userMenu: new Proxy({}, { get: (_target, key) => String(key) }),
-    nav: new Proxy({}, { get: (_target, key) => String(key) }),
+    userMenu: new Proxy({}, { get: (_target, name) => String(name) }),
+    nav: new Proxy({}, { get: (_target, name) => String(name) }),
   }),
 }));
 
 afterEach(() => {
   act(() => setPrivacyMode(false));
+  permissions.granted = [];
+  push.mockReset();
 });
 
 describe('AccountMenu', () => {
@@ -43,5 +50,25 @@ describe('AccountMenu', () => {
     // The row before it is the theme switch.
     const items = screen.getAllByRole('menuitem').map(item => item.textContent);
     expect(items.indexOf('privacyMode')).toBe(items.indexOf('darkMode') + 1);
+  });
+
+  it('opens the admin page for whoever may read the audit log, in place of what was new', () => {
+    permissions.granted = ['audit_log.view'];
+    render(<AccountMenu />);
+    fireEvent.click(screen.getByRole('button', { name: /Administrator/ }));
+
+    const items = screen.getAllByRole('menuitem').map(item => item.textContent);
+    expect(items).not.toContain('whatsNew');
+    expect(items.indexOf('admin')).toBe(items.indexOf('settings') - 1);
+
+    fireEvent.click(screen.getByRole('menuitem', { name: 'admin' }));
+    expect(push).toHaveBeenCalledWith('/admin');
+  });
+
+  it('leaves the admin page out for anyone else', () => {
+    render(<AccountMenu />);
+    fireEvent.click(screen.getByRole('button', { name: /Administrator/ }));
+
+    expect(screen.queryByRole('menuitem', { name: 'admin' })).toBeNull();
   });
 });

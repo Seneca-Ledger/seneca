@@ -1,6 +1,7 @@
-import { spawn, spawnSync } from 'child_process';
+import { spawn } from 'child_process';
 import * as fs from 'fs';
-import * as path from 'path';
+import { withOcrFallback } from './pdf-ocr.util';
+import { resolvePythonExecutable, resolveScriptPath } from './pdf-python.util';
 
 export interface PdfTextItem {
   text: string;
@@ -55,7 +56,6 @@ type RawPdfTable = Partial<Record<'page' | 'strategy' | 'data' | 'structured', u
 // process lifetime, not sophisticated eviction policy.
 const MAX_CACHE_ENTRIES = 20;
 const parserCache = new Map<string, PdfPlumberResult>();
-let pythonExecutable: string | null = null;
 
 function cachePut(filePath: string, result: PdfPlumberResult) {
   parserCache.set(filePath, result);
@@ -85,20 +85,27 @@ const PDF_PARSE_TIMEOUT_MS = Number.parseInt(process.env.PDF_PARSE_TIMEOUT_MS ||
 const MAX_PDF_OUTPUT_BYTES = 100 * 1024 * 1024; // 100MB of parsed JSON output
 
 /**
- * Extract text from PDF file using pdfplumber (Python).
+ * Extract text from PDF file using pdfplumber (Python), or OCR when the file
+ * has no text layer.
  */
 export async function extractTextFromPdf(filePath: string): Promise<string> {
-  const parsed = await runPdfPlumber(filePath);
+  const parsed = await withOcrFallback(filePath, runPdfPlumber);
   return parsed.text || '';
 }
 
+/** The PDF's own text layer, empty for a scan: no OCR, so it answers at once. */
+export async function extractTextLayerFromPdf(filePath: string): Promise<string> {
+  return (await runPdfPlumber(filePath)).text || '';
+}
+
 /**
- * Extract text with layout information (coordinates) using pdfplumber.
+ * Extract text with layout information (coordinates) using pdfplumber, or OCR
+ * when the file has no text layer.
  */
 export async function extractTextAndLayoutFromPdf(
   filePath: string,
 ): Promise<{ text: string; rows: PdfTextRow[] }> {
-  const parsed = await runPdfPlumber(filePath);
+  const parsed = await withOcrFallback(filePath, runPdfPlumber);
   return { text: parsed.text || '', rows: parsed.rows || [] };
 }
 
@@ -129,58 +136,6 @@ function ensureFileExists(filePath: string) {
   if (!fs.existsSync(filePath)) {
     throw new Error(`PDF file not found: ${filePath}`);
   }
-}
-
-function resolveScriptPath(): string {
-  const candidates = [
-    path.resolve(__dirname, '..', '..', '..', 'scripts', 'pdfplumber_parser.py'),
-    path.resolve(process.cwd(), 'backend', 'scripts', 'pdfplumber_parser.py'),
-    path.resolve(process.cwd(), 'scripts', 'pdfplumber_parser.py'),
-  ];
-
-  const found = candidates.find(candidate => fs.existsSync(candidate));
-  if (!found) {
-    throw new Error(
-      'Could not locate pdfplumber_parser.py. Ensure backend/scripts/pdfplumber_parser.py is available at runtime.',
-    );
-  }
-
-  return found;
-}
-
-function getPythonCandidates(): string[] {
-  const fromEnv = process.env.PDF_PARSER_PYTHON;
-  const backendVenv = path.resolve(process.cwd(), 'backend', '.venv', 'bin', 'python');
-  const rootVenv = path.resolve(process.cwd(), '.venv', 'bin', 'python');
-  const localVenv = path.resolve(__dirname, '..', '..', '..', '.venv', 'bin', 'python');
-
-  const candidates = [fromEnv, backendVenv, rootVenv, localVenv, 'python3', 'python'].filter(
-    (entry): entry is string => Boolean(entry),
-  );
-
-  return Array.from(new Set(candidates));
-}
-
-function resolvePythonExecutable(): string {
-  if (pythonExecutable) {
-    return pythonExecutable;
-  }
-
-  for (const candidate of getPythonCandidates()) {
-    const versionCheck = spawnSync(candidate, ['--version'], { encoding: 'utf8' });
-    if (versionCheck.error || versionCheck.status !== 0) {
-      continue;
-    }
-    const libraryCheck = spawnSync(candidate, ['-c', 'import pdfplumber'], { encoding: 'utf8' });
-    if (!libraryCheck.error && libraryCheck.status === 0) {
-      pythonExecutable = candidate;
-      return candidate;
-    }
-  }
-
-  throw new Error(
-    'Python 3 with pdfplumber is required to parse PDF statements. Install it with "pip install pdfplumber" and ensure python3 is available in PATH.',
-  );
 }
 
 async function runPdfPlumber(filePath: string): Promise<PdfPlumberResult> {

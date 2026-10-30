@@ -1,0 +1,9 @@
+# Read by osv-scanner and by OpenSSF Scorecard's Vulnerabilities check (it uses the file next to
+# each lockfile). Each entry says why the finding does not apply; review them when the package changes.
+
+# deepmerge has no fixed release. It remains only in website/, through Docusaurus →
+# @svgr/webpack → @svgr/plugin-svgo, which merges the site's own SVGO config at build
+# time; no outside input reaches it and nothing of it ships in the static site.
+[[IgnoredVulns]]
+id = "GHSA-gcqx-w48m-w2h4"
+reason = "website build only: @svgr/plugin-svgo merges the repo's own SVGO config; no fixed deepmerge exists"
