@@ -3,7 +3,6 @@ import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import {
   BadRequestException,
   ConflictException,
-  ForbiddenException,
   Inject,
   Injectable,
   Logger,
@@ -20,7 +19,6 @@ import type { Repository } from 'typeorm';
 import { appError } from '../../common/errors/app-error';
 import { FileStorageService } from '../../common/services/file-storage.service';
 import { currencyCodeOrDefault } from '../../common/utils/currency.util';
-import { ensureCanEdit } from '../../common/utils/ensure-can-edit.util';
 import { calculateFileHash } from '../../common/utils/file-hash.util';
 import { resolveFileType, validateFile } from '../../common/utils/file-validator.util';
 import { normalizeFilename, sanitizeArchiveEntryName } from '../../common/utils/filename.util';
@@ -35,7 +33,7 @@ import type {
   StatementsQuery,
   UpdateStatementBody,
 } from '../../contracts';
-import { Category, Wallet, WorkspaceMember, WorkspaceRole } from '../../entities';
+import { Category, Wallet, WorkspaceMember } from '../../entities';
 import { ActorType, AuditAction, EntityType, Severity } from '../../entities/audit-event.entity';
 import { CategoryType } from '../../entities/category.entity';
 import { BankName, FileType, Statement, StatementStatus } from '../../entities/statement.entity';
@@ -54,13 +52,16 @@ import {
 } from '../notifications/events/notification-events';
 import { StatementParsingQueue } from '../parsing/queue/statement-parsing.queue';
 import { StatementProcessingService } from '../parsing/services/statement-processing.service';
-import { reviewHoldsStatementRows } from '../review-inbox/review-queue.queries';
 import { TaxAssignmentService } from '../tax/tax-assignment.service';
 import { WorkspaceCurrencyService } from '../workspaces/workspace-currency.service';
 import { ReceiptStatementService } from './services/receipt-statement.service';
-import { getDatePresetRange } from './statement-date-presets.util';
+import { ensureCanEditStatements, ensureCanModifyStatement } from './statement-access';
 import { removeStatementFile } from './statement-file-removal.util';
-import { buildStatementSearchClause } from './statement-search.util';
+import {
+  applyStatementFilters,
+  applyStatementRowFilters,
+  orderStatementList,
+} from './statement-list-query';
 import {
   EMPTY_TRANSACTION_SUMMARY,
   loadTransactionSummaries,
@@ -76,38 +77,6 @@ type StatementWithFileAvailability = Statement & {
 };
 type StatementRepositoryWithOptionalQueryBuilder = Repository<Statement> & {
   createQueryBuilder?: Repository<Statement>['createQueryBuilder'];
-};
-
-const APPROVED_STATUSES = [
-  StatementStatus.VALIDATED,
-  StatementStatus.COMPLETED,
-  StatementStatus.PARSED,
-];
-
-const splitReferenceTokens = (tokens?: string[]) => {
-  const normalizedTokens = tokens || [];
-  const allowedBankNames = new Set(Object.values(BankName));
-
-  return normalizedTokens.reduce(
-    (acc, token) => {
-      if (token.startsWith('user:')) {
-        const userId = token.replace('user:', '').trim();
-        if (userId) {
-          acc.userIds.push(userId);
-        }
-      }
-
-      if (token.startsWith('bank:')) {
-        const bankName = token.replace('bank:', '').trim().toLowerCase();
-        if (bankName && allowedBankNames.has(bankName as BankName)) {
-          acc.bankNames.push(bankName);
-        }
-      }
-
-      return acc;
-    },
-    { userIds: [] as string[], bankNames: [] as string[] },
-  );
 };
 
 /**
@@ -164,13 +133,7 @@ export class StatementsService {
   }
 
   private async ensureCanEditStatements(userId: string, workspaceId: string): Promise<void> {
-    await ensureCanEdit(
-      this.workspaceMemberRepository,
-      workspaceId,
-      userId,
-      'canEditStatements',
-      'STATEMENTS_EDIT_FORBIDDEN',
-    );
+    await ensureCanEditStatements(this.workspaceMemberRepository, userId, workspaceId);
   }
 
   private async ensureCanModify(
@@ -178,22 +141,7 @@ export class StatementsService {
     userId: string,
     workspaceId: string,
   ): Promise<void> {
-    await this.ensureCanEditStatements(userId, workspaceId);
-    if (statement.userId === userId) {
-      return;
-    }
-    if (workspaceId && statement.workspaceId === workspaceId) {
-      const membership = await this.workspaceMemberRepository.findOne({
-        where: { workspaceId, userId },
-        select: {
-          role: true,
-        },
-      });
-      if (membership && [WorkspaceRole.ADMIN, WorkspaceRole.OWNER].includes(membership.role)) {
-        return;
-      }
-    }
-    throw new ForbiddenException(appError('STATEMENT_EDIT_FORBIDDEN'));
+    await ensureCanModifyStatement(this.workspaceMemberRepository, statement, userId, workspaceId);
   }
 
   private escapeCsvValue(value: string): string {
@@ -855,10 +803,6 @@ export class StatementsService {
   }> {
     const page = filters.page;
     const limit = filters.limit ?? (page ? 20 : undefined);
-    const statementDateExpression =
-      'DATE(COALESCE(statement.statementDateTo, statement.statementDateFrom, statement.createdAt))';
-    const amountExpression =
-      'GREATEST(COALESCE(statement.totalDebit, 0), COALESCE(statement.totalCredit, 0))';
     const qb = this.statementRepository
       .createQueryBuilder('statement')
       .leftJoinAndSelect('statement.user', 'user')
@@ -874,250 +818,13 @@ export class StatementsService {
       qb.take(limit);
     }
 
-    const search = filters.search ? buildStatementSearchClause(filters.search) : null;
-    if (search) {
-      qb.andWhere(search.clause, search.params);
-    }
-
-    if (filters.type) {
-      qb.andWhere('statement.fileType = :type', {
-        type: filters.type.toLowerCase(),
-      });
-    }
-
-    if (filters.statuses && filters.statuses.length > 0) {
-      // status is a Postgres enum: LOWER() has no enum overload, and comparing the
-      // enum to an unknown value errors, so compare as text.
-      qb.andWhere('CAST(statement.status AS text) IN (:...statuses)', {
-        statuses: filters.statuses.map(status => status.toLowerCase()),
-      });
-    }
-
-    if (typeof filters.approved === 'boolean') {
-      // As the Approved column says it: parsed, and Review holds none of its rows.
-      const review = reviewHoldsStatementRows(this.transactionRepository, workspaceId, 'statement');
-      const approved = `(statement.status IN (:...approvedStatuses) AND NOT ${review.clause})`;
-      qb.andWhere(filters.approved ? approved : `NOT ${approved}`, {
-        approvedStatuses: APPROVED_STATUSES,
-        ...review.params,
-      });
-    }
-
-    if (typeof filters.billable === 'boolean') {
-      if (filters.billable) {
-        qb.andWhere(`${amountExpression} > 0`);
-      } else {
-        qb.andWhere(`${amountExpression} <= 0`);
-      }
-    }
-
-    if (filters.datePreset) {
-      const { dateFrom, dateTo } = getDatePresetRange(filters.datePreset, new Date());
-      qb.andWhere(`${statementDateExpression} BETWEEN :dateFrom AND :dateTo`, {
-        dateFrom,
-        dateTo,
-      });
-    } else if (filters.dateMode && filters.dateFrom) {
-      if (filters.dateMode === 'on') {
-        if (filters.dateTo) {
-          const sortedRange = [filters.dateFrom, filters.dateTo].sort();
-          qb.andWhere(`${statementDateExpression} BETWEEN :dateFrom AND :dateTo`, {
-            dateFrom: sortedRange[0],
-            dateTo: sortedRange[1],
-          });
-        } else {
-          qb.andWhere(`${statementDateExpression} = :dateFrom`, {
-            dateFrom: filters.dateFrom,
-          });
-        }
-      } else if (filters.dateMode === 'after') {
-        qb.andWhere(`${statementDateExpression} > :dateFrom`, {
-          dateFrom: filters.dateFrom,
-        });
-      } else {
-        qb.andWhere(`${statementDateExpression} < :dateTo`, {
-          dateTo: filters.dateTo || filters.dateFrom,
-        });
-      }
-    }
-
-    const fromReferences = splitReferenceTokens(filters.from);
-    if (fromReferences.userIds.length > 0 || fromReferences.bankNames.length > 0) {
-      const conditions: string[] = [];
-      const params: Record<string, string[]> = {};
-
-      if (fromReferences.userIds.length > 0) {
-        conditions.push('statement.userId IN (:...fromUserIds)');
-        params.fromUserIds = fromReferences.userIds;
-      }
-
-      if (fromReferences.bankNames.length > 0) {
-        conditions.push('statement.bankName IN (:...fromBankNames)');
-        params.fromBankNames = fromReferences.bankNames;
-      }
-
-      qb.andWhere(`(${conditions.join(' OR ')})`, params);
-    }
-
-    const toReferences = splitReferenceTokens(filters.to);
-    if (toReferences.userIds.length > 0 || toReferences.bankNames.length > 0) {
-      const conditions: string[] = [];
-      const params: Record<string, string[]> = {};
-
-      if (toReferences.userIds.length > 0) {
-        conditions.push('statement.userId IN (:...toUserIds)');
-        params.toUserIds = toReferences.userIds;
-      }
-
-      if (toReferences.bankNames.length > 0) {
-        conditions.push('statement.bankName IN (:...toBankNames)');
-        params.toBankNames = toReferences.bankNames;
-      }
-
-      qb.andWhere(`(${conditions.join(' OR ')})`, params);
-    }
-
-    if (filters.keywords?.trim()) {
-      qb.andWhere(
-        `(
-          statement.fileName ILIKE :keywords OR
-          CAST(statement.bankName AS text) ILIKE :keywords OR
-          CAST(statement.status AS text) ILIKE :keywords OR
-          COALESCE(user.name, '') ILIKE :keywords OR
-          COALESCE(user.email, '') ILIKE :keywords OR
-          COALESCE(statement.accountNumber, '') ILIKE :keywords
-        )`,
-        {
-          keywords: `%${filters.keywords.trim()}%`,
-        },
-      );
-    }
-
-    if (filters.amountMin !== undefined || filters.amountMax !== undefined) {
-      const amountConditions: string[] = [];
-      const params: Record<string, number> = {};
-
-      if (filters.amountMin !== undefined) {
-        amountConditions.push(`${amountExpression} >= :amountMin`);
-        params.amountMin = filters.amountMin;
-      }
-
-      if (filters.amountMax !== undefined) {
-        amountConditions.push(`${amountExpression} <= :amountMax`);
-        params.amountMax = filters.amountMax;
-      }
-
-      qb.andWhere(amountConditions.join(' AND '), params);
-    }
-
-    if (filters.currencies && filters.currencies.length > 0) {
-      qb.andWhere('LOWER(statement.currency) IN (:...currencies)', {
-        currencies: filters.currencies.map(currency => currency.toLowerCase()),
-      });
-    }
-
-    if (typeof filters.exported === 'boolean') {
-      qb.andWhere(
-        filters.exported ? 'statement.processedAt IS NOT NULL' : 'statement.processedAt IS NULL',
-      );
-    }
-
-    if (typeof filters.paid === 'boolean') {
-      qb.andWhere(
-        filters.paid
-          ? 'statement.statementDateTo IS NOT NULL'
-          : 'statement.statementDateTo IS NULL',
-      );
-    }
-
-    if (filters.has?.includes('errors')) {
-      qb.andWhere(
-        `(
-          statement.status = :errorStatus OR
-          statement.errorMessage IS NOT NULL OR
-          jsonb_array_length(COALESCE(statement.parsingDetails->'errors', '[]'::jsonb)) > 0
-        )`,
-        { errorStatus: StatementStatus.ERROR },
-      );
-    }
-
-    if (filters.has?.includes('processingDetails')) {
-      qb.andWhere(
-        "jsonb_array_length(COALESCE(statement.parsingDetails->'logEntries', '[]'::jsonb)) > 0",
-      );
-    }
-
-    if (filters.has?.includes('transactions')) {
-      qb.andWhere('statement.totalTransactions > 0');
-    }
-
-    if (filters.has?.includes('dateRange')) {
-      qb.andWhere(
-        '(statement.statementDateFrom IS NOT NULL OR statement.statementDateTo IS NOT NULL)',
-      );
-    }
-
-    if (filters.has?.includes('currency')) {
-      qb.andWhere(
-        `(
-          statement.currency IS NOT NULL OR
-          statement.parsingDetails->'metadataExtracted'->>'currency' IS NOT NULL OR
-          statement.parsingDetails->'metadataExtracted'->'headerDisplay'->>'currencyDisplay' IS NOT NULL
-        )`,
-      );
-    }
-
-    if (filters.categoryId || filters.merchant) {
-      // Documents holding a row of this category and/or merchant, dated in the window if given.
-      const rowSubQuery = this.transactionRepository
-        .createQueryBuilder('transaction')
-        .select('DISTINCT transaction.statementId')
-        .where('transaction.workspaceId = :workspaceId', { workspaceId })
-        .andWhere('transaction.statementId IS NOT NULL');
-
-      if (filters.categoryId === 'uncategorized') {
-        rowSubQuery.andWhere('transaction.categoryId IS NULL');
-      } else if (filters.categoryId) {
-        // A parent's figure in the reports includes its subcategories; so does its list.
-        const categoryIds = await this.categoryWithDescendants(workspaceId, filters.categoryId);
-        rowSubQuery.andWhere('transaction.categoryId IN (:...categoryIds)', { categoryIds });
-      }
-      if (filters.merchant) {
-        // The merchant key the analytics charts group by.
-        rowSubQuery.andWhere(
-          'LOWER(TRIM(COALESCE(transaction.vendorNormalized, transaction.counterpartyName))) = :merchant',
-          { merchant: filters.merchant.trim().toLowerCase() },
-        );
-      }
-      if (filters.transactionsFrom) {
-        rowSubQuery.andWhere('transaction.transactionDate >= :transactionsFrom', {
-          transactionsFrom: filters.transactionsFrom,
-        });
-      }
-      if (filters.transactionsTo) {
-        rowSubQuery.andWhere('transaction.transactionDate <= :transactionsTo', {
-          transactionsTo: filters.transactionsTo,
-        });
-      }
-
-      qb.andWhere(`statement.id IN (${rowSubQuery.getQuery()})`).setParameters(
-        rowSubQuery.getParameters(),
-      );
-    }
-
-    if (filters.groupBy === 'date') {
-      qb.orderBy(statementDateExpression, 'ASC');
-    } else if (filters.groupBy === 'status') {
-      qb.orderBy('statement.status', 'ASC');
-    } else if (filters.groupBy === 'type') {
-      qb.orderBy('statement.fileType', 'ASC');
-    } else if (filters.groupBy === 'bank') {
-      qb.orderBy('statement.bankName', 'ASC');
-    } else if (filters.groupBy === 'user') {
-      qb.orderBy(`LOWER(COALESCE(user.name, user.email, ''))`, 'ASC');
-    } else if (filters.groupBy === 'amount') {
-      qb.orderBy(amountExpression, 'ASC');
-    }
+    applyStatementFilters(qb, filters);
+    const categoryIds =
+      filters.categoryId && filters.categoryId !== 'uncategorized'
+        ? await this.categoryWithDescendants(workspaceId, filters.categoryId)
+        : null;
+    applyStatementRowFilters(qb, filters, this.transactionRepository, workspaceId, categoryIds);
+    orderStatementList(qb, filters.groupBy);
 
     const [dataRaw, totalCount] = await qb.getManyAndCount();
     const transactionSummaries = await loadTransactionSummaries(
