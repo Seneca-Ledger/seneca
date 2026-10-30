@@ -13,6 +13,8 @@ export type UserFormatPreferences = {
   locale?: string | null;
   dateFormat?: DateFormatPreference | null;
   firstDayOfWeek?: number | null;
+  /** Whole units on overviews; false shows every amount with cents. */
+  roundAmounts?: boolean | null;
 };
 
 /** App locale keys that need a region to format correctly. */

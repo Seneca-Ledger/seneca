@@ -50,6 +50,7 @@ const MEMBER: User = {
   uiDensity: 'comfortable',
   reduceMotion: false,
   showDailyQuote: true,
+  roundAmounts: true,
   themePreference: 'auto',
   mapStylePreference: null,
   lastLogin: null,

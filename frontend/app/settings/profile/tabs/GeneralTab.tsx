@@ -97,6 +97,8 @@ export function GeneralTab({ section, user, setUser }: SettingsTabProps): React.
     setReduceMotion,
     showDailyQuote,
     setShowDailyQuote,
+    roundAmounts,
+    setRoundAmounts,
   } = useAppearance(user, setUser, {
     successFallback: t.appearanceCard.title.value,
     errorFallback: t.profileCard.errorFallback.value,
@@ -263,6 +265,8 @@ export function GeneralTab({ section, user, setUser }: SettingsTabProps): React.
           setReduceMotion={setReduceMotion}
           showDailyQuote={showDailyQuote}
           setShowDailyQuote={setShowDailyQuote}
+          roundAmounts={roundAmounts}
+          setRoundAmounts={setRoundAmounts}
         />
       </SettingsAccordion>
 

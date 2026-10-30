@@ -3,7 +3,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { readLocaleFromCookie } from '@/app/lib/locale';
 import type { UserFormatPreferences } from '@/app/lib/user-format';
-import { formatDate, formatDateTime, formatDateWithOptions } from '@/app/lib/user-format';
+import {
+  formatDate,
+  formatDateTime,
+  formatDateWithOptions,
+  resolveLocaleTag,
+} from '@/app/lib/user-format';
 
 /** Fired whenever the persisted user changes, so open views re-render dates. */
 export const USER_FORMAT_EVENT = 'seneca:user-format-changed';
@@ -43,12 +48,29 @@ export const readStoredFormatPreferences = (): UserFormatPreferences => {
       locale: readLocaleFromCookie() ?? user.locale ?? null,
       dateFormat: user.dateFormat ?? null,
       firstDayOfWeek: user.firstDayOfWeek ?? null,
+      roundAmounts: user.roundAmounts ?? null,
     };
     return cachedPreferences;
   } catch {
     return EMPTY;
   }
 };
+
+/** Intl digits for a whole-units figure: none, or cents once rounding is off in settings. */
+export const wholeUnitDigits = (): {
+  minimumFractionDigits: number;
+  maximumFractionDigits: number;
+} => {
+  const digits = readStoredFormatPreferences().roundAmounts === false ? 2 : 0;
+  return { minimumFractionDigits: digits, maximumFractionDigits: digits };
+};
+
+/** A plain whole-units number in the stored locale: `1 235`, or `1 234,56` with rounding off. */
+export const formatWholeNumber = (value: number): string =>
+  new Intl.NumberFormat(
+    resolveLocaleTag(readStoredFormatPreferences().locale),
+    wholeUnitDigits(),
+  ).format(value);
 
 type DateInput = Date | string | number | null | undefined;
 

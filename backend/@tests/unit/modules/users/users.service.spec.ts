@@ -414,6 +414,22 @@ describe('UsersService', () => {
       );
     });
 
+    it('turns rounding off and leaves the other preferences alone', async () => {
+      const userWithPassword = { ...mockUser, roundAmounts: true, showDailyQuote: true } as User;
+      vi
+        .spyOn<any, any>(service as any, 'findOneWithPassword')
+        .mockResolvedValue(userWithPassword);
+      const saveSpy = vi
+        .spyOn(repository, 'save')
+        .mockImplementation(async user => user as User);
+
+      await service.updateMyPreferences('1', { roundAmounts: false } as any);
+
+      expect(saveSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ roundAmounts: false, showDailyQuote: true }),
+      );
+    });
+
     it('stores a trimmed map style and clears it with null', async () => {
       const userWithPassword = { ...mockUser, mapStylePreference: 'positron' } as User;
 

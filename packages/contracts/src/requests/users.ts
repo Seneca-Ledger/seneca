@@ -215,6 +215,7 @@ export const UpdateMyPreferencesBody = Schema.Struct({
   uiDensity: optionalNullable(Schema.Literals(['comfortable', 'compact'])),
   reduceMotion: optionalNullable(Schema.Boolean),
   showDailyQuote: optionalNullable(Schema.Boolean),
+  roundAmounts: optionalNullable(Schema.Boolean),
   mapStylePreference: optionalNullable(Schema.String.check(Schema.isMaxLength(64))),
 });
 export type UpdateMyPreferencesBody = Wire<typeof UpdateMyPreferencesBody>;

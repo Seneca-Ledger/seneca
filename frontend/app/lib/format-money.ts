@@ -4,6 +4,7 @@
 
 import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import { resolveLocaleTag } from '@/app/lib/user-format';
+import { readStoredFormatPreferences } from '@/app/lib/user-format-store';
 
 /**
  * Maps app locale keys to BCP 47 locale strings for Intl.NumberFormat.
@@ -50,7 +51,13 @@ export const formatMoney = (
     requested === 'compact' && Math.abs(value) >= COMPACT_NOTATION_CEILING
       ? 'scientific'
       : requested;
-  const fractionDigits = options.fractionDigits ?? (notation === 'standard' ? 2 : 1);
+  const requestedDigits = options.fractionDigits ?? (notation === 'standard' ? 2 : 1);
+  // With rounding turned off in settings, whole units become cents. Compact
+  // axis labels and a finer precision someone asked for stay as they are.
+  const fractionDigits =
+    notation === 'standard' && readStoredFormatPreferences().roundAmounts === false
+      ? Math.max(requestedDigits, 2)
+      : requestedDigits;
   return new Intl.NumberFormat(resolveLocale(locale), {
     style: 'currency',
     currency: resolveCurrencyCode(currency),

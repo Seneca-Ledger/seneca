@@ -84,6 +84,7 @@ export class UsersService {
         uiDensity: true,
         reduceMotion: true,
         showDailyQuote: true,
+        roundAmounts: true,
         themePreference: true,
         mapStylePreference: true,
         avatarUrl: true,
@@ -396,11 +397,10 @@ export class UsersService {
     if (dto.uiDensity != null) {
       user.uiDensity = toEnum(UiDensity, dto.uiDensity);
     }
-    if (dto.reduceMotion != null) {
-      user.reduceMotion = dto.reduceMotion;
-    }
-    if (dto.showDailyQuote != null) {
-      user.showDailyQuote = dto.showDailyQuote;
+    for (const flag of ['reduceMotion', 'showDailyQuote', 'roundAmounts'] as const) {
+      if (dto[flag] != null) {
+        user[flag] = dto[flag];
+      }
     }
 
     return this.userRepository.save(user);

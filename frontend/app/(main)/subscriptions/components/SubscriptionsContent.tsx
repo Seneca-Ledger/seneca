@@ -43,11 +43,7 @@ import {
   TrendingUp,
 } from '@/app/lib/category-line-icons';
 import { getCategoryDisplayName } from '@/app/lib/statement-categories';
-import { resolveLocaleTag } from '@/app/lib/user-format';
-import {
-  formatStoredDateWithOptions,
-  readStoredFormatPreferences,
-} from '@/app/lib/user-format-store';
+import { formatStoredDateWithOptions, formatWholeNumber } from '@/app/lib/user-format-store';
 import type {
   SubscriptionChargeCalendar,
   SubscriptionFormData,
@@ -159,7 +155,7 @@ function SubscriptionCardSkeleton(): React.JSX.Element {
 }
 
 const formatAmount = (amount: number, currency: string) =>
-  `${new Intl.NumberFormat(resolveLocaleTag(readStoredFormatPreferences().locale), { maximumFractionDigits: 0 }).format(amount)} ${currency}`;
+  `${formatWholeNumber(amount)} ${currency}`;
 const formatMonthLabel = (month: string) =>
   formatStoredDateWithOptions(`${month}-01`, { month: 'short', year: '2-digit' });
 const formatDate = (date: string | null) =>

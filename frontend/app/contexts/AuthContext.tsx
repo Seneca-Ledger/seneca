@@ -48,6 +48,8 @@ export interface User {
   reduceMotion?: boolean;
   /** Daily-quote banner above the pages; absent means on. */
   showDailyQuote?: boolean;
+  /** Whole units on overviews; absent means on. */
+  roundAmounts?: boolean;
   themePreference?: ThemePreference;
   /** Tile style picked on receipt maps; null follows the server default. */
   mapStylePreference?: string | null;

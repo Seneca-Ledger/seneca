@@ -6,11 +6,7 @@ import { fillTemplateNodes, PrivateAmount } from '@/app/components/ui/private-am
 import { VendorIcon } from '@/app/components/VendorIcon';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { getCategoryDisplayName } from '@/app/lib/statement-categories';
-import { resolveLocaleTag } from '@/app/lib/user-format';
-import {
-  formatStoredDateWithOptions,
-  readStoredFormatPreferences,
-} from '@/app/lib/user-format-store';
+import { formatStoredDateWithOptions, formatWholeNumber } from '@/app/lib/user-format-store';
 import { priceChangeOf, type SubscriptionItem } from '../hooks/useSubscriptionsPage';
 
 interface SubscriptionCardProps {
@@ -78,9 +74,7 @@ export function SubscriptionCard({
   const t = useIntlayer('subscriptionsPage');
   const { locale } = useLocale();
   const formatAmount = (amount: number, currency: string) =>
-    `${new Intl.NumberFormat(resolveLocaleTag(readStoredFormatPreferences().locale), {
-      maximumFractionDigits: 0,
-    }).format(amount)} ${currency}`;
+    `${formatWholeNumber(amount)} ${currency}`;
   const priceChange = priceChangeOf(subscription);
   const setAside = monthlySetAsideOf(subscription);
   const fill = (template: string, values: Record<string, string>) =>

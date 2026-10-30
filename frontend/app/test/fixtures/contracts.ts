@@ -292,6 +292,7 @@ export function currentUser(overrides: Partial<CurrentUser> = {}): CurrentUser {
     uiDensity: 'comfortable',
     reduceMotion: false,
     showDailyQuote: true,
+    roundAmounts: true,
     themePreference: 'auto',
     mapStylePreference: null,
     lastLogin: null,
