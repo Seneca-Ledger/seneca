@@ -633,7 +633,7 @@ jobs:
         if: env.SONAR_TOKEN != ''
         # sonarcloud-github-action is archived; this is its replacement and reads
         # the same sonar-project.properties (SonarQube Cloud needs no host URL).
-        uses: SonarSource/sonarqube-scan-action@d209202bc7d53ff1cc128f7f907dac145c9d6ae9 # v8
+        uses: SonarSource/sonarqube-scan-action@4d1dc0c91ee400dcf8a6dddf2f705ac36542e304 # v8
 
   build:
     runs-on: ubuntu-latest
