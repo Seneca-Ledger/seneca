@@ -42,6 +42,7 @@ import { InvestmentsService } from '../investments/investments.service';
 import { computedCurrencyCodes, computedValue, loadComputedLines } from './computed-lines';
 import type { NetWorthRange } from './dto/net-worth-query.dto';
 import { buildAttribution, buildSavings } from './net-worth-attribution';
+import { buildBreakdown, buildGroups } from './net-worth-groups';
 import { round2, round4, toNumber } from './net-worth-math';
 
 export type {
@@ -284,7 +285,7 @@ export class NetWorthService {
       assetsTotal,
       liabilitiesTotal,
       series,
-      breakdown: this.buildBreakdown(accounts, leaves, valueAt, to, assetsTotal, locale),
+      breakdown: buildBreakdown(accounts, leaves, valueAt, to, assetsTotal, locale),
       byRisk,
       byRole,
       // Deliberately a share of *all* assets, not just the classified ones:
@@ -306,6 +307,14 @@ export class NetWorthService {
         : null,
       allTimeHigh,
       byAssetClass,
+      groups: buildGroups(
+        accounts,
+        leaves,
+        valueAt,
+        series.map(point => point.date),
+        to,
+        locale,
+      ),
     };
   }
 
@@ -392,40 +401,6 @@ export class NetWorthService {
       }))
       .filter(item => item.amount !== 0)
       .sort((a, b) => b.amount - a.amount);
-  }
-
-  /** Asset totals grouped under the top-level section each leaf belongs to. */
-  private buildBreakdown(
-    accounts: BalanceAccount[],
-    leaves: BalanceAccount[],
-    valueAt: (accountId: string, code: string, date: string) => number,
-    date: string,
-    assetsTotal: number,
-    locale?: string,
-  ): NetWorthBreakdownItem[] {
-    const byId = new Map(accounts.map(account => [account.id, account]));
-    const totals = new Map<string, number>();
-
-    for (const leaf of leaves) {
-      if (leaf.accountType !== BalanceAccountType.ASSET) continue;
-      const root = findRoot(leaf, byId);
-      totals.set(root.id, (totals.get(root.id) ?? 0) + valueAt(leaf.id, leaf.code, date));
-    }
-
-    const sections = [...totals.entries()]
-      .map(([accountId, amount]) => ({
-        account: byId.get(accountId) as BalanceAccount,
-        amount: round2(amount),
-      }))
-      .filter(section => section.amount !== 0)
-      .sort((a, b) => b.amount - a.amount || a.account.position - b.account.position);
-
-    return sections.map(section => ({
-      code: section.account.code,
-      name: balanceAccountName(section.account, locale),
-      amount: section.amount,
-      percent: assetsTotal > 0 ? round2((section.amount / assetsTotal) * 100) : 0,
-    }));
   }
 
   private async resolveCurrency(workspaceId: string): Promise<string> {
@@ -527,18 +502,6 @@ function findLeaves(accounts: BalanceAccount[]): BalanceAccount[] {
     accounts.map(account => account.parentId).filter((id): id is string => Boolean(id)),
   );
   return accounts.filter(account => !parentIds.has(account.id));
-}
-
-function findRoot(account: BalanceAccount, byId: Map<string, BalanceAccount>): BalanceAccount {
-  let current = account;
-  while (current.parentId) {
-    const parent = byId.get(current.parentId);
-    if (!parent) {
-      break;
-    }
-    current = parent;
-  }
-  return current;
 }
 
 /** The peak of a series, or null when it never rose above zero. */

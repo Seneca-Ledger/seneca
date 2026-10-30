@@ -19,8 +19,6 @@ import { SchemaParams } from '../../common/effect/schema-query';
 import { SchemaResponse } from '../../common/effect/schema-response';
 import { Permission } from '../../common/enums/permissions.enum';
 import { appError } from '../../common/errors/app-error';
-import { assertOwnerMemberInWorkspace } from '../../common/utils/transaction-owner.util';
-import { assertWorkspaceRefs } from '../../common/utils/workspace-refs.util';
 import {
   CategorizationRuleParams,
   CreateCategorizationRuleBody,
@@ -39,40 +37,10 @@ import type { User } from '../../entities/user.entity';
 import { WorkspaceMember } from '../../entities/workspace-member.entity';
 import { AuditService } from '../audit/audit.service';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import type { ClassificationCondition } from './interfaces/classification-rule.interface';
+import { toRuleAuditSnapshot } from './helpers/rule-audit';
+import { assertConditionsValid, assertRuleRefs } from './helpers/rule-validation';
 import { RuleApplicationService } from './services/rule-application.service';
-
-type CategorizationRuleAuditSnapshot = {
-  id: string;
-  userId: string;
-  workspaceId: string;
-  name: string;
-  description: string | null;
-  conditions: ClassificationCondition[];
-  result: CategorizationRule['result'];
-  priority: number;
-  isActive: boolean;
-  matchCount: number;
-  lastMatchedAt: string | null;
-  createdAt: string;
-  updatedAt: string;
-};
-
-/** A regex that does not compile is the caller's mistake, not a 500 or a rule that never fires. */
-function assertPatternsCompile(conditions: readonly ClassificationCondition[]): void {
-  for (const condition of conditions) {
-    if (condition.operator !== 'regex') {
-      continue;
-    }
-    try {
-      new RegExp(String(condition.value), 'i');
-    } catch {
-      throw new BadRequestException(
-        appError('CATEGORIZATION_RULE_PATTERN_INVALID', { pattern: String(condition.value) }),
-      );
-    }
-  }
-}
+import { RuleOrderService } from './services/rule-order.service';
 
 @Controller('categorization-rules')
 export class CategorizationRulesController {
@@ -82,6 +50,7 @@ export class CategorizationRulesController {
     @InjectRepository(WorkspaceMember)
     private workspaceMemberRepository: Repository<WorkspaceMember>,
     private ruleApplicationService: RuleApplicationService,
+    private ruleOrderService: RuleOrderService,
     private auditService: AuditService,
   ) {}
 
@@ -122,14 +91,8 @@ export class CategorizationRulesController {
     @CurrentUser() user: User,
     @WorkspaceId() workspaceId: string,
   ) {
-    await assertOwnerMemberInWorkspace(
-      this.workspaceMemberRepository,
-      workspaceId,
-      dto.result?.ownerMemberId,
-    );
-    assertPatternsCompile(dto.conditions);
-    // Every row the rule matches would point at what it names.
-    await assertWorkspaceRefs(this.categorizationRuleRepository.manager, workspaceId, dto.result);
+    assertConditionsValid(dto.conditions);
+    await this.assertRefs(workspaceId, dto);
 
     const rule = this.categorizationRuleRepository.create({
       userId: user.id,
@@ -138,7 +101,8 @@ export class CategorizationRulesController {
       description: dto.description || null,
       conditions: dto.conditions,
       result: dto.result,
-      priority: dto.priority || 0,
+      // A new rule is usually the more specific one, so it goes on top.
+      priority: dto.priority ?? (await this.ruleOrderService.topPriority(workspaceId)),
       isActive: dto.isActive ?? true,
       matchCount: 0,
       lastMatchedAt: null,
@@ -154,7 +118,7 @@ export class CategorizationRulesController {
       entityType: EntityType.RULE,
       entityId: rule.id,
       action: AuditAction.CREATE,
-      diff: { before: null, after: this.toAuditSnapshot(rule) },
+      diff: { before: null, after: toRuleAuditSnapshot(rule) },
     });
 
     return rule;
@@ -172,7 +136,7 @@ export class CategorizationRulesController {
   ) {
     const rule = await this.findRule(id, workspaceId);
 
-    const before = this.toAuditSnapshot(rule);
+    const before = toRuleAuditSnapshot(rule);
     if (dto.name != null) {
       rule.name = dto.name;
     }
@@ -180,16 +144,13 @@ export class CategorizationRulesController {
       rule.description = dto.description;
     }
     if (dto.conditions != null) {
-      assertPatternsCompile(dto.conditions);
+      assertConditionsValid(dto.conditions);
+    }
+    await this.assertRefs(workspaceId, dto);
+    if (dto.conditions != null) {
       rule.conditions = dto.conditions;
     }
     if (dto.result != null) {
-      await assertOwnerMemberInWorkspace(
-        this.workspaceMemberRepository,
-        workspaceId,
-        dto.result.ownerMemberId,
-      );
-      await assertWorkspaceRefs(this.categorizationRuleRepository.manager, workspaceId, dto.result);
       rule.result = dto.result;
     }
     if (dto.priority != null) {
@@ -209,7 +170,7 @@ export class CategorizationRulesController {
       entityType: EntityType.RULE,
       entityId: rule.id,
       action: AuditAction.UPDATE,
-      diff: { before, after: this.toAuditSnapshot(rule) },
+      diff: { before, after: toRuleAuditSnapshot(rule) },
       isUndoable: true,
     });
 
@@ -226,7 +187,7 @@ export class CategorizationRulesController {
   ) {
     const rule = await this.findRule(id, workspaceId);
     // Taken before remove(), which clears the entity's id.
-    const before = this.toAuditSnapshot(rule);
+    const before = toRuleAuditSnapshot(rule);
 
     await this.categorizationRuleRepository.remove(rule);
 
@@ -254,7 +215,7 @@ export class CategorizationRulesController {
     @WorkspaceId() workspaceId: string,
     @WorkspaceMemberId() selfMemberId: string | null,
   ) {
-    assertPatternsCompile(dto.conditions);
+    assertConditionsValid(dto.conditions);
     // Ids from the request are looked up in this workspace only; without ids the
     // preview runs on the workspace's recent rows.
     return this.ruleApplicationService.previewRule({
@@ -262,12 +223,13 @@ export class CategorizationRulesController {
       viewerMemberId: selfMemberId,
       conditions: dto.conditions,
       transactionIds: dto.transactionIds,
+      ruleId: dto.ruleId,
     });
   }
 
   /**
-   * Files the existing rows the rule matches under its category. Asked for by
-   * the user after saving a rule, never run on its own.
+   * Files the existing rows the rule matches under its category and adds its
+   * tags. Asked for by the user after saving a rule, never run on its own.
    */
   @Post(':id/apply')
   @HttpCode(HttpStatus.OK)
@@ -280,7 +242,7 @@ export class CategorizationRulesController {
     @WorkspaceMemberId() selfMemberId: string | null,
   ) {
     const rule = await this.findRule(id, workspaceId);
-    if (!rule.result.categoryId) {
+    if (!(rule.result.categoryId || rule.result.tagIds?.length)) {
       throw new BadRequestException(appError('CATEGORIZATION_RULE_NO_CATEGORY'));
     }
     return this.ruleApplicationService.applyRuleToExisting({
@@ -299,21 +261,16 @@ export class CategorizationRulesController {
     return rule;
   }
 
-  private toAuditSnapshot(rule: CategorizationRule): CategorizationRuleAuditSnapshot {
-    return {
-      id: rule.id,
-      userId: rule.userId,
-      workspaceId: rule.workspaceId,
-      name: rule.name,
-      description: rule.description,
-      conditions: rule.conditions,
-      result: rule.result,
-      priority: rule.priority,
-      isActive: rule.isActive,
-      matchCount: rule.matchCount,
-      lastMatchedAt: rule.lastMatchedAt?.toISOString() || null,
-      createdAt: rule.createdAt.toISOString(),
-      updatedAt: rule.updatedAt.toISOString(),
-    };
+  /** Every id the rule names, in what it matches and what it sets, is this workspace's. */
+  private assertRefs(
+    workspaceId: string,
+    dto: Pick<UpdateCategorizationRuleBody, 'conditions' | 'result'>,
+  ) {
+    return assertRuleRefs(
+      this.categorizationRuleRepository.manager,
+      this.workspaceMemberRepository,
+      workspaceId,
+      dto,
+    );
   }
 }

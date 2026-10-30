@@ -6,6 +6,7 @@ import { WorkspaceMember } from '@/entities/workspace-member.entity';
 import { AuditService } from '../../../../src/modules/audit/audit.service';
 import { CategorizationRulesController } from '../../../../src/modules/classification/categorization-rules.controller';
 import { RuleApplicationService } from '../../../../src/modules/classification/services/rule-application.service';
+import { RuleOrderService } from '../../../../src/modules/classification/services/rule-order.service';
 
 describe('CategorizationRulesController', () => {
   let controller: CategorizationRulesController;
@@ -27,6 +28,10 @@ describe('CategorizationRulesController', () => {
   };
   const mockAuditService = {
     createEvent: vi.fn(),
+  };
+  const mockRuleOrderService = {
+    // The workspace's rules top out at 7, so a new one goes in at 8.
+    topPriority: vi.fn(async () => 8),
   };
 
   const mockUser = {
@@ -55,6 +60,10 @@ describe('CategorizationRulesController', () => {
         {
           provide: AuditService,
           useValue: mockAuditService,
+        },
+        {
+          provide: RuleOrderService,
+          useValue: mockRuleOrderService,
         },
         {
           provide: DataSource,
@@ -192,9 +201,11 @@ describe('CategorizationRulesController', () => {
 
       const result = await controller.create(dto, mockUser as any, mockWorkspaceId);
 
+      // No priority given: the new rule goes above every other one.
+      expect(mockRuleOrderService.topPriority).toHaveBeenCalledWith(mockWorkspaceId);
       expect(mockRuleRepository.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          priority: 0,
+          priority: 8,
           isActive: true,
           description: null,
         }),
@@ -304,6 +315,7 @@ describe('CategorizationRulesController', () => {
         viewerMemberId: 'member-1',
         conditions: dto.conditions,
         transactionIds: undefined,
+        ruleId: undefined,
       });
     });
 
@@ -334,6 +346,66 @@ describe('CategorizationRulesController', () => {
     });
   });
 
+  describe('conditions that could never hold', () => {
+    const create = (condition: { field: any; operator: any; value: string | number }) =>
+      controller.create(
+        { name: 'Rule', conditions: [condition], result: { categoryId: 'cat-123' } },
+        mockUser as any,
+        mockWorkspaceId,
+      );
+
+    it('refuses a direction other than income or expense', async () => {
+      await expect(create({ field: 'direction', operator: 'equals', value: 'sideways' })).rejects.toThrow(
+        'Invalid condition on direction',
+      );
+      expect(mockRuleRepository.save).not.toHaveBeenCalled();
+    });
+
+    it('refuses an amount that is not a number', async () => {
+      await expect(create({ field: 'amount', operator: 'greater_than', value: 'lots' })).rejects.toThrow(
+        'Invalid condition on amount',
+      );
+    });
+
+    it("refuses an account or a tag of another workspace", async () => {
+      // Every lookup finds nothing: the ids are someone else's.
+      const manager = mockRuleRepository.manager;
+      mockRuleRepository.manager = { getRepository: () => ({ countBy: async () => 0 }) };
+      try {
+        await expect(create({ field: 'wallet', operator: 'equals', value: 'wallet-b' })).rejects.toThrow();
+        await expect(
+          controller.create(
+            {
+              name: 'Rule',
+              conditions: [{ field: 'counterparty_name', operator: 'contains', value: 'acme' }],
+              result: { tagIds: ['tag-b'] },
+            },
+            mockUser as any,
+            mockWorkspaceId,
+          ),
+        ).rejects.toThrow();
+      } finally {
+        mockRuleRepository.manager = manager;
+      }
+      expect(mockRuleRepository.save).not.toHaveBeenCalled();
+    });
+
+    it('accepts a direction and an account of the workspace', async () => {
+      mockRuleRepository.create.mockImplementation((rule: any) => ({
+        ...rule,
+        id: 'rule-new',
+        createdAt: new Date('2025-01-01'),
+        updatedAt: new Date('2025-01-01'),
+      }));
+      mockRuleRepository.save.mockImplementation(async (rule: any) => rule);
+
+      await expect(create({ field: 'direction', operator: 'equals', value: 'expense' })).resolves.toEqual(
+        expect.objectContaining({ id: 'rule-new' }),
+      );
+      await expect(create({ field: 'wallet', operator: 'equals', value: 'wallet-a' })).resolves.toBeDefined();
+    });
+  });
+
   describe('applyRule', () => {
     it("applies a rule another member wrote, found in the caller's workspace only", async () => {
       const rule = {
@@ -361,7 +433,21 @@ describe('CategorizationRulesController', () => {
       });
     });
 
-    it('refuses a rule that sets no category', async () => {
+    it('applies a rule that only adds tags', async () => {
+      const rule = { id: 'rule-1', workspaceId: mockWorkspaceId, result: { tagIds: ['tag-1'] } };
+      mockRuleRepository.findOne.mockResolvedValue(rule);
+      mockRuleApplicationService.applyRuleToExisting.mockResolvedValue({
+        applied: 0,
+        skippedManual: 0,
+        tagged: 3,
+      });
+
+      await expect(
+        controller.applyRule({ id: 'rule-1' }, mockUser as any, mockWorkspaceId, null),
+      ).resolves.toEqual({ applied: 0, skippedManual: 0, tagged: 3 });
+    });
+
+    it('refuses a rule that sets neither a category nor tags', async () => {
       mockRuleRepository.findOne.mockResolvedValue({
         id: 'rule-1',
         workspaceId: mockWorkspaceId,
@@ -370,7 +456,7 @@ describe('CategorizationRulesController', () => {
 
       await expect(
         controller.applyRule({ id: 'rule-1' }, mockUser as any, mockWorkspaceId, null),
-      ).rejects.toThrow('sets no category');
+      ).rejects.toThrow('neither a category nor tags');
       expect(mockRuleApplicationService.applyRuleToExisting).not.toHaveBeenCalled();
     });
 

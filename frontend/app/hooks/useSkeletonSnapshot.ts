@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { afterPaint } from '@/app/lib/snapshot-skeleton/after-paint';
 import { measureSkeleton } from '@/app/lib/snapshot-skeleton/measure';
+import { SNAPSHOT_RECAPTURE_EVENT } from '@/app/lib/snapshot-skeleton/recapture';
 import type { SkeletonSnapshot } from '@/app/lib/snapshot-skeleton/snapshot';
 import { readSnapshot, writeSnapshot } from '@/app/lib/snapshot-skeleton/storage';
 
@@ -13,15 +14,16 @@ export const RECAPTURE_DELAY_MS = 1500;
  * Remembers the layout of a block between visits.
  *
  * While `loading`, it reads the snapshot saved for `id` at the skeleton's
- * width — after mount, so the server and the first paint both show the
- * generic skeleton and hydration matches. Once loaded (and `capture` allows
+ * width — after mount, so hydration matches. Until then `snapshot` is
+ * `undefined` (not read yet), and `null` once read and none was saved. Once loaded (and `capture` allows
  * it), it measures the content after paint and again, debounced, whenever
- * the content changes.
+ * the content changes — or at once when the content asks for it
+ * (`requestSnapshotRecapture`).
  */
 export function useSkeletonSnapshot(id: string, loading: boolean, capture: boolean) {
   const skeletonRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
-  const [snapshot, setSnapshot] = useState<SkeletonSnapshot | null>(null);
+  const [snapshot, setSnapshot] = useState<SkeletonSnapshot | null | undefined>(undefined);
 
   useLayoutEffect(() => {
     if (!loading) {
@@ -44,21 +46,25 @@ export function useSkeletonSnapshot(id: string, loading: boolean, capture: boole
     };
     let cancel = afterPaint(save);
     let timer: ReturnType<typeof setTimeout> | undefined;
+    const recapture = () => {
+      clearTimeout(timer);
+      cancel();
+      cancel = afterPaint(save);
+    };
     const observer =
       typeof MutationObserver === 'undefined'
         ? null
         : new MutationObserver(() => {
             clearTimeout(timer);
-            timer = setTimeout(() => {
-              cancel();
-              cancel = afterPaint(save);
-            }, RECAPTURE_DELAY_MS);
+            timer = setTimeout(recapture, RECAPTURE_DELAY_MS);
           });
     observer?.observe(content, { childList: true, subtree: true, characterData: true });
+    content.addEventListener(SNAPSHOT_RECAPTURE_EVENT, recapture);
     return () => {
       cancel();
       clearTimeout(timer);
       observer?.disconnect();
+      content.removeEventListener(SNAPSHOT_RECAPTURE_EVENT, recapture);
     };
   }, [id, loading, capture]);
 

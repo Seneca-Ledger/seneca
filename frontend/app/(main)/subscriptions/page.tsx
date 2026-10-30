@@ -3,11 +3,13 @@
 import { Box } from '@mui/material';
 import { useAttentionFocus } from '@/app/hooks/useAttentionFocus';
 import { SubscriptionsContent } from './components/SubscriptionsContent';
+import { useReceiptPrefill } from './hooks/useReceiptPrefill';
 import { useSubscriptionsPage } from './hooks/useSubscriptionsPage';
 
 export default function SubscriptionsPage() {
   const state = useSubscriptionsPage();
   useAttentionFocus();
+  useReceiptPrefill(state.openCreate, state.setFormData, state.workspaceCurrency);
   return (
     <Box
       component="main"

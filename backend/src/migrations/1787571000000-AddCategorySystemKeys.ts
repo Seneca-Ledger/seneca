@@ -112,8 +112,8 @@ const NEW_KEYS = [
  * whatever it is called now, and makes sure every workspace has the full
  * default set, including the categories suggestions name.
  */
-export class AddCategorySystemKeys1787570000000 implements MigrationInterface {
-  name = 'AddCategorySystemKeys1787570000000';
+export class AddCategorySystemKeys1787571000000 implements MigrationInterface {
+  name = 'AddCategorySystemKeys1787571000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(

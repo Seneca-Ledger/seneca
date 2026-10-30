@@ -48,7 +48,7 @@ export enum StoicClass {
   unique: true,
   where: "name = 'Private' AND parent_id IS NULL",
 })
-// One category per default role and workspace (migration 1787570000000).
+// One category per default role and workspace (migration 1787571000000).
 @Index('UQ_categories_system_key', ['workspaceId', 'systemKey'], {
   unique: true,
   where: 'system_key IS NOT NULL',

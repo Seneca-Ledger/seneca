@@ -310,6 +310,48 @@ describe('SubscriptionsService', () => {
       });
     });
 
+    it('tells a past month by what was charged in it, not by today’s subscriptions', async () => {
+      const now = new Date();
+      const past = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+      const month = `${past.getFullYear()}-${String(past.getMonth() + 1).padStart(2, '0')}`;
+      const cancelled = { vendorName: 'ACME Radio', vendorDomain: null };
+      // Active today but never charged that month: it is not in it.
+      subscriptionRepository.find.mockResolvedValue([sub({ vendorName: 'Example Cloud' })]);
+      workspaceRepository.findOne.mockResolvedValue({ currency: 'USD' });
+      chargeRepository.find.mockResolvedValue([
+        { subscriptionId: 'sub-9', subscription: cancelled, amount: '7.50', currency: 'USD', chargeDate: `${month}-04` },
+        { subscriptionId: 'sub-9', subscription: cancelled, amount: '7.50', currency: 'USD', chargeDate: `${month}-18` },
+      ]);
+
+      const result = await service.getMonthStatus('workspace-1', month);
+
+      expect(result.month).toBe(month);
+      expect(result.paidCount).toBe(2);
+      expect(result.paidAmount).toBe(15);
+      expect(result.unpaidCount).toBe(0);
+      expect(result.items).toEqual([
+        {
+          subscriptionId: 'sub-9',
+          vendorName: 'ACME Radio',
+          vendorDomain: null,
+          amount: 15,
+          paid: true,
+          nextChargeDate: `${month}-18`,
+        },
+      ]);
+      expect(subscriptionRepository.find).not.toHaveBeenCalled();
+    });
+
+    it('shows a past month with no charges as empty', async () => {
+      workspaceRepository.findOne.mockResolvedValue({ currency: 'USD' });
+      subscriptionRepository.find.mockResolvedValue([sub()]);
+
+      const result = await service.getMonthStatus('workspace-1', '2001-01');
+
+      expect(result.items).toEqual([]);
+      expect(result.paidCount + result.unpaidCount).toBe(0);
+    });
+
     it('sums paid and unpaid charges in the workspace currency', async () => {
       const today = new Date();
       const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();

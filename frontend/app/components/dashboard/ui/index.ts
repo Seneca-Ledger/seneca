@@ -4,6 +4,8 @@ export type { ChipGroupProps, ChipProps, ChipTone } from './Chip';
 export { Chip, ChipGroup } from './Chip';
 export type { CardLinkProps, DashboardCardProps } from './DashboardCard';
 export { CardLink, DashboardCard } from './DashboardCard';
+export type { FigureProps } from './Figure';
+export { Figure } from './Figure';
 export type { KpiCardProps, KpiTone } from './KpiCard';
 export { KpiCard } from './KpiCard';
 export type { ListRowProps } from './ListRow';

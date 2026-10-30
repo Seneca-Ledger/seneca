@@ -3,6 +3,21 @@
 /* Shared dashboard primitives: chips, list rows, section headers.
    Cards and KPI tiles live in _dashboard.scss under the same block. */
 
+/* ── Headline figure (Figure) ──
+   Sized by the room it is given, not by the screen: a section dragged into a
+   wider slot shows a larger figure. Never below an h3, unless a long figure
+   would not fit on one line at that size (about 0.62em a tabular character). */
+.seneca-figure {
+  container-type: inline-size;
+
+  &__value {
+    font-size: min(
+      clamp($seneca-font-size-figure-min, 20px + 3cqi, $seneca-font-size-figure-max),
+      100cqi / (var(--figure-chars, 1) * 0.62)
+    );
+  }
+}
+
 /* ── Chips ── */
 .seneca-chip {
   display: inline-flex;

@@ -1,13 +1,12 @@
 'use client';
 
-import NextLink from 'next/link';
 import { useCallback, useState } from 'react';
 import toast from 'react-hot-toast';
 import { CategoryPickerField } from '@/app/components/categories/CategoryPickerField';
 import { TransactionPayeeSection } from '@/app/components/payees/TransactionPayeeSection';
 import { useOfferPayeeQueue } from '@/app/components/payees/useOfferPayeeQueue';
 import { RuleFromRowAction } from '@/app/components/rules/RuleFromRowAction';
-import { fill } from '@/app/components/rules/rule-text';
+import { RuleReasonLink } from '@/app/components/rules/RuleReasonLink';
 import { PrivateAmount } from '@/app/components/ui/private-amount';
 import { Select } from '@/app/components/ui/select';
 import { useIntlayer, useLocale } from '@/app/i18n';
@@ -57,7 +56,6 @@ export function TransactionDetailsTab({
   const [updating, setUpdating] = useState(false);
   const [splitOpen, setSplitOpen] = useState(false);
   const offerPayeeQueue = useOfferPayeeQueue();
-  const tRules = useIntlayer('categorizationRules');
 
   // The list refresh (and drawer close) is owned by the container — a split turns
   // one row into several, so the drawer must not keep showing the stale original.
@@ -217,9 +215,7 @@ export function TransactionDetailsTab({
               />
             </div>
             {transaction.categorySource === 'rule' && transaction.categoryReason && (
-              <NextLink href="/rules" className="seneca-tx-detail__rule-link">
-                {fill(tRules.drawer.fromRule.value, { name: transaction.categoryReason })}
-              </NextLink>
+              <RuleReasonLink name={transaction.categoryReason} />
             )}
           </div>
         )}

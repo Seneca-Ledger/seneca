@@ -40,12 +40,12 @@ A new or changed token goes into all of these, in both themes.
 
 | Role | Light | Dark | CSS variable |
 |---|---|---|---|
-| Page background | `#FAF8F5` | `#1B1A18` | `--background` |
-| Card | `#FFFFFF` | `#232220` | `--card` / `--card-bg` |
-| Soft fill (tracks, selected tile, segment) | `#F4F1EB` | `#2B2926` | `--surface-soft` |
-| Neutral circle / icon badge / progress track | `#EFEBE4` | `#2B2926` | `--icon-badge-bg` |
-| Hairline / border | `#EDE9E2` | `#2E2C29` | `--border` |
-| Field border | `#E3DED5` | `#3A3733` | `$seneca-color-slot-border` |
+| Page background | `#EBE7DF` | `#1B1A18` | `--background` |
+| Card | `#F3F0EA` | `#232220` | `--card` / `--card-bg` |
+| Soft fill (tracks, selected tile, segment) | `#E7E2D9` | `#2B2926` | `--surface-soft` |
+| Neutral circle / icon badge / progress track | `#E2DDD3` | `#2B2926` | `--icon-badge-bg` |
+| Hairline / border | `#E1DBD1` | `#2E2C29` | `--border` |
+| Field border | `#D6CFC3` | `#3A3733` | `$seneca-color-slot-border` |
 | Main text, figures | `#24211E` | `#ECE7DE` | `--foreground` |
 | Readable secondary text | `#6B665D` | `#A8A196` | `--text-muted` |
 | Decorative captions only | `#8A857C` | — | `$seneca-color-slot-text` |

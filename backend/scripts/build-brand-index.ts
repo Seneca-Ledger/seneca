@@ -105,7 +105,9 @@ async function main(): Promise<void> {
       // The brand's own name, as opposed to a tag or an alias that may be shared
       // ("Tesco" is the brand tag of Tesco Mobile too).
       const own = new Set(
-        [item.displayName, tags.name].filter(Boolean).map(name => brandWords(String(name)).join(' ')),
+        [item.displayName, tags.name]
+          .filter(Boolean)
+          .map(name => brandWords(String(name)).join(' ')),
       );
       const spellings = new Set<string>();
       for (const name of names) {
@@ -116,10 +118,7 @@ async function main(): Promise<void> {
         }
         // One short word is a brand only as an acronym NSI writes in capitals ("KFC", "OBI").
         const acronym = /^\p{Lu}{3}$/u.test(name.trim());
-        if (
-          words.length === 1 &&
-          ((phrase.length < 4 && !acronym) || COMMON_WORDS.has(phrase))
-        ) {
+        if (words.length === 1 && ((phrase.length < 4 && !acronym) || COMMON_WORDS.has(phrase))) {
           continue;
         }
         if (generic.some(pattern => pattern.test(name) || pattern.test(phrase))) {
@@ -140,7 +139,8 @@ async function main(): Promise<void> {
       ]);
       for (const phrase of spellings) {
         // An alias is stored as -(id + 1).
-        (phrases[phrase] ??= []).push(own.has(phrase) ? id : -(id + 1));
+        phrases[phrase] ??= [];
+        phrases[phrase].push(own.has(phrase) ? id : -(id + 1));
       }
     }
   }
