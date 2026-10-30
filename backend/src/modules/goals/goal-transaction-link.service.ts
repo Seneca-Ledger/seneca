@@ -1,6 +1,7 @@
 import { Injectable, Logger, UnprocessableEntityException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { EntityManager, Repository } from 'typeorm';
+import { appError } from '../../common/errors/app-error';
 import { assertFound } from '../../common/utils/assert-found.util';
 import type { TransactionGoalLink } from '../../contracts';
 import { Goal, GoalContribution } from '../../entities';
@@ -203,7 +204,13 @@ export class GoalTransactionLinkService {
             transaction.workspaceId,
           );
     if (rate === null) {
-      throw new UnprocessableEntityException(`No exchange rate from ${from} to ${to}`);
+      throw new UnprocessableEntityException(
+        appError('LEDGER_FX_RATE_MISSING', {
+          from,
+          to,
+          date: new Date(transaction.transactionDate).toISOString().slice(0, 10),
+        }),
+      );
     }
     return round2(magnitude * rate);
   }
