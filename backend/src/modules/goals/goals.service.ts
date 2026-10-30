@@ -8,6 +8,11 @@ import { ActorType, AuditAction, EntityType } from '../../entities/audit-event.e
 import { AuditService } from '../audit/audit.service';
 import type { CreateAuditEventDto } from '../audit/interfaces/audit-event.interface';
 import { WorkspaceCurrencyService } from '../workspaces/workspace-currency.service';
+import { round2, toNumber } from './goal-money.util';
+import {
+  GoalTransactionLinkService,
+  type LinkedTransaction,
+} from './goal-transaction-link.service';
 
 export interface GoalWithProgress {
   id: string;
@@ -42,6 +47,7 @@ export interface GoalDetail extends GoalWithProgress {
     contributionDate: string;
     note: string | null;
     createdAt: Date;
+    transaction: LinkedTransaction | null;
   }>;
 }
 
@@ -56,6 +62,7 @@ export class GoalsService {
     private readonly contributionRepository: Repository<GoalContribution>,
     private readonly auditService: AuditService,
     private readonly workspaceCurrency: WorkspaceCurrencyService,
+    private readonly linkService: GoalTransactionLinkService,
   ) {}
 
   async create(
@@ -124,10 +131,8 @@ export class GoalsService {
       order: { contributionDate: 'DESC', createdAt: 'DESC' },
     });
 
-    const currentAmount = contributions.reduce(
-      (sum, contribution) => sum + toNumber(contribution.amount),
-      0,
-    );
+    const currentAmount = contributions.reduce((sum, row) => sum + toNumber(row.amount), 0);
+    const linked = await this.linkService.describe(workspaceId, contributions);
 
     return {
       ...toProgress(goal, currentAmount),
@@ -137,6 +142,7 @@ export class GoalsService {
         contributionDate: contribution.contributionDate,
         note: contribution.note,
         createdAt: contribution.createdAt,
+        transaction: linked.get(contribution.transactionId ?? '') ?? null,
       })),
     };
   }
@@ -376,15 +382,6 @@ function toCover(goal: Goal): GoalCover | null {
     };
   }
   return null;
-}
-
-function toNumber(value: unknown): number {
-  const parsed = typeof value === 'number' ? value : Number.parseFloat(String(value ?? ''));
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
-function round2(value: number): number {
-  return Math.round(value * 100) / 100;
 }
 
 function today(): string {

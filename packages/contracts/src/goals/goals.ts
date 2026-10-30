@@ -45,10 +45,33 @@ export const GoalDetail = Schema.Struct({
       contributionDate: Schema.String,
       note: Schema.NullOr(Schema.String),
       createdAt: Timestamp,
+      /** Set when the movement is a linked transaction rather than typed in by hand. */
+      transaction: Schema.NullOr(
+        Schema.Struct({
+          id: Schema.String,
+          statementId: Schema.NullOr(Schema.String),
+          receiptId: Schema.NullOr(Schema.String),
+          counterpartyName: Schema.String,
+        }),
+      ),
     }),
   ),
 });
 export type GoalDetail = Wire<typeof GoalDetail>;
+
+/**
+ * `GET`/`PUT /transactions/:id/goal`: the goal a transaction counts toward and
+ * what it moved there, in the goal's currency (negative for an expense).
+ */
+export const TransactionGoalLink = Schema.Struct({
+  goal: Schema.NullOr(
+    Schema.Struct({ id: Schema.String, name: Schema.String, currency: Schema.String }),
+  ),
+  amount: Schema.NullOr(Schema.Number),
+  /** The goal's cost line this transaction paid, if any. */
+  itemId: Schema.NullOr(Schema.String),
+});
+export type TransactionGoalLink = Wire<typeof TransactionGoalLink>;
 
 export const GoalList = Schema.Array(GoalWithProgress);
 export type GoalList = Wire<typeof GoalList>;

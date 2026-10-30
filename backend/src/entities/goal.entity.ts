@@ -93,6 +93,10 @@ export class Goal {
  */
 @Entity('goal_contributions')
 @Index('IDX_goal_contributions_goal_date', ['goalId', 'contributionDate'])
+@Index('UQ_goal_contributions_transaction', ['transactionId'], {
+  unique: true,
+  where: '"transaction_id" IS NOT NULL',
+})
 export class GoalContribution {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -123,6 +127,14 @@ export class GoalContribution {
 
   @Column({ type: 'varchar', length: 200, nullable: true })
   note: string | null;
+
+  /**
+   * The transaction this movement mirrors: income in, expense out. One
+   * transaction counts toward one goal at most, so a receipt and its bank row
+   * cannot both be counted. Unlinking deletes the row.
+   */
+  @Column({ name: 'transaction_id', type: 'uuid', nullable: true })
+  transactionId: string | null;
 
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'created_by_id' })
