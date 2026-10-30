@@ -7,9 +7,7 @@ import { useIntlayer } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { type ContractInput, checkContract } from '@/app/lib/query-fn-schema';
 import {
-  getScheduledTheme,
   getStoredThemePreference,
-  getStoredThemeTimeZone,
   resolveThemePreference,
   THEME_STORAGE_EVENT,
   type ThemePreference,
@@ -41,13 +39,8 @@ export function useThemePreference({
     async (nextThemePreference: ThemePreference) => {
       const previousThemePreference = selectedTheme;
       const previousUser = user;
-      const nextResolvedTheme =
-        nextThemePreference === 'auto'
-          ? getScheduledTheme(getStoredThemeTimeZone())
-          : nextThemePreference;
-
       setSelectedTheme(nextThemePreference);
-      setTheme(nextResolvedTheme);
+      setTheme(nextThemePreference);
 
       if (previousUser) {
         const optimisticUser = { ...previousUser, themePreference: nextThemePreference };
@@ -82,11 +75,7 @@ export function useThemePreference({
         }
       })().catch(async () => {
         setSelectedTheme(previousThemePreference);
-        setTheme(
-          previousThemePreference === 'auto'
-            ? getScheduledTheme(getStoredThemeTimeZone())
-            : previousThemePreference,
-        );
+        setTheme(previousThemePreference);
 
         if (previousUser) {
           setUser(previousUser);

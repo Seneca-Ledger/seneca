@@ -55,6 +55,8 @@ export function Sparkline({
         strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
+        // The box stretches to the tile's width; the line keeps its 1.5px whatever the stretch.
+        vectorEffect="non-scaling-stroke"
       />
     </svg>
   );

@@ -50,7 +50,7 @@ const MEMBER: User = {
   uiDensity: 'comfortable',
   reduceMotion: false,
   showDailyQuote: true,
-  themePreference: 'auto',
+  themePreference: 'system',
   mapStylePreference: null,
   lastLogin: null,
   avatarUrl: null,
@@ -114,7 +114,7 @@ afterEach(() => {
 describe('toggling the theme from the keyboard', () => {
   it('moves the Settings switch to the new theme', async () => {
     renderApp(MEMBER);
-    expect(screen.getByTestId('settings-theme').textContent).toBe('auto');
+    expect(screen.getByTestId('settings-theme').textContent).toBe('system');
 
     act(pressToggleTheme);
 

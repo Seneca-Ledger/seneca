@@ -1,102 +1,81 @@
 'use client';
 
-import { Box, Button, Switch } from '@mui/material';
-import { useSearchParams } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { Box, Button } from '@mui/material';
+import NextLink from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useEffect } from 'react';
 import toast from 'react-hot-toast';
-import { formatDate } from '@/app/components/transactions/helpers/transactionFormatters';
-import { useWorkspaceMembers } from '@/app/components/transactions/hooks/useWorkspaceMembers';
-import { OWNER_SHARED } from '@/app/components/transactions/OwnerFilterDropdown';
 import { EmptyState } from '@/app/components/ui/EmptyState';
 import { ArrowsLineIcon } from '@/app/components/ui/empty-state-icons';
 import { LoadError } from '@/app/components/ui/load-error';
 import { PageTitle } from '@/app/components/ui/page-title';
 import { usePermissions } from '@/app/hooks/usePermissions';
-import { useIntlayer, useLocale } from '@/app/i18n';
-import { useCategoryName } from '@/app/lib/use-category-name';
-import { RuleFormDialog } from './RuleFormDialog';
-import { describeConditions, describeResult, fill } from './rule-text';
-import type { Rule, RuleSeed } from './types';
-import { useDeleteRule, useRulesList, useRuleTargets, useToggleRule } from './useRules';
-import { useRuleWords } from './useRuleWords';
-
-function seedOf(rule: Rule): RuleSeed {
-  return {
-    id: rule.id,
-    name: rule.name,
-    conditions: [...rule.conditions],
-    result: {
-      categoryId: rule.result.categoryId,
-      walletId: rule.result.walletId,
-      ...(rule.result.ownerMemberId === undefined
-        ? {}
-        : { ownerMemberId: rule.result.ownerMemberId }),
-    },
-    priority: rule.priority,
-  };
-}
+import { useIntlayer } from '@/app/i18n';
+import { RuleSuggestions } from './RuleSuggestions';
+import { RulesTable } from './RulesTable';
+import { fill } from './rule-text';
+import type { Rule } from './types';
+import { useRuleNames } from './useRuleNames';
+import {
+  useApplyRule,
+  useDeleteRule,
+  useReorderRules,
+  useRulesList,
+  useToggleRule,
+} from './useRules';
 
 /**
- * The workspace's categorization rules: what each one matches, what it sets,
- * how often it fired. `?focus=<id>` opens one, for the link from a row the
- * rule filed.
+ * The workspace's rules as a table, in the order they are tried, with the
+ * rules worth adding above it. A rule opens on a page of its own; the old
+ * `?focus=<id>` link goes there.
  */
 export function RulesView() {
   const t = useIntlayer('categorizationRules');
-  const { locale } = useLocale();
-  const words = useRuleWords();
-  const categoryName = useCategoryName();
-  const members = useWorkspaceMembers();
+  const router = useRouter();
+  const { words, names } = useRuleNames();
   const { hasPermission } = usePermissions();
   const canEdit = hasPermission('category.edit');
   const canDelete = hasPermission('category.delete');
   const rules = useRulesList();
-  const { categories, wallets } = useRuleTargets();
   const toggle = useToggleRule();
   const remove = useDeleteRule();
-  const [editing, setEditing] = useState<RuleSeed | null>(null);
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const reorder = useReorderRules();
+  const apply = useApplyRule();
   const focusId = useSearchParams().get('focus');
 
-  const list = rules.data?.data ?? [];
-
-  // Opens once per focus id, not again after every refetch of the list.
-  const openedFocus = useRef<string | null>(null);
   useEffect(() => {
-    if (!(focusId && canEdit) || openedFocus.current === focusId) {
-      return;
+    if (focusId) {
+      router.replace(`/rules/${focusId}`);
     }
-    const focused = list.find(rule => rule.id === focusId);
-    if (focused) {
-      openedFocus.current = focusId;
-      setEditing(seedOf(focused));
-      setDialogOpen(true);
-    }
-  }, [focusId, list, canEdit]);
+  }, [focusId, router]);
 
-  const ownerName = (memberId: string) =>
-    memberId === OWNER_SHARED
-      ? words.shared
-      : (members.find(member => member.memberId === memberId)?.label ?? null);
-  const names = {
-    category: (id: string) => {
-      const category = categories.find(candidate => candidate.id === id);
-      return category ? categoryName(category.name) : null;
-    },
-    wallet: (id: string) => wallets.find(wallet => wallet.id === id)?.name ?? null,
-    owner: ownerName,
-  };
-
-  const openNew = () => {
-    setEditing(null);
-    setDialogOpen(true);
-  };
+  const list = rules.data?.data ?? [];
 
   const handleDelete = (rule: Rule) =>
     void remove.mutateAsync(rule.id).then(
       () => toast.success(t.toast.deleted.value),
       () => toast.error(t.toast.deleteFailed.value),
     );
+
+  const handleApply = (rule: Rule) =>
+    void apply.mutateAsync(rule.id).then(
+      done =>
+        toast.success(
+          done.tagged > 0
+            ? fill(t.toast.appliedAll.value, { applied: done.applied, tagged: done.tagged })
+            : fill(t.toast.applied.value, { count: done.applied }),
+        ),
+      () => toast.error(t.toast.applyFailed.value),
+    );
+
+  const handleReorder = (next: Rule[]) =>
+    void reorder.mutateAsync(next).catch(() => toast.error(t.toast.orderFailed.value));
+
+  const newRuleButton = (
+    <Button component={NextLink} href="/rules/new" variant="contained">
+      {t.page.newRule}
+    </Button>
+  );
 
   return (
     <Box
@@ -113,13 +92,11 @@ export function RulesView() {
         }}
       >
         <PageTitle path="/rules" />
-        {canEdit && list.length > 0 && (
-          <Button variant="contained" onClick={openNew}>
-            {t.page.newRule}
-          </Button>
-        )}
+        {canEdit && list.length > 0 && newRuleButton}
       </Box>
       <p className="seneca-rules__intro">{t.page.intro}</p>
+
+      {canEdit && <RuleSuggestions categoryName={names.category} />}
 
       {rules.isError && <LoadError>{t.page.loadError}</LoadError>}
 
@@ -129,93 +106,29 @@ export function RulesView() {
           icon={<ArrowsLineIcon />}
           title={t.page.emptyTitle}
           description={t.page.emptyHint}
-          action={
-            canEdit ? (
-              <Button variant="contained" onClick={openNew}>
-                {t.page.newRule}
-              </Button>
-            ) : undefined
-          }
+          action={canEdit ? newRuleButton : undefined}
         />
       )}
 
       {list.length > 0 && (
-        <ul className="seneca-rules__list">
-          {list.map(rule => (
-            <li
-              key={rule.id}
-              className={['seneca-rules__row', !rule.isActive && 'seneca-rules__row--paused']
-                .filter(Boolean)
-                .join(' ')}
-            >
-              <div className="seneca-rules__body">
-                <span className="seneca-rules__name">
-                  {rule.name}
-                  {!rule.isActive && <span className="seneca-rules__paused">{t.page.paused}</span>}
-                </span>
-                <span className="seneca-rules__line">
-                  <span className="seneca-rules__key">{t.page.when}</span>{' '}
-                  {describeConditions(rule.conditions, words, ownerName)}
-                </span>
-                <span className="seneca-rules__line">
-                  <span className="seneca-rules__key">{t.page.thenLabel}</span>{' '}
-                  {describeResult(rule.result, words, names)}
-                </span>
-                <span className="seneca-rules__stats">
-                  {rule.matchCount > 0
-                    ? [
-                        fill(t.page.matched.value, { count: rule.matchCount }),
-                        rule.lastMatchedAt
-                          ? fill(t.page.lastMatched.value, {
-                              date: formatDate(rule.lastMatchedAt, locale),
-                            })
-                          : null,
-                      ]
-                        .filter(Boolean)
-                        .join(', ')
-                    : t.page.neverMatched}
-                </span>
-              </div>
-              <div className="seneca-rules__controls">
-                {canEdit && (
-                  <Switch
-                    size="small"
-                    checked={rule.isActive}
-                    onChange={event =>
-                      void toggle.mutateAsync({ id: rule.id, isActive: event.target.checked })
-                    }
-                    slotProps={{ input: { 'aria-label': `${t.page.toggle.value}: ${rule.name}` } }}
-                  />
-                )}
-                {canEdit && (
-                  <Button
-                    variant="text"
-                    size="small"
-                    onClick={() => {
-                      setEditing(seedOf(rule));
-                      setDialogOpen(true);
-                    }}
-                  >
-                    {t.page.edit}
-                  </Button>
-                )}
-                {canDelete && (
-                  <Button
-                    variant="text"
-                    size="small"
-                    onClick={() => handleDelete(rule)}
-                    sx={{ color: 'var(--text-muted)' }}
-                  >
-                    {t.page.delete}
-                  </Button>
-                )}
-              </div>
-            </li>
-          ))}
-        </ul>
+        <>
+          <p className="seneca-rules__order-hint">
+            {canEdit ? t.page.orderHint : t.page.orderHintReadOnly}
+          </p>
+          <RulesTable
+            rules={list}
+            words={words}
+            names={names}
+            canEdit={canEdit}
+            canDelete={canDelete}
+            onReorder={handleReorder}
+            onToggle={(rule, isActive) => void toggle.mutateAsync({ id: rule.id, isActive })}
+            onApply={handleApply}
+            onDelete={handleDelete}
+            onEdit={rule => router.push(`/rules/${rule.id}`)}
+          />
+        </>
       )}
-
-      <RuleFormDialog open={dialogOpen} seed={editing} onClose={() => setDialogOpen(false)} />
     </Box>
   );
 }

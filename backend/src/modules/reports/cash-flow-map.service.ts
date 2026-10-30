@@ -106,6 +106,7 @@ export class CashFlowMapService {
           name: true,
           parentId: true,
           type: true,
+          icon: true,
         },
       }),
     ]);
@@ -114,6 +115,7 @@ export class CashFlowMapService {
       id: category.id,
       name: category.name,
       parentId: category.parentId ?? null,
+      icon: category.icon,
       isExpenseCategory: category.type === CategoryType.EXPENSE,
     }));
     const allowed = this.allowedCategoryIds(nodes, query.categories);

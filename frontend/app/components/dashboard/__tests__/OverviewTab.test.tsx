@@ -176,7 +176,9 @@ describe('OverviewTab', () => {
       snapshot: { ...baseData.snapshot, income30d: 0, expense30d: 0 },
     });
 
-    expect(screen.getByText('0%').className).toBe('seneca-dashboard__stat-value seneca-private');
+    expect(screen.getByText('0%').className).toBe(
+      'seneca-figure__value seneca-dashboard__stat-value seneca-private',
+    );
   });
 
   it('says under the savings rate that the current month is not over yet', () => {

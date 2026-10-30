@@ -18,8 +18,12 @@
     }
   }
 
+  // A column, so that a tile stretched to the height of a taller card beside
+  // it gives the extra height to its sparkline instead of leaving it empty.
   &__stat {
     position: relative;
+    display: flex;
+    flex-direction: column;
     padding: 18px 20px 16px;
 
     @media (max-width: 640px) {
@@ -126,7 +130,6 @@
   }
 
   &__stat-value {
-    font-size: 26px;
     font-weight: 600;
     color: $seneca-color-figure;
     letter-spacing: -0.015em;
@@ -134,11 +137,6 @@
     line-height: 1.15;
     font-variant-numeric: tabular-nums;
     overflow-wrap: anywhere;
-
-    @media (max-width: 640px) {
-      font-size: 16px;
-      letter-spacing: -0.02em;
-    }
 
     @include dark {
       color: $seneca-color-ink-900-dk;
@@ -178,7 +176,6 @@
   }
 
   &__stat--link {
-    display: block;
     color: inherit;
     text-decoration: none;
     transition: border-color 120ms;
@@ -212,25 +209,28 @@
     margin-top: 12px;
   }
 
+  // Label and value side by side in two columns sized to their content, so a
+  // wide tile does not push each value to the far edge, away from its label.
   &__stat-details {
     display: grid;
-    gap: 4px;
-    margin: 10px 0 0;
-    font-size: 12px;
+    grid-template-columns: max-content max-content;
+    justify-content: start;
+    gap: 6px 24px;
+    margin: 12px 0 0;
+    font-size: $seneca-font-size-base;
 
     div {
-      display: flex;
-      justify-content: space-between;
-      gap: 12px;
+      display: contents;
     }
 
     dt {
-      color: var(--muted-foreground);
+      color: var(--text-muted);
     }
 
     dd {
       margin: 0;
-      font-weight: 600;
+      font-size: $seneca-font-size-lg;
+      font-weight: $seneca-font-weight-medium;
       color: var(--foreground);
       font-variant-numeric: tabular-nums;
       white-space: nowrap;
@@ -260,8 +260,14 @@
   }
 
   &__stat-spark {
-    height: 38px;
+    flex: 1 1 38px;
+    min-height: 38px;
     margin-top: 10px;
+
+    svg {
+      display: block;
+      height: 100%;
+    }
     pointer-events: none;
     opacity: 0.9;
     // A neutral line is grey: colour is kept for the cards that deviate.
@@ -474,6 +480,138 @@
     }
   }
 
+  /* ── Balances: groups of the sheet, each opening onto its lines ── */
+  &__balances {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  &__balances-head {
+    display: flex;
+    justify-content: space-between;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-muted);
+  }
+
+  &__balances-list,
+  &__balance-lines {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  &__balance + &__balance {
+    border-top: 1px solid var(--border);
+  }
+
+  &__balance-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 10px 0;
+    border: 0;
+    background: none;
+    color: var(--foreground);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+
+    &:focus-visible {
+      outline: 2px solid var(--primary);
+      outline-offset: 2px;
+      border-radius: 6px;
+    }
+  }
+
+  &__balance-chevron {
+    flex: none;
+    color: var(--text-muted);
+    transition: transform 150ms ease;
+
+    &--open {
+      transform: rotate(90deg);
+    }
+  }
+
+  &__balance-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 14px;
+  }
+
+  &__balance-figures {
+    display: flex;
+    min-width: 96px;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+  }
+
+  &__balance-amount {
+    font-size: 14px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__balance-trend {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+
+    &--up {
+      color: var(--money-up);
+    }
+
+    &--down {
+      color: var(--money-down);
+    }
+
+    &--flat {
+      color: var(--text-muted);
+    }
+  }
+
+  /* The trend takes the room between name and figures; hidden where there is none. */
+  &__balance-spark {
+    display: block;
+    flex: 0 1 160px;
+    min-width: 64px;
+
+    @container overview-section (max-width: 360px) {
+      display: none;
+    }
+  }
+
+  &__balance-lines {
+    padding: 0 0 8px 24px;
+  }
+
+  &__balance-line {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 6px 0;
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-muted);
+    text-decoration: none;
+
+    &:hover {
+      color: var(--foreground);
+    }
+  }
+
   &__list {
     flex: 1;
     min-width: 0;
@@ -598,6 +736,7 @@
     gap: 10px;
 
     .seneca-dashboard__stat-details {
+      grid-template-columns: minmax(0, 1fr) max-content;
       margin: 0;
       gap: 6px;
       font-size: 14px;
@@ -1117,12 +1256,15 @@
     touch-action: none;
     transition:
       opacity 120ms ease,
-      color 120ms ease,
-      background-color 120ms ease;
+      color 120ms ease;
 
+    // No fill: the grab cursor says it moves, the darker grip that it is under the pointer.
     &:hover {
       color: var(--foreground);
-      background: var(--primary-fill);
+    }
+
+    &:active {
+      cursor: grabbing;
     }
 
     &:focus-visible {
@@ -1138,6 +1280,18 @@
   }
 
   &__section:hover > &__handle {
+    opacity: 1;
+  }
+
+  /* A card about today while another month is picked: still there, but in the
+     background; it comes forward when pointed at or focused, to be read. */
+  &__section--muted > :not(.seneca-overview__handle) {
+    opacity: 0.5;
+    transition: opacity 150ms ease;
+  }
+
+  &__section--muted:hover > :not(.seneca-overview__handle),
+  &__section--muted:focus-within > :not(.seneca-overview__handle) {
     opacity: 1;
   }
 
@@ -1177,10 +1331,16 @@
     color: var(--muted-foreground);
     font-size: 13px;
     cursor: pointer;
+    transition: color 120ms ease;
 
     &:hover {
       color: var(--foreground);
-      background: var(--primary-fill);
+    }
+
+    &:focus-visible {
+      color: var(--foreground);
+      outline: 2px solid var(--primary);
+      outline-offset: 1px;
     }
   }
 

@@ -264,10 +264,12 @@ export class UniversalExtractorService {
   /** The line as a vendor name, or undefined when it is anything else. */
   private vendorNameOf(raw: string): string | undefined {
     // Stripe-style headers glue the account handle on: "Anthropic, PBC@anthropic".
+    // OCR reads a logo mark beside the name as a quote: "Bank of America”".
     const line = raw
       .trim()
       .replace(/@[\p{L}\p{N}_-]+$/u, '')
-      .trim();
+      // Also trims the spaces either side, so no trim() after it.
+      .replace(/^[\s"'`\p{Pi}\p{Pf}]+|[\s"'`\p{Pi}\p{Pf}]+$/gu, '');
 
     if (line.length <= 2 || line.length > 50) {
       return undefined;
