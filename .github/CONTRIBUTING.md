@@ -73,7 +73,7 @@ The process described here has several goals:
 3. **Make your changes** and ensure they work
 4. **Add tests** if you've added code that should be tested
 5. **Update documentation** if you've changed APIs or added features
-6. **Ensure the test suite passes** (`npm test` at the root runs backend Jest and frontend Vitest)
+6. **Ensure the test suite passes** (`npm test` at the root runs the backend and frontend Vitest suites)
 7. **Make sure your code lints and type-checks** (`npm --prefix backend run lint:check`, `npm --prefix frontend run lint:check`, `npm --prefix backend run typecheck`, `npm --prefix frontend run type-check`)
 8. **Format your code** (`make format`)
 
@@ -328,7 +328,7 @@ docker exec -it seneca-backend sh  # Shell into backend
 
 ## Testing
 
-The backend uses Jest; the frontend uses Vitest.
+Both the backend and the frontend use Vitest.
 
 ### Running Tests
 
@@ -389,7 +389,7 @@ describe('Button', () => {
 
 ### Test Coverage
 
-There is no project-wide coverage target yet — cover the code you change. The backend Jest config
+There is no project-wide coverage target yet — cover the code you change. The backend Vitest config
 enforces only a low global floor.
 
 View the backend coverage report:

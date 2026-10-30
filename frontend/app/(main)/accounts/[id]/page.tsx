@@ -10,7 +10,6 @@ import { LazyNetWorthArea } from '@/app/components/charts/lazy-charts';
 import { ArrowLeft } from '@/app/components/icons';
 import { LoadError } from '@/app/components/ui/load-error';
 import { ModalFooter, ModalShell } from '@/app/components/ui/modal-shell';
-import { fillTemplateNodes } from '@/app/components/ui/private-amount';
 import { ReadOnlyHint } from '@/app/components/versions/ReadOnlyHint';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { formatMoney } from '@/app/lib/format-money';
@@ -18,14 +17,9 @@ import { accountSubtitle } from '../account-types';
 import { AccountFormDrawer } from '../components/AccountFormDrawer';
 import { AccountReconciliation } from '../components/AccountReconciliation';
 import { AccountBadge, AccountBalance } from '../components/AccountRow';
+import { AccountStatementsCard } from '../components/AccountStatementsCard';
 import { AccountTransactionsCard } from '../components/AccountTransactionsCard';
-import {
-  cardStyle,
-  listRowStyle,
-  mutedStyle,
-  titleStyle,
-} from '../components/account-detail-styles';
-import { statementPeriod } from '../components/LinkStatementsDrawer';
+import { cardStyle, mutedStyle, titleStyle } from '../components/account-detail-styles';
 import { useAccountLabels } from '../components/use-account-labels';
 import {
   type AccountForm,
@@ -33,9 +27,6 @@ import {
   useAccount,
   useAccountMutations,
 } from '../hooks/useAccounts';
-
-/** A year of monthly statements is a wall; the latest few say enough until asked. */
-const STATEMENTS_SHOWN = 5;
 
 export default function AccountPage(): React.JSX.Element {
   const params = useParams<{ id: string }>();
@@ -51,7 +42,6 @@ export default function AccountPage(): React.JSX.Element {
   const [formOpen, setFormOpen] = useState(false);
   const [initialForm, setInitialForm] = useState<AccountForm | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [showAllStatements, setShowAllStatements] = useState(false);
 
   const openEdit = () => {
     if (account) {
@@ -150,50 +140,12 @@ export default function AccountPage(): React.JSX.Element {
             </section>
           )}
 
-          <section style={cardStyle}>
-            <h2 style={titleStyle}>{t.statementsTitle}</h2>
-            {statements.length === 0 ? (
-              <span style={mutedStyle}>{t.noStatements}</span>
-            ) : (
-              <div>
-                {(showAllStatements ? statements : statements.slice(0, STATEMENTS_SHOWN)).map(
-                  statement => (
-                    <div key={statement.id} style={listRowStyle}>
-                      <Link
-                        href={`/statements/${statement.id}/edit`}
-                        style={{ display: 'grid', gap: 2, textDecoration: 'none', minWidth: 0 }}
-                      >
-                        <span style={{ fontSize: 14, color: 'var(--foreground)' }}>
-                          {statementPeriod(statement, locale) || statement.fileName}
-                        </span>
-                        <span style={mutedStyle}>
-                          {statement.balanceEnd === null
-                            ? statement.fileName
-                            : fillTemplateNodes(t.closingBalance.value, {
-                                amount: money(statement.balanceEnd),
-                              })}
-                        </span>
-                      </Link>
-                      <ReadOnlyHint>
-                        <Button
-                          size="small"
-                          variant="text"
-                          onClick={() => void mutations.detach(account.id, statement.id)}
-                        >
-                          {t.unlink}
-                        </Button>
-                      </ReadOnlyHint>
-                    </div>
-                  ),
-                )}
-                {statements.length > STATEMENTS_SHOWN && !showAllStatements && (
-                  <Button variant="text" onClick={() => setShowAllStatements(true)}>
-                    {t.showAllStatements.value.replace('{{count}}', String(statements.length))}
-                  </Button>
-                )}
-              </div>
-            )}
-          </section>
+          <AccountStatementsCard
+            account={account}
+            statements={statements}
+            mutations={mutations}
+            money={money}
+          />
 
           <AccountTransactionsCard transactions={transactions} money={money} />
 

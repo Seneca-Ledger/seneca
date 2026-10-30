@@ -28,6 +28,8 @@ function context(mapping: Record<string, number>, options: { account?: boolean }
     currency: 'EUR',
     fileName: 'stack.csv',
     categorize: false,
+    walletId: null,
+    headers: [],
     cell: (row: Row, field: string) => {
       const index = mapping[field];
       return Number.isInteger(index) ? String(row[index] ?? '') : '';

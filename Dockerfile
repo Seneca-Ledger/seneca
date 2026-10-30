@@ -61,7 +61,7 @@ ENV PIP_BREAK_SYSTEM_PACKAGES=1
 COPY backend/requirements.txt ./backend/requirements.txt
 RUN apk upgrade --no-cache && \
     apk add --no-cache python3 py3-pip poppler-utils && \
-    pip3 install --no-cache-dir --break-system-packages -r ./backend/requirements.txt
+    pip3 install --no-cache-dir --break-system-packages --require-hashes -r ./backend/requirements.txt
 
 # The runtime only runs `node`. npm and corepack, with npm's bundled tar,
 # sigstore and pacote, would only add image-scan findings.
