@@ -46,7 +46,7 @@
     "clsx": "^2.1.1",
     "country-flag-icons": "^1.6.20",
     "date-fns": "^4.1.0",
-    "docx": "^9.6.1",
+    "docx": "^9.15.0",
     "driver.js": "^1.4.0",
     "echarts": "^6.1.0",
     "echarts-for-react": "^3.0.6",
