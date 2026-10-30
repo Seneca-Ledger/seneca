@@ -466,8 +466,33 @@ $seneca-sidebar-fixed: 2 * $seneca-focus-ring-reach + 17px + 14px;
 .seneca-sidebar__group {
   display: flex;
   flex-direction: column;
-  gap: 2px;
   flex: 0 0 auto;
+}
+
+// Folds by animating the row track between 0fr and 1fr; hidden once shut so folded
+// links leave the tab order.
+.seneca-sidebar__group-collapse {
+  display: grid;
+  grid-template-rows: 0fr;
+  visibility: hidden;
+  transition:
+    grid-template-rows 0.2s ease,
+    visibility 0s linear 0.2s;
+
+  &[data-open='true'] {
+    grid-template-rows: 1fr;
+    visibility: visible;
+    transition: grid-template-rows 0.2s ease;
+  }
+
+  > * {
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
 }
 
 .seneca-sidebar__group-caret {
@@ -485,6 +510,7 @@ $seneca-sidebar-fixed: 2 * $seneca-focus-ring-reach + 17px + 14px;
   display: flex;
   flex-direction: column;
   gap: 2px;
+  margin-top: 2px;
   margin-left: 18px;
   padding-left: 6px;
   border-left: 1px solid var(--border);

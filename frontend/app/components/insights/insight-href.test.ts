@@ -90,7 +90,7 @@ describe('insightHref', () => {
       '/statements/submit?missingCategory=true',
     );
     expect(insightHref(makeInsight({ type: 'operational.duplicate_detected' }))).toBe(
-      '/review',
+      '/review?kind=duplicate',
     );
   });
 
