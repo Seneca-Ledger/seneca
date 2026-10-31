@@ -110,6 +110,54 @@ Stoic Budget turns unstructured financial documents (PDFs, CSVs, email receipts)
 
 Stoic Budget is a full-stack platform for importing, categorizing and analyzing bank statement data — on your own for personal finances, or together with a partner, an accountant or a team.
 
+### Get your data in
+
+- **Any statement file** — PDF, CSV, XLSX / XLS, DOCX, OFX / QFX, QIF, MT940, CAMT.053, or a photo of a statement (OCR). Native parsers for several banks, CSV presets for 20+ banks and fintechs, and a generic table reader for any other PDF — see [Supported Banks](#supported-banks).
+- **Teach the parser** — when a PDF layout is not recognised, mark its columns on the page once; the next statement from that bank is read by itself.
+- **No double imports** — the same file is recognised by its hash, and rows repeated across overlapping statements are flagged as duplicates to merge or dismiss.
+- **Format-change checks** — when a bank changes its statement layout, the import says so instead of quietly reading it wrong.
+- **Bank sync with your own provider account** — SimpleFIN Bridge (US, Canada) or Enable Banking (EU / EEA); pulled rows go through the same import as an uploaded file.
+- **Receipts** — from a mailbox (IMAP), a phone photo, Telegram or by hand; merchant, amount, tax and line items are read and matched to the bank row that paid them.
+
+### Sort it out
+
+- **Review queue** — every new row waits until you confirm it; only confirmed rows count in reports, budgets and the ledger. A statement folds into one line, and a payee's rows can be filed in one go.
+- **Categorization without AI** — your rules first, then the category the payee was filed under before. Nothing is ever sent to an external AI model.
+- **Rules** — an ordered list of conditions on payee, amount, account and direction, with suggestions drawn from your history.
+- **Accounts, categories and tags** — bank accounts and wallets with balances linked to their statements, nested categories, and tags across everything.
+
+### Understand your money
+
+- **Dashboard** — this month's budgets, income, spending, net and savings rate, top categories, cash flow as a chart, calendar or flow, recent transactions and upcoming charges; pick which sections show.
+- **Reports** — cash flow, trends, spend flow, tax year and your own report templates, on a schedule if you like; export to CSV, XLSX or PDF.
+- **Budgets** — monthly limits per category in any currency, plus the Stoic balance: planned versus actual spending across necessity, work, virtue and leisure.
+- **Subscriptions and bills** — recurring charges found automatically, what is paid and still due this month, bills to pay and money to receive.
+- **Forecast** — the next 90 days from paydays, bills, subscriptions and receivables: runway, lowest point and safe-to-spend, with a note when history is too short to trust it.
+- **Goals and net worth** — savings goals fed by real transactions, and net worth across accounts, investments, precious metals and crypto.
+- **Crypto and investments** — wallets on Ethereum, Base, Arbitrum, Optimism, Polygon, Tron, Bitcoin and Solana kept in sync, investment accounts, metal lots and a returns page.
+- **Advice** — observations and suggestions computed from your own numbers.
+
+### Taxes and small business
+
+- **Invoicing** — clients, itemized invoices with tax per line, PDFs, recurring invoices and credit notes; e-invoices in XRechnung, Peppol BIS and ZUGFeRD / Factur-X, sent and received over Peppol.
+- **Payables and receivables** — matched against statement rows, with ageing and payment reminders.
+- **VAT** — rates, rules and returns, EU VAT numbers checked against VIES, reminders before deadlines.
+- **Income tax drafts** — Germany (Anlage EÜR), Spain (Modelo 100), Poland (PIT-36L / PIT-28 / PIT-36) and a generic summary elsewhere, built only from the mappings you confirm.
+- **For your accountant** — a tax pack with the year's rows and every receipt behind them, and a DATEV export for Germany and Austria.
+- **Double-entry ledger** (opt-in) — every transaction posted as a balanced entry; trial balance, profit and loss, balance sheet and reconciliation against statements.
+
+### Work together
+
+- **Workspaces** — for yourself, a household or a team, with invitations and roles: owner, admin, member, viewer and accountant (reads everything, changes nothing).
+- **History you can undo** — an audit log with one-click rollback, and nightly versions of the workspace you can open read-only or restore as a new one.
+
+### Your server, your rules
+
+- **Self-hosted** — Docker Compose in one command, encrypted scheduled backups, file storage with folders and S3 / WebDAV sync.
+- **Secure accounts** — two-factor authentication, per-device sessions, private transactions.
+- **Connect your tools** — API keys, webhooks, an MCP server for AI agents and a Telegram bot for reports, quick expenses and receipt photos.
+- **Comfortable to use** — 35 languages, light and dark themes, a privacy mode that hides amounts on screen, a command palette with keyboard shortcuts, and an installable app that keeps working offline.
+
 ---
 
 ## What Stoic Budget is NOT
