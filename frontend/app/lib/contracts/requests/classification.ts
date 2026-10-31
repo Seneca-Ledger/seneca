@@ -15,6 +15,7 @@ export const ClassificationConditionInput = Schema.Struct({
     'owner',
     /** `income` or `expense`. */
     'direction',
+    'payment_type',
     /** The account (wallet) the row sits in, by id. */
     'wallet',
   ]),

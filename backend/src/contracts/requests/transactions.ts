@@ -9,6 +9,7 @@ import {
   PageInput,
 } from '../common/requests';
 import type { Wire } from '../common/wire';
+import { PaymentType } from '../transactions/payment-type';
 
 export const UpdateTransactionBody = Schema.Struct({
   transactionDate: optionalNullable(IsoDateString),
@@ -178,6 +179,8 @@ export const TransactionListQuery = Schema.Struct({
   walletId: Schema.optional(Uuid),
   /** Only the rows of this payee. */
   payeeId: Schema.optional(Uuid),
+  /** Only the rows paid this way. */
+  paymentType: Schema.optional(PaymentType),
 });
 export type TransactionListQuery = Wire<typeof TransactionListQuery>;
 

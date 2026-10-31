@@ -1,3 +1,4 @@
+import type { PaymentType } from '@/app/lib/contracts';
 import type { RuleCondition, RuleDraftBody } from './types';
 
 /** Puts values into a translated line: `fill('Matched {count} times', { count: 3 })`. */
@@ -13,6 +14,7 @@ export interface RuleWords {
   field: Record<RuleCondition['field'], string>;
   operator: Record<RuleCondition['operator'], string>;
   direction: Record<'income' | 'expense', string>;
+  paymentType: Record<PaymentType, string>;
   and: string;
   category: string;
   wallet: string;
@@ -39,6 +41,8 @@ function conditionValue(condition: RuleCondition, words: RuleWords, names: RuleN
       return names.wallet(value) ?? words.unknown;
     case 'direction':
       return value === 'income' || value === 'expense' ? words.direction[value] : value;
+    case 'payment_type':
+      return words.paymentType[value as PaymentType] ?? value;
     case 'amount':
       return value;
     default:

@@ -117,7 +117,7 @@ export class TransactionsService {
 
     applyOwnerFilter(query, 'transaction', filters.owner ?? { kind: 'all' });
 
-    applyListFilters(query, filters);
+    applyListFilters(query, filters, viewerMemberId);
 
     const page = filters.page || 1;
     const limit = filters.limit || 50;

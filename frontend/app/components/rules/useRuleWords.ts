@@ -6,6 +6,7 @@ import type { RuleWords } from './rule-text';
 /** The page's words for fields, checks and actions, as strings the helpers can join. */
 export function useRuleWords(): RuleWords {
   const t = useIntlayer('categorizationRules');
+  const types = useIntlayer('paymentTypes');
   return {
     field: {
       counterparty_name: t.field.counterparty_name.value,
@@ -15,6 +16,7 @@ export function useRuleWords(): RuleWords {
       counterparty_bin: t.field.counterparty_bin.value,
       document_number: t.field.document_number.value,
       direction: t.field.direction.value,
+      payment_type: t.field.payment_type.value,
       wallet: t.field.wallet.value,
     },
     operator: {
@@ -27,6 +29,16 @@ export function useRuleWords(): RuleWords {
       regex: t.operator.regex.value,
     },
     direction: { income: t.direction.income.value, expense: t.direction.expense.value },
+    paymentType: {
+      card: types.card.value,
+      bank_transfer_in: types.bank_transfer_in.value,
+      bank_transfer_out: types.bank_transfer_out.value,
+      direct_debit: types.direct_debit.value,
+      standing_order: types.standing_order.value,
+      cash: types.cash.value,
+      fee: types.fee.value,
+      interest: types.interest.value,
+    },
     and: t.page.and.value,
     category: t.result.category.value,
     wallet: t.result.wallet.value,

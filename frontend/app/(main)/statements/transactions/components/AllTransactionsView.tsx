@@ -25,11 +25,19 @@ import { queryKeys } from '@/app/lib/query-keys';
 import type { FilterSpan } from '../../components/filters/filter-summary';
 import { useFilterSummary } from '../../components/filters/useFilterSummary';
 import { TransactionsPageTitle } from '../../components/TransactionsPageTitle';
-import { type ListedRow, monthBounds, type Period, periodFromParams } from '../all-transactions';
+import {
+  type FilterPaymentType,
+  type ListedRow,
+  monthBounds,
+  type Period,
+  paymentTypeFromParams,
+  periodFromParams,
+} from '../all-transactions';
 import { PAGE_SIZE, useAllTransactions, useTransactionsOverview } from '../use-all-transactions';
 import { AllTransactionsTable } from './AllTransactionsTable';
 import { MonthsColumn } from './MonthsColumn';
 import { OverviewPies } from './OverviewPies';
+import { PaymentTypeFilter } from './PaymentTypeFilter';
 
 function spanOf(period: Period): FilterSpan {
   if (period.kind === 'all') {
@@ -56,9 +64,10 @@ export function AllTransactionsView(): React.JSX.Element {
   const { currentWorkspace } = useWorkspace();
   const currency = resolveCurrencyCode(currentWorkspace?.currency);
   const period = periodFromParams(searchParams);
-  const periodKey = period.kind === 'all' ? 'all' : period.month;
+  const paymentType = paymentTypeFromParams(searchParams);
+  const periodKey = `${period.kind === 'all' ? 'all' : period.month}:${paymentType ?? ''}`;
 
-  // The page and the ticked rows belong to one period; a new one starts afresh.
+  // The page and the ticked rows belong to one period and filter; a new one starts afresh.
   const [paging, setPaging] = useState({ periodKey, page: 1 });
   const page = paging.periodKey === periodKey ? paging.page : 1;
   const [selection, setSelection] = useState({ key: '', ids: new Set<string>() });
@@ -69,7 +78,7 @@ export function AllTransactionsView(): React.JSX.Element {
   const [opened, setOpened] = useState<Transaction | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  const list = useAllTransactions(period, page);
+  const list = useAllTransactions(period, page, paymentType);
   const overview = useTransactionsOverview(period);
   const categoriesQuery = useQuery({
     queryKey: queryKeys.categories(workspaceId),
@@ -102,6 +111,17 @@ export function AllTransactionsView(): React.JSX.Element {
       params.set('all', '1');
     } else if (next.month) {
       params.set('month', next.month);
+    }
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+  };
+
+  const setPaymentType = (next: FilterPaymentType | undefined) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (next) {
+      params.set('paymentType', next);
+    } else {
+      params.delete('paymentType');
     }
     const query = params.toString();
     router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
@@ -154,7 +174,10 @@ export function AllTransactionsView(): React.JSX.Element {
         overview={overview.data}
         formatAmount={formatAmount}
       />
-      <div className="seneca-all-tx__scope">
+      <div
+        className="seneca-all-tx__scope"
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}
+      >
         {period.kind === 'all' ? (
           <button type="button" className="seneca-all-tx__text-link" onClick={() => goTo({})}>
             {t.showByMonth}
@@ -168,6 +191,7 @@ export function AllTransactionsView(): React.JSX.Element {
             {t.showEverything}
           </button>
         )}
+        <PaymentTypeFilter value={paymentType} onChange={setPaymentType} />
       </div>
 
       <div className="seneca-all-tx__body">

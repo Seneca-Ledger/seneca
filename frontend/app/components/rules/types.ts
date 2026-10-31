@@ -34,7 +34,12 @@ export function operatorsFor(field: RuleField): RuleOperator[] {
   if (field === 'amount') {
     return AMOUNT_OPERATORS;
   }
-  if (field === 'owner' || field === 'direction' || field === 'wallet') {
+  if (
+    field === 'owner' ||
+    field === 'direction' ||
+    field === 'wallet' ||
+    field === 'payment_type'
+  ) {
     return ['equals'];
   }
   return TEXT_OPERATORS;

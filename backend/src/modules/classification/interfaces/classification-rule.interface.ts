@@ -25,6 +25,7 @@ export interface ClassificationCondition {
     | 'owner'
     /** `income` or `expense`: amounts are stored unsigned, the direction says which. */
     | 'direction'
+    | 'payment_type'
     /** The account (wallet) the row sits in, by id. */
     | 'wallet';
   operator:

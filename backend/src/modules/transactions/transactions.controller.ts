@@ -61,6 +61,7 @@ import { CrossStatementDeduplicationService } from './services/cross-statement-d
 import { TransactionAttachmentsService } from './services/transaction-attachments.service';
 import { TransactionTagsService } from './services/transaction-tags.service';
 import { TransactionsOverviewService } from './services/transactions-overview.service';
+import { listFiltersFromQuery } from './transaction-list-filters';
 import { TransactionsService } from './transactions.service';
 
 /**
@@ -92,26 +93,9 @@ export class TransactionsController {
     @WorkspaceMemberId() selfMemberId: string | null,
     @SchemaQuery(TransactionListQuery) query: TransactionListQuery,
   ) {
-    // Prefer snake_case for backward compatibility, fall back to camelCase
-    const dateFrom = query.date_from || query.startDate;
-    const dateTo = query.date_to || query.endDate;
-
     const result = await this.transactionsService.findAll(
       workspaceId,
-      {
-        statementId: query.statement_id || query.statementId,
-        walletId: query.walletId,
-        payeeId: query.payeeId,
-        dateFrom: dateFrom ? new Date(dateFrom) : undefined,
-        dateTo: dateTo ? new Date(dateTo) : undefined,
-        type: query.type,
-        categoryId: query.category_id || query.categoryId,
-        currency: query.currency,
-        convertTo: query.convert_to,
-        owner: parseOwnerFilter(query.owner, selfMemberId),
-        page: query.page ?? 1,
-        limit: query.limit ?? 50,
-      },
+      listFiltersFromQuery(query, selfMemberId),
       selfMemberId,
     );
 

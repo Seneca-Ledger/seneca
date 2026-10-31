@@ -4,6 +4,7 @@ import {
   type ListedRow,
   monthBounds,
   OTHER_SLICE,
+  paymentTypeFromParams,
   periodFromParams,
   rollUpSlices,
   rowSides,
@@ -102,5 +103,16 @@ describe('rollUpSlices', () => {
     const rolled = rollUpSlices(slices);
     expect(rolled).toHaveLength(9);
     expect(rolled[8]).toEqual({ key: OTHER_SLICE, name: '', value: 4 + 3 + 2 + 1, isOther: true });
+  });
+});
+
+describe('paymentTypeFromParams', () => {
+  it('reads an offered type', () => {
+    expect(paymentTypeFromParams(new URLSearchParams('paymentType=card'))).toBe('card');
+  });
+
+  it('ignores a type the page does not offer, and a missing one', () => {
+    expect(paymentTypeFromParams(new URLSearchParams('paymentType=cash'))).toBeUndefined();
+    expect(paymentTypeFromParams(new URLSearchParams(''))).toBeUndefined();
   });
 });

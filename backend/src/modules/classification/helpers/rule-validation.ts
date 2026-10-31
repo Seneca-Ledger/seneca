@@ -6,6 +6,7 @@ import {
   assertWorkspaceOwned,
   assertWorkspaceRefs,
 } from '../../../common/utils/workspace-refs.util';
+import { PaymentType } from '../../../contracts';
 import { Tag } from '../../../entities/tag.entity';
 import { Wallet } from '../../../entities/wallet.entity';
 import type { WorkspaceMember } from '../../../entities/workspace-member.entity';
@@ -15,6 +16,7 @@ import type {
 } from '../interfaces/classification-rule.interface';
 
 const DIRECTIONS = new Set(['income', 'expense']);
+const PAYMENT_TYPES = new Set<string>(PaymentType.literals);
 
 function invalid(condition: ClassificationCondition): BadRequestException {
   return new BadRequestException(
@@ -42,6 +44,12 @@ export function assertConditionsValid(conditions: readonly ClassificationConditi
       }
     }
     if (condition.field === 'direction' && !DIRECTIONS.has(String(condition.value))) {
+      throw invalid(condition);
+    }
+    if (
+      condition.field === 'payment_type' &&
+      (condition.operator !== 'equals' || !PAYMENT_TYPES.has(String(condition.value)))
+    ) {
       throw invalid(condition);
     }
     if (condition.field === 'amount' && !Number.isFinite(Number(condition.value))) {
