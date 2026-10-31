@@ -14,6 +14,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { payeeKeyOf } from '../common/utils/payee-key.util';
+import type { PaymentType } from '../contracts/transactions/payment-type';
 import { Branch } from './branch.entity';
 import { Category } from './category.entity';
 import { CryptoWallet } from './crypto-wallet.entity';
@@ -23,24 +24,13 @@ import { Statement } from './statement.entity';
 import { Tag } from './tag.entity';
 import { TaxRate } from './tax-rate.entity';
 import { TaxRule } from './tax-rule.entity';
+import { TaxSource } from './tax-source';
 import { TransactionCategorySource } from './transaction-category-source';
 import { Wallet } from './wallet.entity';
 import { Workspace } from './workspace.entity';
 import { WorkspaceMember } from './workspace-member.entity';
 
-export { TransactionCategorySource };
-
-/** Why a given rate ended up on a transaction. */
-export enum TaxSource {
-  /** The user picked the rate themselves. */
-  MANUAL = 'manual',
-  /** Matched a workspace tax rule. */
-  RULE = 'rule',
-  /** Fell through to the workspace default for that date. */
-  DEFAULT = 'default',
-  /** Read off the source document by the parser. */
-  PARSED = 'parsed',
-}
+export { TaxSource, TransactionCategorySource };
 
 export enum TransactionType {
   INCOME = 'income',
@@ -163,6 +153,10 @@ export class Transaction {
 
   @Column({ name: 'payment_purpose', type: 'text' })
   paymentPurpose: string;
+
+  /** How the bank's statement says the money moved; null unless its parser sets it. */
+  @Column({ name: 'payment_type', type: 'text', nullable: true })
+  paymentType: PaymentType | null;
 
   @ManyToOne(() => Category, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'category_id' })

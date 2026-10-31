@@ -947,6 +947,7 @@ export class StatementProcessingService {
         amount,
         currency,
         paymentPurpose,
+        paymentType: parsed.paymentType ?? null,
         transactionType,
         workspaceId: statement.workspaceId,
         // The statement's account, so a rule can ask which account a row is in.
@@ -964,9 +965,6 @@ export class StatementProcessingService {
         classification.categoryReason = null;
       }
 
-      const exchangeRate = parsed.exchangeRate ?? null;
-      const amountForeign = parsed.amountForeign ?? null;
-
       const taxDetected = extractTaxFromPurpose(paymentPurpose).taxMentioned;
 
       // Create transaction with classification
@@ -983,9 +981,10 @@ export class StatementProcessingService {
         credit: parsed.credit,
         amount,
         currency,
-        exchangeRate,
-        amountForeign,
+        exchangeRate: parsed.exchangeRate ?? null,
+        amountForeign: parsed.amountForeign ?? null,
         paymentPurpose,
+        paymentType: parsed.paymentType,
         transactionType,
         ...classification,
         ...accountFields(account, classification.ownerMemberId),

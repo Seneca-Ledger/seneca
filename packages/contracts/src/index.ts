@@ -111,6 +111,7 @@ export * from './subscriptions/subscriptions';
 export * from './tax/income-tax';
 export * from './tax/tax';
 export * from './tax/tax-engine';
+export * from './transactions/payment-type';
 export * from './transactions/transaction-history';
 export * from './transactions/transaction-list';
 export * from './transactions/transaction-record';

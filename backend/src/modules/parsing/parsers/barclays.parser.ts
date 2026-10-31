@@ -3,6 +3,8 @@ import { BankName, FileType } from '../../../entities/statement.entity';
 import { isPageFooterLine } from '../helpers/pdf-layout-page-footer.helper';
 import type { LayoutReading, LayoutTransaction } from '../helpers/pdf-layout-table.helper';
 import { findDayRangePeriod } from '../helpers/statement-header-period.helper';
+import type { ParsedStatement, ParsedTransaction } from '../interfaces/parsed-statement.interface';
+import { BARCLAYS_PREFIXES, barclaysPaymentType } from './barclays-payment-type';
 import { GenericPdfParser } from './generic-pdf.parser';
 
 /**
@@ -17,15 +19,14 @@ export function isBarclaysStatement(text: string): boolean {
   return BARCLAYS_NAME.test(text) && BARCLAYS_CODE.test(text);
 }
 
-/** What the card payment line prints before the payee. */
+/** What a payment line prints before the payee. */
 const PAYEE_PREFIXES = [
-  'Card Payment to ',
-  'Sent to ',
-  'Bill Payment to ',
-  'Direct Debit to ',
-  'Standing Order to ',
-];
-const RECEIVED_PREFIX = 'Received from ';
+  ...BARCLAYS_PREFIXES.card,
+  ...BARCLAYS_PREFIXES.bank_transfer_out,
+  ...BARCLAYS_PREFIXES.direct_debit,
+  ...BARCLAYS_PREFIXES.standing_order,
+].map(prefix => `${prefix} `);
+const RECEIVED_PREFIX = `${BARCLAYS_PREFIXES.bank_transfer_in[0]} `;
 
 /** The date of use the reader left dangling after "On" on a wrapped line. */
 const DANGLING_ON = /\s+On(?:\s+\d{1,2}\s+[A-Za-z]{3})?$/;
@@ -74,6 +75,25 @@ export class BarclaysParser extends GenericPdfParser {
       this.logger.error('Error in canParse:', error);
       return false;
     }
+  }
+
+  async parse(filePath: string, cachedText?: string): Promise<ParsedStatement> {
+    const statement = await super.parse(filePath, cachedText);
+    const typed = (rows: ParsedTransaction[]): ParsedTransaction[] =>
+      rows.map(row => {
+        const paymentType = barclaysPaymentType(row.paymentPurpose);
+        return paymentType ? { ...row, paymentType } : row;
+      });
+    return {
+      ...statement,
+      transactions: typed(statement.transactions),
+      ...(statement.otherAccounts && {
+        otherAccounts: statement.otherAccounts.map(account => ({
+          ...account,
+          transactions: typed(account.transactions),
+        })),
+      }),
+    };
   }
 
   protected readTransactions(

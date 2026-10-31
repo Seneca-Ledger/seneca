@@ -19,6 +19,7 @@ const row = (overrides: Partial<Transaction> = {}): Transaction =>
     documentNumber: 'DOC-9',
     counterpartyBin: '123',
     comments: 'do not tell',
+    paymentType: 'card',
     amount: 70,
     currency: 'EUR',
     transactionDate: new Date('2026-12-14'),
@@ -28,6 +29,17 @@ const row = (overrides: Partial<Transaction> = {}): Transaction =>
     payee: { id: 'payee-jeweller', name: 'Jewellery shop' },
     ...overrides,
   }) as unknown as Transaction;
+
+describe('redactPrivate payment type', () => {
+  it('cuts it to null for a non-owner, not to the placeholder', () => {
+    expect(redactPrivate(row(), PARTNER).paymentType).toBeNull();
+  });
+
+  it('leaves it for the owner and on an open row', () => {
+    expect(redactPrivate(row(), OWNER).paymentType).toBe('card');
+    expect(redactPrivate(row({ isPrivate: false }), PARTNER).paymentType).toBe('card');
+  });
+});
 
 describe('canReadPrivate', () => {
   it('lets anyone read a row that is not private', () => {

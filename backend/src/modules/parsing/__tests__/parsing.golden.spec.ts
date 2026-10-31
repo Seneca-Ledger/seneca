@@ -90,7 +90,10 @@ const hasRealDate = (value: Date | null | undefined) => {
  * The comparable shape of a transaction. Amounts are rounded to cents and text
  * is whitespace-normalized so a fixture does not break on PDF spacing noise.
  */
-function projectTransaction(transaction: ParsedStatement['transactions'][number]) {
+function projectTransaction(
+  transaction: ParsedStatement['transactions'][number],
+  withPaymentType = false,
+) {
   const round = (value: unknown) =>
     Number.isFinite(Number(value)) ? Number(Number(value).toFixed(2)) : null;
 
@@ -100,6 +103,8 @@ function projectTransaction(transaction: ParsedStatement['transactions'][number]
     credit: round(transaction.credit),
     counterpartyName: (transaction.counterpartyName || '').replace(/\s+/g, ' ').trim(),
     documentNumber: (transaction.documentNumber || '').trim(),
+    // Only a fixture that records the payment type is held to it.
+    ...(withPaymentType && { paymentType: transaction.paymentType ?? null }),
   };
 }
 
@@ -211,8 +216,9 @@ describe('golden parsing (optional)', () => {
 
         // Matching totals are not enough: a parser can drop one row and misread
         // another by the same amount. Compare row by row.
-        expect(actualAccount.transactions.map(projectTransaction)).toEqual(
-          expected.transactions.map(projectTransaction),
+        const withPaymentType = expected.transactions.some(t => t.paymentType !== undefined);
+        expect(actualAccount.transactions.map(t => projectTransaction(t, withPaymentType))).toEqual(
+          expected.transactions.map(t => projectTransaction(t, withPaymentType)),
         );
 
         if (expected.metadata.accountNumber) {

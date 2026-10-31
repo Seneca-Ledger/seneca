@@ -846,7 +846,7 @@ export class ImportSessionService {
     // Determine transaction type
     const isIncome = (parsed.credit || 0) > 0;
 
-    const transaction = queryRunner.manager.create(Transaction, {
+    return queryRunner.manager.create(Transaction, {
       workspaceId: session.workspaceId,
       statementId: session.statementId,
       importSessionId: session.id,
@@ -863,13 +863,12 @@ export class ImportSessionService {
       exchangeRate: parsed.exchangeRate || null,
       amountForeign: parsed.amountForeign || null,
       paymentPurpose: parsed.paymentPurpose,
+      paymentType: parsed.paymentType,
       transactionType: isIncome ? TransactionType.INCOME : TransactionType.EXPENSE,
       fingerprint,
       isDuplicate: false,
       isVerified: false,
     });
-
-    return transaction;
   }
 
   /**

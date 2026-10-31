@@ -4,6 +4,7 @@ import * as Schema from 'effect/Schema';
 import * as Struct from 'effect/Struct';
 import { DateOnly, DecimalString, Timestamp, type Wire } from '../common/wire';
 import { PayeeRef } from '../payees/payees';
+import { PaymentType } from './payment-type';
 
 export const TransactionType = Schema.Literals(['income', 'expense']);
 export type TransactionType = Wire<typeof TransactionType>;
@@ -47,6 +48,8 @@ export const TransactionListItem = Schema.Struct({
   counterpartyAccount: Schema.NullOr(Schema.String),
   counterpartyBank: Schema.NullOr(Schema.String),
   paymentPurpose: Schema.String,
+  /** How the bank says the money moved; empty unless the statement's parser sets it. */
+  paymentType: Schema.optional(Schema.NullOr(PaymentType)),
   debit: Schema.NullOr(DecimalString),
   credit: Schema.NullOr(DecimalString),
   currency: Schema.String,
