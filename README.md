@@ -106,7 +106,7 @@ Stoic Budget turns unstructured financial documents (PDFs, CSVs, email receipts)
 
 ---
 
-## Features
+## ✔️ Features
 
 Stoic Budget is a full-stack platform for importing, categorizing and analyzing bank statement data — on your own for personal finances, or together with a partner, an accountant or a team.
 
