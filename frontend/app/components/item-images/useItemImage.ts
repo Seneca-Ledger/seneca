@@ -8,11 +8,13 @@ import { apiQueryDecoded, type ContractInput, checkContract } from '@/app/lib/qu
 
 export type ItemSubject = 'transaction' | 'payable';
 
-/** The API serves /uploads as static files, one level above its /api/v1 base. */
-const uploadsOrigin = apiBaseUrl.replace(/\/api\/v1$/, '');
-
-/** Where the browser loads a stored picture from. */
-export const itemImageSrc = (image: ItemImage): string => `${uploadsOrigin}${image.url}`;
+/**
+ * Where the browser loads a stored picture from: the API serves /uploads as
+ * static files, one level above its /api/v1 base. Read on use, not at import,
+ * so a test that mocks the api module without `apiBaseUrl` can still load this.
+ */
+export const itemImageSrc = (image: ItemImage): string =>
+  `${apiBaseUrl.replace(/\/api\/v1$/, '')}${image.url}`;
 
 const PATH: Record<ItemSubject, string> = {
   transaction: '/item-images/transactions',
