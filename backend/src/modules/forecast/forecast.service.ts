@@ -81,7 +81,7 @@ export class ForecastService {
     const currency = normalizeCurrency(workspace?.currency);
     const profile = readWorkspaceProfile(workspace);
 
-    const [commitments, receivables, invoices, goals, history, incomeRows, hasAccounts] =
+    const [commitments, receivables, invoices, goals, history, incomeRows, hasWallet] =
       await Promise.all([
         this.dashboardService.getCommitments(workspaceId, projectionDays),
         this.receivableEvents(workspaceId, currency, todayKey, projectionEnd),
@@ -171,7 +171,7 @@ export class ForecastService {
       monthlyIncome: round(history.monthlyIncome),
       monthlyExpense: round(history.monthlyExpense),
       monthsObserved: history.monthsObserved,
-      caveats: forecastCaveats(history.monthsObserved < HISTORY_MONTHS, everydayMonthly, hasAccounts),
+      caveats: forecastCaveats(history.monthsObserved < HISTORY_MONTHS, everydayMonthly, hasWallet),
       recurringIncome: recurring,
       unscheduledCommitted: commitments.unscheduledCommitted,
     };
