@@ -131,6 +131,46 @@ describe('layout-template.helper', () => {
     ]);
   });
 
+  it('spans a column marked in several areas, one per page, and keeps one of each heading', () => {
+    const nextPage = rows.map(line => ({
+      ...line,
+      page: 2,
+      items: line.items.map(item => ({ ...item, page: 2, x: item.x - 6 })),
+    }));
+    const marked = [
+      ...regions,
+      ...regions
+        .filter(region => region.tag !== 'skip' && region.tag !== 'openingBalance')
+        .map(region => ({ ...region, page: 2, x0: region.x0 - 6, x1: region.x1 - 6 })),
+    ];
+    const template = templateFromRegions(marked, [...rows, ...nextPage]);
+    expect(template.columns.map(column => column.role)).toEqual([
+      'date',
+      'description',
+      'debit',
+      'credit',
+      'balance',
+    ]);
+    expect(template.columns[0]).toMatchObject({ x0: 32, x1: 100 });
+    expect(template.headings.filter(heading => heading.role === 'date')).toHaveLength(1);
+  });
+
+  it('takes a date printed in two words for a transaction row', () => {
+    const dayMonth = [
+      header,
+      row(120, [['02', 40], ['Sep', 52], ['ACME', 120], ['Store', 145], ['12.50', 317], ['987.50', 470]]),
+      row(140, [['03', 40], ['Sep', 52], ['Member', 120], ['One', 155], ['100.00', 382], ['1,087.50', 460]]),
+    ];
+    const template = templateFromRegions(regions, dayMonth);
+    expect(template.columns.map(column => column.role)).toEqual([
+      'date',
+      'description',
+      'debit',
+      'credit',
+      'balance',
+    ]);
+  });
+
   it('leaves out lines like the one marked to skip', () => {
     const template = templateFromRegions(regions, rows);
     expect(template.skip).toEqual(['page of statement']);

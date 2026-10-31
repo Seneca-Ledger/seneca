@@ -60,11 +60,14 @@ describe('teach-utils', () => {
     expect(isAreaBigEnough(rectBetween({ x: 10, y: 10 }, { x: 11, y: 30 }))).toBe(false);
   });
 
-  it('moves a tag drawn again to the new area, and keeps every skipped one', () => {
+  it('adds a column drawn again, and moves a figure printed once', () => {
     const first = area('date', 0, 10);
     const second = area('date', 20, 30);
-    expect(withRegion([first, area('credit')], second)).toEqual([area('credit'), second]);
+    expect(withRegion([first, area('credit')], second)).toEqual([first, area('credit'), second]);
     expect(withRegion([area('skip')], area('skip', 5, 9))).toHaveLength(2);
+    const opening = area('openingBalance', 0, 10);
+    const moved = area('openingBalance', 20, 30);
+    expect(withRegion([opening, area('credit')], moved)).toEqual([area('credit'), moved]);
   });
 
   it('warns of a column tag off the table and a one-figure tag over a column', () => {

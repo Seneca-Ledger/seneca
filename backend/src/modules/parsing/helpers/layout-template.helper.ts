@@ -3,9 +3,10 @@ import type { PdfTextItem, PdfTextRow } from '../../../common/utils/pdf-parser.u
 import type { ParsedStatement } from '../interfaces/parsed-statement.interface';
 import { type LayoutPrint, layoutPrint } from './layout-print.helper';
 import { type ColumnRole, headingWord, type LayoutColumn } from './pdf-layout-columns.helper';
+import { leadingDate } from './pdf-layout-row-date.helper';
 import type { LayoutReading } from './pdf-layout-table.helper';
 import { findStatementAmounts } from './statement-amount.helper';
-import { foldText, parseDateParts } from './statement-date.helper';
+import { foldText } from './statement-date.helper';
 
 /**
  * A layout a user taught by marking areas of a statement the parser could not
@@ -75,11 +76,9 @@ const FORMAT_CHECKS = new Set(['balance_chain', 'printed_totals', 'section_total
 const isColumnTag = (tag: TeachTag): tag is ColumnTag =>
   (COLUMN_TAGS as readonly TeachTag[]).includes(tag);
 const hasDigit = (text: string) => /\d/.test(text);
-/** A transaction row: its first word is a date. A label never comes from one. */
-const startsWithDate = (row: PdfTextRow) => {
-  const [first] = [...row.items].sort((a, b) => a.x - b.x);
-  return Boolean(first && (parseDateParts(first.text, 'dmy') ?? parseDateParts(first.text, 'mdy')));
-};
+/** A transaction row: its first words are a date ("02 Sep"). A label never comes from one. */
+const startsWithDate = (row: PdfTextRow) =>
+  leadingDate([...row.items].sort((a, b) => a.x - b.x)) !== null;
 const right = (item: PdfTextItem) => item.x + item.width;
 
 /** Groups of tags still missing for a reading, each a choice of one ("debit|credit|amount"). */
@@ -252,7 +251,7 @@ export function templateFromRegions(
 ): LayoutTemplate {
   // A column area crosses a transaction row; one over a title or a summary
   // line ("Brought forward 1,000.00") is no column and teaches nothing.
-  const regions = lastOfEachTag(marked).filter(
+  const regions = oneOfSingleTags(marked).filter(
     region => !isColumnTag(region.tag) || linesIn(rows, region).some(startsWithDate),
   );
   const header = headerLines(rows, regions);
@@ -261,14 +260,19 @@ export function templateFromRegions(
   );
   const headings = columnRegions
     .map(region => ({ phrase: headingFor(header, region), role: region.tag as ColumnRole }))
-    .filter(heading => heading.phrase);
+    .filter(
+      (heading, index, all) =>
+        heading.phrase &&
+        all.findIndex(other => other.phrase === heading.phrase && other.role === heading.role) ===
+          index,
+    );
   const balance = (tag: TeachTag) => {
     const region = regions.find(candidate => candidate.tag === tag);
     return region ? labelFor(rows, region) : undefined;
   };
   return {
     headings,
-    columns: columnRegions.map(region => columnFor(rows, region)).sort((a, b) => a.x0 - b.x0),
+    columns: oneColumnPerRole(columnRegions.map(region => columnFor(rows, region))),
     skip: [
       ...new Set(
         regions
@@ -285,12 +289,32 @@ export function templateFromRegions(
   };
 }
 
-/** One area per tag, the last drawn: drawing a tag again moves it. Skipped areas add up. */
-function lastOfEachTag(regions: readonly TeachRegion[]): TeachRegion[] {
+/** Tags of one thing printed once: drawing one again moves it. Columns, the header and skips add up. */
+const SINGLE_TAGS: TeachTag[] = ['openingBalance', 'closingBalance', 'bankName'];
+
+function oneOfSingleTags(regions: readonly TeachRegion[]): TeachRegion[] {
   return regions.filter(
     (region, index) =>
-      region.tag === 'skip' || !regions.slice(index + 1).some(later => later.tag === region.tag),
+      !(
+        SINGLE_TAGS.includes(region.tag) &&
+        regions.slice(index + 1).some(later => later.tag === region.tag)
+      ),
   );
+}
+
+/** A column marked in several areas (down several pages) spans them all. */
+function oneColumnPerRole(columns: { role: ColumnRole; x0: number; x1: number }[]) {
+  const byRole = new Map<ColumnRole, { role: ColumnRole; x0: number; x1: number }>();
+  for (const column of columns) {
+    const seen = byRole.get(column.role);
+    byRole.set(
+      column.role,
+      seen
+        ? { role: column.role, x0: Math.min(seen.x0, column.x0), x1: Math.max(seen.x1, column.x1) }
+        : column,
+    );
+  }
+  return [...byRole.values()].sort((a, b) => a.x0 - b.x0);
 }
 
 /** The bank's name: the area's words without figures (an address or a date is not it). */

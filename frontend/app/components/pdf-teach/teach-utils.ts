@@ -102,9 +102,16 @@ export function wordsInRegion(words: readonly LayoutWord[], region: TeachRegion)
   });
 }
 
-/** The areas with one more drawn: a tag drawn again moves to the new area (Skip adds up). */
+/** Tags of one thing printed once; every other tag may be marked in as many areas as it takes. */
+const SINGLE_TAGS = new Set<TeachTag>(['openingBalance', 'closingBalance', 'bankName']);
+
+/**
+ * The areas with one more drawn. A column, the header or a skip adds up (the
+ * table on every page); a single tag drawn again moves to the new area.
+ */
 export function withRegion(regions: readonly TeachRegion[], region: TeachRegion): TeachRegion[] {
-  return [...regions.filter(other => region.tag === 'skip' || other.tag !== region.tag), region];
+  const moves = SINGLE_TAGS.has(region.tag);
+  return [...regions.filter(other => !moves || other.tag !== region.tag), region];
 }
 
 const lineKey = (word: LayoutWord) => `${word.page}:${Math.round(word.y)}`;
