@@ -1,4 +1,4 @@
-import type { PdfTextItem, PdfTextRow } from '../../../common/utils/pdf-parser.util';
+import type { PdfTextRow } from '../../../common/utils/pdf-parser.util';
 import {
   type LaidOutRow,
   type LayoutColumn,
@@ -7,6 +7,7 @@ import {
   type TaughtHeadings,
 } from './pdf-layout-columns.helper';
 import { attachLeadInLines } from './pdf-layout-lead-in.helper';
+import { leadingDate, sameDayDate, startsLeftOfText } from './pdf-layout-row-date.helper';
 import {
   alignsWithSectionText,
   type LayoutSection,
@@ -23,14 +24,15 @@ import {
   splitOverlappingLines,
 } from './pdf-layout-wrapped.helper';
 import { findStatementAmounts } from './statement-amount.helper';
-import { type DateParts, parseDateParts } from './statement-date.helper';
+import type { DateParts } from './statement-date.helper';
 import { isBalanceLabel, readAccountHeading } from './statement-metadata.helper';
 
 /**
  * Reads transactions from a statement whose table has no ruling lines, using
  * where each word sits on the page. A row that starts with a date and carries
- * an amount opens a transaction; the lines under it, up to the next one, add
- * to its description. Dates are returned as parts: the year and the day/month
+ * an amount opens a transaction, and so does a line of text and money right
+ * under one (the same day's next payment, `sameDayDate`); the lines under it,
+ * up to the next one, add to its description. Dates are returned as parts: the year and the day/month
  * order are settled by the caller for the whole statement.
  */
 
@@ -69,24 +71,6 @@ export interface LayoutReading {
 const CONTINUATION_LINE_HEIGHTS = 2.6;
 
 const IBAN = /^[A-Z]{2}\d{2}[A-Z0-9]{10,30}$/;
-
-/** Up to three leading words that make one date ("02 janv. 25"); longest first. */
-function leadingDate(
-  items: PdfTextItem[],
-): { parts: DateParts; text: string; used: number } | null {
-  for (let used = Math.min(3, items.length); used > 0; used -= 1) {
-    const text = items
-      .slice(0, used)
-      .map(item => item.text)
-      .join(' ');
-    // Day-first is a placeholder: the order is decided later from dateText.
-    const parts = parseDateParts(text, 'dmy') ?? parseDateParts(text, 'mdy');
-    if (parts) {
-      return { parts, text, used };
-    }
-  }
-  return null;
-}
 
 function appendText(transaction: LayoutTransaction, laidOut: LaidOutRow) {
   const description = laidOut.text.description ?? [];
@@ -131,8 +115,9 @@ function openTransaction(
 /**
  * Whether a line without its own date adds to the transaction above it: it
  * sits right under the previous line, carries no money (money anywhere makes
- * it a totals line or a note such as "Frais sur compte: 23,00 $") and keeps
- * out of the date column, which a footer does not.
+ * it a totals line or a note such as "Frais sur compte: 23,00 $"; the row's
+ * own balance repeated does not count) and keeps out of the date column,
+ * which a footer does not.
  */
 function isNextLine(row: PdfTextRow, lastRow: PdfTextRow | null): boolean {
   return (
@@ -142,10 +127,17 @@ function isNextLine(row: PdfTextRow, lastRow: PdfTextRow | null): boolean {
   );
 }
 
-function continuesTransaction(row: PdfTextRow, laidOut: LaidOutRow, lastRow: PdfTextRow | null) {
+function continuesTransaction(
+  row: PdfTextRow,
+  laidOut: LaidOutRow,
+  lastRow: PdfTextRow | null,
+  balance?: number,
+) {
+  // The row's balance printed again on its wrapped line is not new money.
+  const isMoney = (value: number) => value !== 0 && Math.abs(value) !== Math.abs(balance ?? NaN);
   const hasMoney =
-    laidOut.amounts.some(amount => amount.value !== 0) ||
-    findStatementAmounts(row.items.map(item => item.text).join(' ')).some(value => value !== 0);
+    laidOut.amounts.some(amount => isMoney(amount.value)) ||
+    findStatementAmounts(row.items.map(item => item.text).join(' ')).some(isMoney);
   const reachesDateColumn = (laidOut.text.date ?? []).length > 0;
   return isNextLine(row, lastRow) && !hasMoney && !reachesDateColumn;
 }
@@ -166,8 +158,11 @@ function accountHeadingAt(row: PdfTextRow, rowAbove: PdfTextRow | null) {
 /** A row's leading date, if any, and the rest of its words by column. */
 function readTableRow(row: PdfTextRow, columns: LayoutColumn[]) {
   const items = [...row.items].sort((a, b) => a.x - b.x);
-  const date = leadingDate(items);
-  return { date, laidOut: layOutRow(date ? items.slice(date.used) : items, columns) };
+  const found = leadingDate(items);
+  // A date in the description column ("03/07 07:50 …", "On" wrapped onto
+  // "07 Sep") opens no row; it is left out of the text all the same.
+  const date = found && startsLeftOfText(items[0], columns) ? found : null;
+  return { date, laidOut: layOutRow(found ? items.slice(found.used) : items, columns) };
 }
 
 /**
@@ -311,7 +306,13 @@ function readRow(state: ReadingState, lines: PdfTextRow[]) {
     readRow(state, [...pending, ...lines]);
     return;
   }
-  const dated = date && laidOut.amounts.length > 0 ? openTransaction(date, laidOut) : null;
+  // In a section an undated line with money is its total (below), never a row.
+  const sameDay =
+    date || state.section
+      ? null
+      : sameDayDate(state.current, laidOut, isNextLine(row, state.lastRow));
+  const rowDate = date ?? sameDay;
+  const dated = rowDate && laidOut.amounts.length > 0 ? openTransaction(rowDate, laidOut) : null;
   if (dated && lines.length > 1) {
     // A row of several lines: only the dated line's own words are its first line.
     dated.firstLine = (read.find(line => line.date)?.laidOut.text.description ?? []).join(' ');
@@ -323,6 +324,7 @@ function readRow(state: ReadingState, lines: PdfTextRow[]) {
         lines[index],
         line.laidOut,
         index === 0 ? state.lastRow : lines[index - 1],
+        state.current?.balance,
       ) && alignsWithSectionText(state.section, lines[index]),
   );
   if (opened && (isBalanceLine(opened) || isBalanceLabel(opened.description))) {

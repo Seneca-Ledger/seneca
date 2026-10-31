@@ -301,6 +301,22 @@ const TOTAL_DEBITS = [
   'total paid out',
 ];
 
+/** Words that open a line of sums, not of a movement. */
+const TOTAL_WORDS = ['total', 'totals', 'subtotal', 'sub total', 'summe', 'gesamt', 'итого'];
+
+/**
+ * A line that sums the rows above it ("Total 1,035.33", "TRANSACTION TOTAL",
+ * "Money out 611.96"), not one more row: one of the labels as whole words.
+ */
+export function isTotalsLabel(description: string): boolean {
+  const folded = ` ${foldText(description)
+    .replace(/[\s:]+/g, ' ')
+    .trim()} `;
+  return [...TOTAL_WORDS, ...TOTAL_CREDITS, ...TOTAL_DEBITS].some(label =>
+    folded.includes(` ${label} `),
+  );
+}
+
 /**
  * The statement's printed sums of money in and money out ("Money in
  * £11,450.43", "Total withdrawals 2,040.00"): the first figure after the

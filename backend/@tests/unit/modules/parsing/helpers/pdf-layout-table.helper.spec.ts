@@ -152,6 +152,47 @@ describe('pdf-layout-table.helper', () => {
     expect(transactions.map(t => t.description)).toEqual(['ACME Store']);
   });
 
+  it("reads a line of text and money under a row as the same day's next payment", () => {
+    // The date is printed once per day; the day's balance only on its last row.
+    const transactions = readLayoutTransactions([
+      header,
+      row(120, [['01', 40], ['Sep', 52], ['Start', 110], ['balance', 140], ['1,000.00', 480]]),
+      row(140, [['06', 40], ['Sep', 52], ['ACME', 110], ['Store', 135], ['57.77', 315]]),
+      row(150, [['ACME', 110], ['Cafe', 135], ['28.27', 315], ['913.96', 490]]),
+      row(160, [['Refund', 110], ['ACME', 145], ['10.00', 405], ['923.96', 490]]),
+      row(170, [['On', 110], ['05', 125], ['Sep', 137]]),
+      row(180, [['Total', 110], ['86.04', 315], ['10.00', 405]]),
+    ]);
+
+    expect(
+      transactions.map(({ dateText, description, debit, credit, balance }) => ({
+        dateText,
+        description,
+        debit,
+        credit,
+        balance,
+      })),
+    ).toEqual([
+      { dateText: '06 Sep', description: 'ACME Store', debit: 57.77, credit: undefined, balance: undefined },
+      { dateText: '06 Sep', description: 'ACME Cafe', debit: 28.27, credit: undefined, balance: 913.96 },
+      { dateText: '06 Sep', description: 'Refund ACME On 05 Sep', debit: undefined, credit: 10, balance: 923.96 },
+    ]);
+  });
+
+  it('opens no row at a date wrapped into the description with the balance printed again', () => {
+    const transactions = readLayoutTransactions([
+      header,
+      row(140, [['08', 40], ['Sep', 52], ['ACME', 110], ['Store', 135], ['On', 160], ['38.18', 315], ['961.82', 490]]),
+      row(150, [['07', 110], ['Sep', 122], ['961.82', 490]]),
+      row(160, [['ACME', 110], ['Cafe', 135], ['32.90', 315], ['928.92', 490]]),
+    ]);
+
+    expect(transactions.map(({ dateText, description, debit }) => ({ dateText, description, debit }))).toEqual([
+      { dateText: '08 Sep', description: 'ACME Store On', debit: 38.18 },
+      { dateText: '08 Sep', description: 'ACME Cafe', debit: 32.9 },
+    ]);
+  });
+
   it('stops a description at a note that carries money', () => {
     const transactions = readLayoutTransactions([
       header,

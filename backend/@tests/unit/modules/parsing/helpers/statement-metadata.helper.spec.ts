@@ -12,6 +12,7 @@ import {
   findStatementPeriod,
   isBalanceLabel,
   isCreditCardStatement,
+  isTotalsLabel,
   readAccountHeading,
 } from '@/modules/parsing/helpers/statement-metadata.helper';
 
@@ -189,5 +190,13 @@ describe('statement-metadata.helper', () => {
   it('tells a card statement by its wording', () => {
     expect(isCreditCardStatement('Minimum Payment Due 35.00\nPayment Due Date 10/24/2025')).toBe(true);
     expect(isCreditCardStatement('Payment received, thank you')).toBe(false);
+  });
+
+  it('tells a totals line from a row, wherever the label stands', () => {
+    expect(isTotalsLabel('Total')).toBe(true);
+    expect(isTotalsLabel('TRANSACTION TOTAL')).toBe(true);
+    expect(isTotalsLabel('Money out:')).toBe(true);
+    expect(isTotalsLabel('Card Payment to ACME Store')).toBe(false);
+    expect(isTotalsLabel('ACME Totalcare')).toBe(false);
   });
 });
