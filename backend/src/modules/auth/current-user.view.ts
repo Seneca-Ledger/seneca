@@ -19,6 +19,7 @@ export function toCurrentUser(user: User): CurrentUser {
     uiDensity: user.uiDensity,
     reduceMotion: user.reduceMotion,
     showDailyQuote: user.showDailyQuote,
+    roundAmounts: user.roundAmounts,
     themePreference: user.themePreference,
     mapStylePreference: user.mapStylePreference,
     lastLogin: user.lastLogin?.toISOString() ?? null,

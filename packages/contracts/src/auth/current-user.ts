@@ -33,6 +33,8 @@ export const CurrentUser = Schema.Struct({
   reduceMotion: Schema.Boolean,
   /** Daily-quote banner above the pages. */
   showDailyQuote: Schema.Boolean,
+  /** Whole units on overviews; false shows every amount with cents. */
+  roundAmounts: Schema.Boolean,
   themePreference: ThemePreference,
   /** Tile style picked on receipt maps; null follows the server default. */
   mapStylePreference: Schema.NullOr(Schema.String),

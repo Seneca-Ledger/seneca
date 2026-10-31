@@ -31,9 +31,16 @@ export type UseAppearanceReturn = {
   setReduceMotion: (value: boolean) => void;
   showDailyQuote: boolean;
   setShowDailyQuote: (value: boolean) => void;
+  roundAmounts: boolean;
+  setRoundAmounts: (value: boolean) => void;
 };
 
-type AppearancePatch = { uiDensity?: UiDensity; reduceMotion?: boolean; showDailyQuote?: boolean };
+type AppearancePatch = {
+  uiDensity?: UiDensity;
+  reduceMotion?: boolean;
+  showDailyQuote?: boolean;
+  roundAmounts?: boolean;
+};
 
 export function useAppearance(
   user: User | null | undefined,
@@ -44,6 +51,7 @@ export function useAppearance(
   const [density, setDensityState] = useState<UiDensity>('comfortable');
   const [reduceMotion, setReduceMotionState] = useState(false);
   const [showDailyQuote, setShowDailyQuoteState] = useState(true);
+  const [roundAmounts, setRoundAmountsState] = useState(true);
   const [appearanceMessage, setAppearanceMessage] = useState<string | null>(null);
   const [appearanceError, setAppearanceError] = useState<string | null>(null);
   const [appearanceLoading, setAppearanceLoading] = useState(false);
@@ -57,7 +65,8 @@ export function useAppearance(
     setReduceMotionState(Boolean(user?.reduceMotion));
     // Absent (an older cached user) means on, like the column default.
     setShowDailyQuoteState(user?.showDailyQuote !== false);
-  }, [user?.uiDensity, user?.reduceMotion, user?.showDailyQuote]);
+    setRoundAmountsState(user?.roundAmounts !== false);
+  }, [user?.uiDensity, user?.reduceMotion, user?.showDailyQuote, user?.roundAmounts]);
 
   /** Saves one appearance flag and re-themes the app straight away. */
   const savePatch = async (patch: AppearancePatch) => {
@@ -103,6 +112,11 @@ export function useAppearance(
   const setShowDailyQuote = (value: boolean) => {
     setShowDailyQuoteState(value);
     void savePatch({ showDailyQuote: value });
+  };
+
+  const setRoundAmounts = (value: boolean) => {
+    setRoundAmountsState(value);
+    void savePatch({ roundAmounts: value });
   };
 
   const handleThemePreferenceChange = async (nextThemePreference: ThemePreference) => {
@@ -161,5 +175,7 @@ export function useAppearance(
     setReduceMotion,
     showDailyQuote,
     setShowDailyQuote,
+    roundAmounts,
+    setRoundAmounts,
   };
 }

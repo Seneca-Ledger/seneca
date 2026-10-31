@@ -5,6 +5,7 @@ import { TopMerchantsLeaderboard } from './TopMerchantsLeaderboard';
 
 vi.mock('@/app/lib/user-format-store', () => ({
   formatStoredDate: (value: string) => value,
+  readStoredFormatPreferences: () => ({}),
 }));
 
 function row(overrides: Partial<TopMerchantAggregateRow>): TopMerchantAggregateRow {

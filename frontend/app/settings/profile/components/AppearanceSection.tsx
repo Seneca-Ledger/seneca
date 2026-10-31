@@ -122,6 +122,8 @@ type Props = {
   setReduceMotion: (value: boolean) => void;
   showDailyQuote: boolean;
   setShowDailyQuote: (value: boolean) => void;
+  roundAmounts: boolean;
+  setRoundAmounts: (value: boolean) => void;
 };
 
 export function AppearanceSection({
@@ -132,6 +134,8 @@ export function AppearanceSection({
   setReduceMotion,
   showDailyQuote,
   setShowDailyQuote,
+  roundAmounts,
+  setRoundAmounts,
 }: Props) {
   return (
     <Stack spacing={2}>
@@ -211,6 +215,32 @@ export function AppearanceSection({
               }}
             >
               {tx(['appearanceCard', 'dailyQuoteHelp'])}
+            </Typography>
+          </Stack>
+        }
+      />
+
+      <FormControlLabel
+        control={
+          <Switch checked={roundAmounts} onChange={(_event, value) => setRoundAmounts(value)} />
+        }
+        label={
+          <Stack spacing={0.25}>
+            <Typography
+              variant="body2"
+              sx={{
+                fontWeight: 500,
+              }}
+            >
+              {tx(['appearanceCard', 'roundAmountsLabel'])}
+            </Typography>
+            <Typography
+              variant="caption"
+              sx={{
+                color: 'text.secondary',
+              }}
+            >
+              {tx(['appearanceCard', 'roundAmountsHelp'])}
             </Typography>
           </Stack>
         }

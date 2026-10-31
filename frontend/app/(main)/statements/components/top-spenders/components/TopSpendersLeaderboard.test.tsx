@@ -4,7 +4,10 @@ import type { TopSpenderAggregateRow } from '../top-spenders.types';
 import { TopSpendersLeaderboard } from './TopSpendersLeaderboard';
 
 vi.mock('@/app/components/ui/EmptyStateIllustration', () => ({ EmptyStateIllustration: () => null }));
-vi.mock('@/app/lib/user-format-store', () => ({ formatStoredDate: (value: string) => value }));
+vi.mock('@/app/lib/user-format-store', () => ({
+  formatStoredDate: (value: string) => value,
+  readStoredFormatPreferences: () => ({}),
+}));
 
 const row: TopSpenderAggregateRow = {
   id: 'r1',

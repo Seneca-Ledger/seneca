@@ -88,6 +88,10 @@ export class User {
   @Column({ name: 'show_daily_quote', type: 'boolean', default: true })
   showDailyQuote: boolean;
 
+  /** Overviews show whole units; off shows every amount with cents. */
+  @Column({ name: 'round_amounts', type: 'boolean', default: true })
+  roundAmounts: boolean;
+
   @Column({
     name: 'theme_preference',
     type: 'varchar',

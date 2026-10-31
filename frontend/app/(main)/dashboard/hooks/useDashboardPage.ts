@@ -10,6 +10,7 @@ import { usePullToRefresh } from '@/app/hooks/usePullToRefresh';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import { resolveDashboardEffectivePeriod } from '@/app/lib/dashboard-effective-window';
+import { wholeUnitDigits } from '@/app/lib/user-format-store';
 import {
   fillTemplate,
   formatDateOnly,
@@ -89,15 +90,16 @@ export function useDashboardPage() {
   // One formatter per locale/currency: Intl.NumberFormat construction is
   // expensive and this runs once per row in several dashboard cards.
   const currency = data?.snapshot?.currency ?? FALLBACK_CURRENCY;
+  const { maximumFractionDigits: fractionDigits } = wholeUnitDigits();
   const amountFormatter = useMemo(
     () =>
       new Intl.NumberFormat(resolveLocale(locale), {
         style: 'currency',
         currency,
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0,
+        minimumFractionDigits: fractionDigits,
+        maximumFractionDigits: fractionDigits,
       }),
-    [locale, currency],
+    [locale, currency, fractionDigits],
   );
   const formatAmount = useCallback(
     (value: number): string => amountFormatter.format(value),
