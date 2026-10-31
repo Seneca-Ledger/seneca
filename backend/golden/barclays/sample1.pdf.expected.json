@@ -1,0 +1,229 @@
+{
+  "metadata": {
+    "accountNumber": "GB00BUKB00000000000001",
+    "currency": "GBP",
+    "dateFrom": "2022-09-01T00:00:00",
+    "dateTo": "2022-09-30T00:00:00",
+    "balanceStart": 894675.22,
+    "balanceEnd": 1019139.89,
+    "rawHeader": "30 Sep 2022 Statementdate 1 Sep 2022 Barclays Bank Account",
+    "normalizedHeader": "30 Sep 2022 Statementdate 1 Sep 2022 Barclays Bank Account",
+    "locale": "en"
+  },
+  "transactions": [
+    {
+      "transactionDate": "2022-09-02T00:00:00",
+      "counterpartyName": "Apple.Com/Bill Ireland",
+      "paymentPurpose": "Card Payment to Apple.Com/Bill Ireland",
+      "debit": 9.32,
+      "currency": "GBP"
+    },
+    {
+      "transactionDate": "2022-09-05T00:00:00",
+      "counterpartyName": "Uber *Eats, Help.Uber.Com",
+      "paymentPurpose": "Card Payment to Uber *Eats, Help.Uber.Com",
+      "debit": 36.92,
+      "currency": "GBP"
+    },
+    {
+      "transactionDate": "2022-09-06T00:00:00",
+      "counterpartyName": "Lidl",
+      "paymentPurpose": "Card Payment to Lidl",
+      "debit": 57.77,
+      "currency": "GBP"
+    },
+    {
+      "transactionDate": "2022-09-06T00:00:00",
+      "counterpartyName": "Whistles",
+      "paymentPurpose": "Card Payment to Whistles",
+      "debit": 28.27,
+      "currency": "GBP"
+    },
+    {
+      "transactionDate": "2022-09-07T00:00:00",
+      "counterpartyName": "Aldi",
+      "paymentPurpose": "Card Payment to Aldi",
+      "debit": 50.68,
+      "currency": "GBP"
+    },
+    {
+      "transactionDate": "2022-09-07T00:00:00",
+      "counterpartyName": "Topshop",
+      "paymentPurpose": "Card Payment to Topshop",
+      "debit": 28.45,
+      "currency": "GBP"
+    },
+    {
+      "transactionDate": "2022-09-08T00:00:00",
+      "counterpartyName": "Millie's Cookies",
+      "paymentPurpose": "Card Payment to Millie's Cookies",
+      "debit": 38.18,
+      "currency": "GBP"
+    },
+    {
+      "transactionDate": "2022-09-08T00:00:00",
+      "counterpartyName": "Aldi",
+      "paymentPurpose": "Card Payment to Aldi",
+      "debit": 32.9,
+      "currency": "GBP"
+    },
+    {
+      "transactionDate": "2022-09-08T00:00:00",
+      "counterpartyName": "vidDe yongDa",
+      "paymentPurpose": "Card Payment to vidDe yongDa",
+      "debit": 48.76,
+      "currency": "GBP"
+    },
+    {
+      "transactionDate": "2022-09-09T00:00:00",
+      "counterpartyName": "Leon",
+      "paymentPurpose": "Card Payment to Leon",
+      "debit": 34.22,
+      "currency": "GBP"
+    },
+    {
+      "transactionDate": "2022-09-09T00:00:00",
+      "counterpartyName": "Wahaca",
+      "paymentPurpose": "Card Payment to Wahaca",
+      "debit": 53.93,
+      "currency": "GBP"
+    },
+    {
+      "transactionDate": "2022-09-12T00:00:00",
+      "counterpartyName": "Just-Eat.Co.Uk",
+      "paymentPurpose": "Card Payment to Just-Eat.Co.Uk",
+      "debit": 39.81,
+      "currency": "GBP"
+    },
+    {
+      "transactionDate": "2022-09-13T00:00:00",
+      "counterpartyName": "Deliveroo.Co.Uk",
+      "paymentPurpose": "Card Payment to Deliveroo.Co.Uk",
+      "debit": 49.12,
+      "currency": "GBP"
+    },
+    {
+      "transactionDate": "2022-09-13T00:00:00",
+      "counterpartyName": "Just-Eat.Co.Uk",
+      "paymentPurpose": "Card Payment to Just-Eat.Co.Uk",
+      "debit": 54.23,
+      "currency": "GBP"
+    },
+    {
+      "transactionDate": "2022-09-13T00:00:00",
+      "counterpartyName": "Uber *Trip, Help.Uber.Com",
+      "paymentPurpose": "Card Payment to Uber *Trip, Help.Uber.Com",
+      "debit": 50.86,
+      "currency": "GBP"
+    },
+    {
+      "transactionDate": "2022-09-13T00:00:00",
+      "counterpartyName": "Laura Ashley",
+      "paymentPurpose": "Card Payment to Laura Ashley",
+      "debit": 15.96,
+      "currency": "GBP"
+    },
+    {
+      "transactionDate": "2022-09-14T00:00:00",
+      "counterpartyName": "Lidl",
+      "paymentPurpose": "Card Payment to Lidl",
+      "debit": 30.67,
+      "currency": "GBP"
+    },
+    {
+      "transactionDate": "2022-09-14T00:00:00",
+      "counterpartyName": "Apple.Com/Bill Ireland",
+      "paymentPurpose": "Card Payment to Apple.Com/Bill Ireland",
+      "debit": 7.8,
+      "currency": "GBP"
+    },
+    {
+      "transactionDate": "2022-09-15T00:00:00",
+      "counterpartyName": "Deliveroo.Co.Uk",
+      "paymentPurpose": "Card Payment to Deliveroo.Co.Uk",
+      "debit": 50.08,
+      "currency": "GBP"
+    },
+    {
+      "transactionDate": "2022-09-16T00:00:00",
+      "counterpartyName": "World Vision",
+      "paymentPurpose": "Card Payment to World Vision",
+      "debit": 51.34,
+      "currency": "GBP"
+    },
+    {
+      "transactionDate": "2022-09-20T00:00:00",
+      "counterpartyName": "IMC Group",
+      "paymentPurpose": "Received from IMC Group Ref: 35686",
+      "credit": 125500,
+      "currency": "GBP"
+    },
+    {
+      "transactionDate": "2022-09-21T00:00:00",
+      "counterpartyName": "Debenhams",
+      "paymentPurpose": "Card Payment to Debenhams",
+      "debit": 35,
+      "currency": "GBP"
+    },
+    {
+      "transactionDate": "2022-09-22T00:00:00",
+      "counterpartyName": "The Entertainer",
+      "paymentPurpose": "Card Payment to The Entertainer",
+      "debit": 30.49,
+      "currency": "GBP"
+    },
+    {
+      "transactionDate": "2022-09-22T00:00:00",
+      "counterpartyName": "Uber *Trip, Help.Uber.Com",
+      "paymentPurpose": "Card Payment to Uber *Trip, Help.Uber.Com",
+      "debit": 55.97,
+      "currency": "GBP"
+    },
+    {
+      "transactionDate": "2022-09-23T00:00:00",
+      "counterpartyName": "Lidl",
+      "paymentPurpose": "Card Payment to Lidl",
+      "debit": 57.59,
+      "currency": "GBP"
+    },
+    {
+      "transactionDate": "2022-09-26T00:00:00",
+      "counterpartyName": "Uber *Eats, Help.Uber.Com",
+      "paymentPurpose": "Card Payment to Uber *Eats, Help.Uber.Com",
+      "debit": 40.77,
+      "currency": "GBP"
+    },
+    {
+      "transactionDate": "2022-09-26T00:00:00",
+      "counterpartyName": "Maje",
+      "paymentPurpose": "Card Payment to Maje",
+      "debit": 46.24,
+      "currency": "GBP"
+    }
+  ],
+  "checks": [
+    {
+      "code": "balance_chain",
+      "passed": true
+    },
+    {
+      "code": "printed_totals",
+      "passed": true
+    },
+    {
+      "code": "dates_in_period",
+      "passed": true
+    }
+  ],
+  "layout": {
+    "fingerprint": "788f68fa2b35",
+    "headings": [
+      "date:date | description:description | debit:money out | credit:money in | balance:balance | other:services compensation scheme.",
+      "date:date | description:description | debit:money out | credit:money in | balance:balance"
+    ],
+    "unknownWords": [
+      "services compensation scheme."
+    ],
+    "mentionedBank": "barclays"
+  }
+}

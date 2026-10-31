@@ -85,6 +85,7 @@ describe('pdf-layout-fingerprint.helper', () => {
   it('notes a bank with a parser of its own that the text names', () => {
     expect(mentionedBank('Website: www.bochk.com')).toBe(BankName.BANK_OF_CHINA);
     expect(mentionedBank('BankofScotlandplc.Registeredoffice')).toBe(BankName.BANK_OF_SCOTLAND);
+    expect(mentionedBank('barclays bank uk plc. registered in england')).toBe(BankName.BARCLAYS);
     expect(mentionedBank('Example Bank, Main Street')).toBeUndefined();
     expect(statement(usual, 'ACME', '12.50')?.mentionedBank).toBeUndefined();
     expect(

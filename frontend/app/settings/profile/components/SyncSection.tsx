@@ -31,6 +31,7 @@ const BANK_LABELS: Record<string, string> = {
   banco_do_brasil: 'Banco do Brasil',
   bank_of_china: 'Bank of China (Hong Kong)',
   bank_of_scotland: 'Bank of Scotland',
+  barclays: 'Barclays',
   other: 'Other',
 };
 
