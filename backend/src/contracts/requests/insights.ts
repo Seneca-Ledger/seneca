@@ -34,6 +34,19 @@ export const DailyQuoteQuery = Schema.Struct({
 });
 export type DailyQuoteQuery = Wire<typeof DailyQuoteQuery>;
 
+/** `PUT /insights/daily-quote/:quoteId/vote`: a catalogue id, as the quote came. */
+export const QuoteVoteParams = Schema.Struct({
+  quoteId: Schema.String.check(Schema.isPattern(/^[a-z0-9-]{1,80}$/)),
+});
+export type QuoteVoteParams = Wire<typeof QuoteVoteParams>;
+
+/** Thumb up (1), thumb down (-1), or 0 to take it back; `date` is the reader's day. */
+export const QuoteVoteBody = Schema.Struct({
+  vote: Schema.Literals([1, -1, 0]),
+  date: Schema.optional(DateOnlyInput),
+});
+export type QuoteVoteBody = Wire<typeof QuoteVoteBody>;
+
 /** `POST /insights/refresh`. */
 export const InsightsRefreshQuery = Schema.Struct({ locale: Schema.optional(Locale) });
 export type InsightsRefreshQuery = Wire<typeof InsightsRefreshQuery>;

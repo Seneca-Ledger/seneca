@@ -245,6 +245,7 @@ import {
   PageHintsSeen,
   PayeeRecord,
   PlaceSuggestions,
+  QuoteVote,
   ReceiptUploadResult,
   RevaluationResult,
   SetupProgress,
@@ -2000,7 +2001,18 @@ describe('API contracts (e2e)', () => {
       const categories = await get('/categories?type=expense');
       matches(CategoryUsageCount, (await get(`/categories/${categories.body[0].id}/usage-count`)).body);
       matches(ExchangeRateQuote, (await get('/exchange-rates?from=USD&to=USD')).body);
-      matches(DailyQuote, (await get('/insights/daily-quote')).body);
+      const quote = await get('/insights/daily-quote');
+      matches(DailyQuote, quote.body);
+      const vote = await request(app.getHttpServer())
+        .put(`/insights/daily-quote/${quote.body.quote.id}/vote`)
+        .set('Authorization', `Bearer ${owner.token}`)
+        .set('x-workspace-id', owner.workspaceId)
+        .send({ vote: 1 })
+        .expect(200);
+      matches(QuoteVote, vote.body);
+      expect(vote.body.vote).toBe(1);
+      // The thumb comes back with the quote it was given to.
+      expect((await get('/insights/daily-quote')).body.vote).toBe(1);
       matches(MapStyles, (await get('/maps/styles')).body);
     });
 
