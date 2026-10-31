@@ -10,6 +10,7 @@ import { Payable, PayableDirection, PayableStatus } from '../../entities/payable
 import { Transaction, TransactionType } from '../../entities/transaction.entity';
 import { Workspace } from '../../entities/workspace.entity';
 import { DashboardService } from '../dashboard/dashboard.service';
+import { hasActiveAccounts } from '../dashboard/opening-balance';
 import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
 import { GoalsService } from '../goals/goals.service';
 import { SubscriptionsService } from '../subscriptions/subscriptions.service';
@@ -24,6 +25,8 @@ import {
   projectIncome,
   sameParty,
 } from './forecast.engine';
+import { firstOfNextMonth, monthsUntil } from './forecast-calendar';
+import { forecastCaveats } from './forecast-caveats';
 
 export type { ForecastResponse };
 
@@ -78,14 +81,16 @@ export class ForecastService {
     const currency = normalizeCurrency(workspace?.currency);
     const profile = readWorkspaceProfile(workspace);
 
-    const [commitments, receivables, invoices, goals, history, incomeRows] = await Promise.all([
-      this.dashboardService.getCommitments(workspaceId, projectionDays),
-      this.receivableEvents(workspaceId, currency, todayKey, projectionEnd),
-      this.invoiceEvents(workspaceId, currency, todayKey, projectionEnd),
-      this.goalEvents(workspaceId, currency, todayKey, projectionEnd),
-      this.monthlyHistory(workspaceId, currency, today, viewerMemberId),
-      this.incomeHistory(workspaceId, today, viewerMemberId),
-    ]);
+    const [commitments, receivables, invoices, goals, history, incomeRows, hasWallet] =
+      await Promise.all([
+        this.dashboardService.getCommitments(workspaceId, projectionDays),
+        this.receivableEvents(workspaceId, currency, todayKey, projectionEnd),
+        this.invoiceEvents(workspaceId, currency, todayKey, projectionEnd),
+        this.goalEvents(workspaceId, currency, todayKey, projectionEnd),
+        this.monthlyHistory(workspaceId, currency, today, viewerMemberId),
+        this.incomeHistory(workspaceId, today, viewerMemberId),
+        hasActiveAccounts(this.transactionRepository, workspaceId),
+      ]);
 
     const recurring = detectRecurringIncome(
       incomeRows.map(row => ({ ...row, amount: Number.parseFloat(row.amount) })),
@@ -166,6 +171,7 @@ export class ForecastService {
       monthlyIncome: round(history.monthlyIncome),
       monthlyExpense: round(history.monthlyExpense),
       monthsObserved: history.monthsObserved,
+      caveats: forecastCaveats(history.monthsObserved < HISTORY_MONTHS, everydayMonthly, hasWallet),
       recurringIncome: recurring,
       unscheduledCommitted: commitments.unscheduledCommitted,
     };
@@ -457,17 +463,6 @@ function normalizeCurrency(currency: string | null | undefined): string {
     .trim()
     .toUpperCase();
   return /^[A-Z]{3}$/.test(normalized) ? normalized : 'KZT';
-}
-
-function monthsUntil(from: string, to: string): number {
-  const [fy, fm] = from.split('-').map(Number);
-  const [ty, tm] = to.split('-').map(Number);
-  return (ty - fy) * 12 + (tm - fm);
-}
-
-function firstOfNextMonth(date: string): string {
-  const [y, m] = date.split('-').map(Number);
-  return formatDateOnly(new Date(y, m, 1));
 }
 
 function round(value: number): number {

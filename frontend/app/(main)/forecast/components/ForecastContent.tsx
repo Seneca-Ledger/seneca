@@ -17,6 +17,7 @@ import {
   type ForecastHorizon,
   useForecast,
 } from '../hooks/useForecast';
+import { ForecastCaveats } from './ForecastCaveats';
 import { ForecastChart } from './ForecastChart';
 import { ForecastEvents } from './ForecastEvents';
 import { FORECAST_CARD_SX, Kpi } from './ForecastKpi';
@@ -130,6 +131,7 @@ export function ForecastContent() {
             transition: 'opacity 150ms ease',
           }}
         >
+          <ForecastCaveats caveats={data.caveats} monthsObserved={data.monthsObserved} />
           <Box
             sx={{
               display: 'grid',

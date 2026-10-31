@@ -70,6 +70,7 @@ function forecast(overrides: Partial<ForecastResponse> = {}): ForecastResponse {
     monthlyIncome: 3000,
     monthlyExpense: 2800,
     monthsObserved: 6,
+    caveats: [],
     recurringIncome: [],
     unscheduledCommitted: 0,
     ...overrides,
