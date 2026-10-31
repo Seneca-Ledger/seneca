@@ -1,6 +1,7 @@
 /**
  * TypeScript types for transaction view components
  */
+import type { PaymentType } from '@/app/lib/contracts';
 import type { StatementCategorySource } from '@/app/lib/statement-categories';
 
 export interface Transaction {
@@ -10,6 +11,7 @@ export interface Transaction {
   counterpartyName: string;
   counterpartyBin?: string;
   paymentPurpose: string;
+  paymentType?: PaymentType | null;
   debit: number;
   credit: number;
   amount: number;

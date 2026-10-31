@@ -46,6 +46,7 @@ export function mapApiRecordToTransaction(tx: TransactionApiRecord): Transaction
     counterpartyName: tx.counterpartyName,
     counterpartyBin: tx.counterpartyBin,
     paymentPurpose: tx.paymentPurpose,
+    paymentType: tx.paymentType,
     debit: tx.debit || 0,
     credit: tx.credit || 0,
     amount: tx.debit ? -Math.abs(tx.debit) : Math.abs(tx.credit || 0),

@@ -1,3 +1,5 @@
+import type { PaymentType } from '../../../contracts/transactions/payment-type';
+
 export interface ParsedTransaction {
   transactionDate: Date;
   documentNumber?: string;
@@ -8,6 +10,7 @@ export interface ParsedTransaction {
   debit?: number;
   credit?: number;
   paymentPurpose: string;
+  paymentType?: PaymentType;
   currency?: string;
   exchangeRate?: number;
   amountForeign?: number;

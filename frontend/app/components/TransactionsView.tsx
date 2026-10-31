@@ -23,6 +23,11 @@ import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import { useCategoryName } from '@/app/lib/use-category-name';
 import { resolveLocaleTag } from '@/app/lib/user-format';
 import { formatStoredDate } from '@/app/lib/user-format-store';
+import {
+  getNamedObjectLabel,
+  getTransactionValue,
+  PaymentPurposeCell,
+} from './transactions/TransactionsViewParts';
 
 /** A statement's row as the storage and shared pages receive it: money as decimal strings. */
 export type Transaction = StatementTransaction;
@@ -35,16 +40,6 @@ type ColumnDef = {
   key: string;
   label: string;
   render?: (tx: Transaction) => React.ReactNode;
-};
-
-const getTransactionValue = (transaction: Transaction, key: string): unknown => {
-  const record = transaction as unknown as Record<string, unknown>;
-  return record[key];
-};
-
-const getNamedObjectLabel = (value: object): string | null => {
-  const record = value as Record<string, unknown>;
-  return typeof record.name === 'string' ? record.name : null;
 };
 
 /**
@@ -213,7 +208,7 @@ export default function TransactionsView({ transactions }: TransactionsViewProps
         ),
       branch: tx => tx.branch?.name || t.dash.value,
       wallet: tx => tx.wallet?.name || t.dash.value,
-      paymentPurpose: tx => tx.paymentPurpose || t.dash.value,
+      paymentPurpose: tx => <PaymentPurposeCell tx={tx} fallback={t.dash.value} />,
       counterpartyName: tx => tx.counterpartyName || t.dash.value,
       counterpartyBin: tx => tx.counterpartyBin || t.dash.value,
       documentNumber: tx => tx.documentNumber || t.dash.value,

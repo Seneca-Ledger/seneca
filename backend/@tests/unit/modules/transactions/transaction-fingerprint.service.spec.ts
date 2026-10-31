@@ -57,6 +57,23 @@ describe('TransactionFingerprintService', () => {
   });
 
   describe('generateFingerprint', () => {
+    it('ignores the payment type', () => {
+      const base = createMockTransaction('tx-a', new Date('2026-01-15'), 100, 'ACME Store');
+      const input = (paymentType: Transaction['paymentType']) => ({
+        ...base,
+        paymentType,
+        workspaceId: 'workspace-123',
+        transactionDate: new Date('2026-01-15'),
+        amount: 100,
+        currency: 'KZT',
+        counterpartyName: 'ACME Store',
+      });
+
+      expect(service.generateFingerprint(input('card'), 'ACC-1')).toBe(
+        service.generateFingerprint(input(null), 'ACC-1'),
+      );
+    });
+
     it('should generate a 32-character hex fingerprint', () => {
       const transaction = createMockTransaction(
         'tx1',

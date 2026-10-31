@@ -6,6 +6,7 @@ import { useState } from 'react';
 import StatementCategoryDrawer from '@/app/(main)/statements/[id]/edit/StatementCategoryDrawer';
 import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, ChevronDown } from '@/app/components/icons';
 import { ItemImageBadge } from '@/app/components/item-images/ItemImageBadge';
+import { PaymentTypeLabel } from '@/app/components/transactions/PaymentTypeLabel';
 import { Checkbox } from '@/app/components/ui/checkbox';
 import {
   DropdownMenu,
@@ -167,6 +168,7 @@ export function AllTransactionsTable({
                     >
                       {description}
                     </button>
+                    <PaymentTypeLabel type={row.paymentType} />
                   </td>
                   <td
                     className={clsx(

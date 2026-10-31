@@ -58,6 +58,8 @@ export function redactPrivate<T extends Pick<Transaction, 'isPrivate' | 'ownerMe
   // The payee names the merchant as plainly as the descriptor does.
   target.payeeId = null;
   target.payee = null;
+  // A closed list has no placeholder: how the money moved is cut like the purpose it came from.
+  target.paymentType = null;
   return row;
 }
 
