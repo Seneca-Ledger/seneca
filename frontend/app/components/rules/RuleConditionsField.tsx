@@ -41,6 +41,7 @@ export function RuleConditionsField({
     ...TEXT_FIELDS,
     'amount',
     'direction',
+    'payment_type',
     ...(walletOptions.length > 0 ? (['wallet'] as RuleField[]) : []),
     ...(hasMembers ? (['owner'] as RuleField[]) : []),
   ];
@@ -48,6 +49,11 @@ export function RuleConditionsField({
   const choices: Partial<Record<RuleField, Option[]>> = {
     owner: ownerOptions,
     wallet: walletOptions,
+    // Only the two kinds the sample statement shows; the backend accepts all eight.
+    payment_type: [
+      { value: 'card', label: words.paymentType.card },
+      { value: 'bank_transfer_in', label: words.paymentType.bank_transfer_in },
+    ],
     direction: [
       { value: 'expense', label: words.direction.expense },
       { value: 'income', label: words.direction.income },

@@ -21,6 +21,8 @@ function ruleFieldValue(transaction: Transaction, field: string): string | numbe
       return transaction.ownerMemberId ?? OWNER_SHARED;
     case 'direction':
       return transaction.transactionType ?? null;
+    case 'payment_type':
+      return transaction.paymentType ?? null;
     case 'wallet':
       return transaction.walletId ?? null;
     default:

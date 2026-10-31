@@ -86,3 +86,15 @@ export function rollUpSlices(
   const rest = slices.slice(MAX_SLICES - 1).reduce((sum, slice) => sum + slice.value, 0);
   return [...kept, { key: OTHER_SLICE, name: '', value: rest, isOther: true }];
 }
+
+/** The payment types the page offers; the backend knows more, the sample statement showed these. */
+export const FILTER_PAYMENT_TYPES = ['card', 'bank_transfer_in'] as const;
+export type FilterPaymentType = (typeof FILTER_PAYMENT_TYPES)[number];
+
+/** `?paymentType=` when it is one the page offers, else no filter. */
+export function paymentTypeFromParams(params: {
+  get(name: string): string | null;
+}): FilterPaymentType | undefined {
+  const value = params.get('paymentType');
+  return FILTER_PAYMENT_TYPES.find(type => type === value);
+}

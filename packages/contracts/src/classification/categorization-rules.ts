@@ -13,6 +13,7 @@ const ClassificationCondition = Schema.Struct({
     'document_number',
     'owner',
     'direction',
+    'payment_type',
     'wallet',
   ]),
   operator: Schema.Literals([
