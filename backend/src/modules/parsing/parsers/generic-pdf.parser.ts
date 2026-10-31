@@ -9,6 +9,8 @@ import { BankName, FileType } from '../../../entities/statement.entity';
 import { contributedHeadings } from '../helpers/contributed-layouts';
 import { findAccountNumberInColumn } from '../helpers/pdf-layout-account-number.helper';
 import { statementLayout } from '../helpers/pdf-layout-fingerprint.helper';
+import type { RowRule } from '../helpers/pdf-layout-row-date.helper';
+import { pickByChecks, ROW_RULES } from '../helpers/pdf-layout-rules.helper';
 import {
   type LayoutReading,
   type LayoutTransaction,
@@ -97,7 +99,7 @@ export class GenericPdfParser extends BaseParser {
     const detectedCurrency = detectStatementCurrency(text) || appDefaultCurrency();
 
     const reading = this.readingFor(text);
-    const layoutTransactions = this.readTransactions(layoutRows, reading);
+    const layoutTransactions = this.checkedReading(layoutRows, reading, text);
     // The generic reading of the same rows: its sections' totals and the layout's words.
     const table = readLayoutTable(layoutRows, reading);
     const layout = statementLayout(table.layout, text);
@@ -229,7 +231,26 @@ export class GenericPdfParser extends BaseParser {
     rows: PdfTextRow[],
     reading: LayoutReading = this.reading,
   ): LayoutTransaction[] {
-    return readLayoutTransactions(rows, reading);
+    return readLayoutTransactions(rows, { ...reading, rows: this.rowRule });
+  }
+
+  /** The row rule `readTransactions` reads under; a bank's override passes no reading. */
+  private rowRule: RowRule = 'dated';
+
+  /**
+   * The table read under each row rule, keeping the reading the statement's
+   * printed balances and totals agree with (pdf-layout-rules.helper).
+   */
+  private checkedReading(rows: PdfTextRow[], reading: LayoutReading, text: string) {
+    try {
+      const readings = ROW_RULES.map(rule => {
+        this.rowRule = rule;
+        return this.readTransactions(rows, reading);
+      });
+      return pickByChecks(readings, text);
+    } finally {
+      this.rowRule = 'dated';
+    }
   }
 
   /** A workspace's taught layout, or else the headings contributed for the bank the file names. */

@@ -7,7 +7,13 @@ import {
   type TaughtHeadings,
 } from './pdf-layout-columns.helper';
 import { attachLeadInLines } from './pdf-layout-lead-in.helper';
-import { leadingDate, sameDayDate, startsLeftOfText } from './pdf-layout-row-date.helper';
+import {
+  leadingDate,
+  type RowDate,
+  type RowRule,
+  sameDayDate,
+  startsLeftOfText,
+} from './pdf-layout-row-date.helper';
 import {
   alignsWithSectionText,
   type LayoutSection,
@@ -65,6 +71,8 @@ export interface LayoutReading {
   columns?: LayoutColumn[];
   /** Lines the user marked as no part of the table: footers, totals, notes. */
   skip?: (row: PdfTextRow) => boolean;
+  /** How lines become transactions; `dated` when not given. */
+  rows?: RowRule;
 }
 
 /** A line further than this many line heights below the previous one is not a continuation. */
@@ -214,6 +222,7 @@ export function readLayoutTable(
     sections: [],
     sectionRead: 0,
     layout: { headers: [], sections: [] },
+    rule: reading.rows ?? 'dated',
   };
   const dateWords = (row: PdfTextRow) =>
     leadingDate([...row.items].sort((a, b) => a.x - b.x))?.used ?? 0;
@@ -244,6 +253,9 @@ interface ReadingState {
   sectionRead: number;
   sections: SectionTotal[];
   layout: { headers: LayoutColumn[][]; sections: SectionSign[] };
+  rule: RowRule;
+  /** The date of the last transaction opened, for `money` rows printed without one. */
+  lastDate?: RowDate;
 }
 
 function readRow(state: ReadingState, lines: PdfTextRow[]) {
@@ -307,10 +319,13 @@ function readRow(state: ReadingState, lines: PdfTextRow[]) {
     return;
   }
   // In a section an undated line with money is its total (below), never a row.
+  const above = state.current && { parts: state.current.date, text: state.current.dateText };
   const sameDay =
-    date || state.section
+    date || state.section || state.rule === 'strict'
       ? null
-      : sameDayDate(state.current, laidOut, isNextLine(row, state.lastRow));
+      : state.rule === 'money'
+        ? sameDayDate(state.lastDate ?? null, laidOut, true)
+        : sameDayDate(above, laidOut, isNextLine(row, state.lastRow));
   const rowDate = date ?? sameDay;
   const dated = rowDate && laidOut.amounts.length > 0 ? openTransaction(rowDate, laidOut) : null;
   if (dated && lines.length > 1) {
@@ -332,6 +347,7 @@ function readRow(state: ReadingState, lines: PdfTextRow[]) {
     state.current = null;
   } else if (opened) {
     state.current = { ...opened, account: state.account, at: { page: row.page, y: row.y } };
+    state.lastDate = { parts: opened.date, text: opened.dateText };
     state.transactions.push(state.current);
     state.sectionRead += Math.abs((opened.credit ?? 0) - (opened.debit ?? 0));
     state.lastRow = lines[lines.length - 1];
