@@ -136,14 +136,16 @@ export function ReviewDocumentGroup({
             style={
               isMobile ? { flex: '0 0 auto' } : { ...columnStyle('amount'), overflow: 'visible' }
             }
-            onClick={event => event.stopPropagation()}
-            onKeyDown={event => event.stopPropagation()}
           >
             <button
               type="button"
               className="seneca-review-group__confirm"
               disabled={confirming}
-              onClick={() => void confirmAll()}
+              onClick={event => {
+                event.stopPropagation();
+                void confirmAll();
+              }}
+              onKeyDown={event => event.stopPropagation()}
             >
               {labels.confirmAll?.value}
             </button>
