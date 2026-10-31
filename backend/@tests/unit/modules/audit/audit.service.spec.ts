@@ -193,6 +193,32 @@ describe('AuditService', () => {
     expect(createSpy).toHaveBeenCalledWith(expect.objectContaining({ batchId: 'batch-1' }));
   });
 
+  it('findWorkspaceActivity keeps to the month asked for, and to every month without one', async () => {
+    const qb = {
+      leftJoinAndSelect: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      andWhere: vi.fn().mockReturnThis(),
+      orderBy: vi.fn().mockReturnThis(),
+      take: vi.fn().mockReturnThis(),
+      getMany: vi.fn().mockResolvedValue([]),
+    };
+    auditEventRepository.createQueryBuilder = vi.fn().mockReturnValue(qb);
+
+    await service.findWorkspaceActivity('w1', 16, '2026-03');
+
+    expect(qb.andWhere).toHaveBeenCalledWith('event.createdAt >= :monthStart', {
+      monthStart: new Date(2026, 2, 1),
+    });
+    expect(qb.andWhere).toHaveBeenCalledWith('event.createdAt < :monthEnd', {
+      monthEnd: new Date(2026, 3, 1),
+    });
+
+    qb.andWhere.mockClear();
+    await service.findWorkspaceActivity('w1', 16);
+
+    expect(qb.andWhere).toHaveBeenCalledTimes(1);
+  });
+
   it('findEvents applies filters and pagination', async () => {
     const qb = {
       leftJoinAndSelect: vi.fn().mockReturnThis(),

@@ -5,6 +5,7 @@ import type { LucideIcon } from '@/app/components/icons';
 import { PRIVATE_CLASS } from '@/app/components/ui/private-amount';
 import { GRID_COLUMNS } from '../overview-layout';
 import { useSectionSpan } from '../section-span';
+import { Figure } from './Figure';
 import { Sparkline } from './Sparkline';
 
 export type KpiTone = 'neutral' | 'positive' | 'negative' | 'warning' | 'info';
@@ -61,7 +62,12 @@ export function KpiCard({
   const line = chart ? undefined : roomy && wideSpark ? wideSpark : spark;
   const body = (
     <>
-      {Icon && <Icon className="seneca-dashboard__stat-icon" aria-hidden="true" />}
+      {Icon && (
+        // The wrapper carries the mark: line icons do not pass extra attributes on.
+        <span data-skeleton-skip="">
+          <Icon className="seneca-dashboard__stat-icon" aria-hidden="true" />
+        </span>
+      )}
       <div className="seneca-dashboard__stat-label">
         {/* The figure stays ink; the tone shows only as this dot and the sparkline. */}
         {tone !== 'neutral' && (
@@ -72,9 +78,9 @@ export function KpiCard({
         )}
         {label}
       </div>
-      <div className={clsx('seneca-dashboard__stat-value', !plainValue && PRIVATE_CLASS)}>
+      <Figure className={clsx('seneca-dashboard__stat-value', !plainValue && PRIVATE_CLASS)}>
         {value}
-      </div>
+      </Figure>
       {caption && (
         <div className="seneca-dashboard__stat-row">
           <span className="seneca-dashboard__stat-sub">{caption}</span>

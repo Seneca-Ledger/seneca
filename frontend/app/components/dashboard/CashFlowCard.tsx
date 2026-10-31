@@ -2,17 +2,21 @@
 
 import BarChartOutlined from '@mui/icons-material/BarChartOutlined';
 import type React from 'react';
-import { useLayoutEffect, useMemo, useRef, useSyncExternalStore } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { formatMonthLabel, niceCeiling } from '@/app/components/charts/chart-format';
 import { LazyCashFlowBars } from '@/app/components/charts/lazy-charts';
 import { PRIVATE_CLASS, PrivateAmount } from '@/app/components/ui/private-amount';
+import { TextTabs } from '@/app/components/ui/text-tabs';
 import {
   type DashboardCashFlowEntry,
   type DashboardCashFlowPoint,
   useCashFlowEntries,
 } from '@/app/hooks/useDashboard';
 import { useIntlayer, useLocale } from '@/app/i18n';
-import { CardEmpty, DashboardCard } from './ui';
+import { CashFlowCalendar } from './CashFlowCalendar';
+import { CashFlowFlow } from './CashFlowFlow';
+import { monthRange } from './cash-flow-flow';
+import { CardEmpty, CardLink, DashboardCard, Figure } from './ui';
 
 interface CashFlowCardProps {
   formatAmount: (value: number) => string;
@@ -45,6 +49,36 @@ function useIsPhone(): boolean {
   );
 }
 
+type CashFlowView = 'chart' | 'calendar' | 'flow';
+
+const VIEWS: CashFlowView[] = ['chart', 'calendar', 'flow'];
+
+/** Which view this reader left the card in; a convenience of this browser only. */
+const VIEW_KEY = 'seneca.cashFlowView';
+
+function readView(): CashFlowView {
+  try {
+    const saved = window.localStorage.getItem(VIEW_KEY);
+    return VIEWS.find(view => view === saved) ?? 'chart';
+  } catch {
+    return 'chart';
+  }
+}
+
+function storeView(view: CashFlowView): void {
+  try {
+    window.localStorage.setItem(VIEW_KEY, view);
+  } catch {
+    // Storage blocked: the view just is not remembered.
+  }
+}
+
+/** Reports → Cash flow opened on the same month. */
+function reportsHref(month: string): string {
+  const { from, to } = monthRange(month);
+  return `/reports?tab=cash-flow&from=${from}&to=${to}`;
+}
+
 /** The reader's calendar day as YYYY-MM-DD (in UTC it can still be yesterday). */
 function todayKey(): string {
   const now = new Date();
@@ -75,12 +109,20 @@ export function CashFlowCard({
   days,
 }: CashFlowCardProps): React.JSX.Element {
   const t = useIntlayer('cashFlowCard');
+  const overview = useIntlayer('overviewTab');
   const { locale } = useLocale();
   const income = days.reduce((sum, day) => sum + day.income, 0);
   const expense = days.reduce((sum, day) => sum + day.expense, 0);
   const budgeted = days.reduce((sum, day) => sum + day.budgeted, 0);
   const hasMoney = days.some(day => day.income !== 0 || day.expense !== 0);
   const isPhone = useIsPhone();
+  // The chart first, as the server drew it; the remembered view after mount, so hydration matches.
+  const [view, setView] = useState<CashFlowView>('chart');
+  useEffect(() => setView(readView()), []);
+  const changeView = (next: CashFlowView) => {
+    setView(next);
+    storeView(next);
+  };
   const entries = useCashFlowEntries(activeMonth);
   // A day's tooltip names what made its bars, so the rows are grouped by day once.
   const entriesByDay = useMemo(() => {
@@ -111,10 +153,28 @@ export function CashFlowCard({
       title={t.title}
       subtitle={formatMonthLabel(activeMonth, locale)}
       className="seneca-dashboard__cashflow-card"
+      action={
+        <>
+          <TextTabs<CashFlowView>
+            value={view}
+            onChange={changeView}
+            options={[
+              { value: 'chart', label: t.viewChart.value },
+              { value: 'calendar', label: t.viewCalendar.value },
+              { value: 'flow', label: t.viewFlow.value },
+            ]}
+            ariaLabel={t.viewLabel.value}
+          />
+          {/* The flow is a preview of the Reports one; its filters and detail live there. */}
+          {view === 'flow' && (
+            <CardLink href={reportsHref(activeMonth)}>{overview.viewAll}</CardLink>
+          )}
+        </>
+      }
     >
-      <div className={`seneca-chart__total ${PRIVATE_CLASS}`}>
+      <Figure className={`seneca-chart__total ${PRIVATE_CLASS}`}>
         {netFigure(income - expense, formatAmount)}
-      </div>
+      </Figure>
       <div className="seneca-chart__breakdown">
         <span className="seneca-chart__breakdown-series seneca-chart__breakdown-series--income">
           {t.income.value} <PrivateAmount>{formatAmount(income)}</PrivateAmount>
@@ -128,40 +188,47 @@ export function CashFlowCard({
           </span>
         )}
       </div>
-      <div className="seneca-chart__box">
-        {hasMoney ? (
-          <div ref={scrollerRef} className="seneca-chart__scroller">
-            <div
-              className="seneca-chart__scroller-track"
-              style={isPhone ? { width: points.length * PHONE_DAY_WIDTH } : undefined}
-            >
-              <LazyCashFlowBars
-                points={points}
-                locale={locale}
-                labels={{
-                  income: t.income.value,
-                  expense: t.expense.value,
-                  budgeted: t.budgeted.value,
-                  noData: t.noData.value,
-                }}
-                formatAmount={formatAmount}
-                formatTick={formatAmount}
-                // The month's income, rounded up; a bigger single bar lifts it so none spills over.
-                ceiling={niceCeiling(
-                  Math.max(income, ...points.map(day => Math.max(day.income, day.expense))),
-                )}
-                typical={typicalSpend(points)}
-                everyDay={isPhone}
-                entriesByDay={entriesByDay}
-              />
+      {/* The calendar grows with the month's weeks; the chart keeps its fixed box. */}
+      {hasMoney && view === 'calendar' ? (
+        <CashFlowCalendar days={days} entriesByDay={entriesByDay} formatAmount={formatAmount} />
+      ) : hasMoney && view === 'flow' ? (
+        <CashFlowFlow month={activeMonth} formatAmount={formatAmount} />
+      ) : (
+        <div className="seneca-chart__box">
+          {hasMoney ? (
+            <div ref={scrollerRef} className="seneca-chart__scroller">
+              <div
+                className="seneca-chart__scroller-track"
+                style={isPhone ? { width: points.length * PHONE_DAY_WIDTH } : undefined}
+              >
+                <LazyCashFlowBars
+                  points={points}
+                  locale={locale}
+                  labels={{
+                    income: t.income.value,
+                    expense: t.expense.value,
+                    budgeted: t.budgeted.value,
+                    noData: t.noData.value,
+                  }}
+                  formatAmount={formatAmount}
+                  formatTick={formatAmount}
+                  // The month's income, rounded up; a bigger single bar lifts it so none spills over.
+                  ceiling={niceCeiling(
+                    Math.max(income, ...points.map(day => Math.max(day.income, day.expense))),
+                  )}
+                  typical={typicalSpend(points)}
+                  everyDay={isPhone}
+                  entriesByDay={entriesByDay}
+                />
+              </div>
             </div>
-          </div>
-        ) : (
-          <CardEmpty icon={BarChartOutlined} fill>
-            {t.empty}
-          </CardEmpty>
-        )}
-      </div>
+          ) : (
+            <CardEmpty icon={BarChartOutlined} fill>
+              {t.empty}
+            </CardEmpty>
+          )}
+        </div>
+      )}
     </DashboardCard>
   );
 }

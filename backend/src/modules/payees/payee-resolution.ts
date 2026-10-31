@@ -1,5 +1,6 @@
 import type { EntityManager } from 'typeorm';
 import { type PayeeKeyInput, payeeKeyOf, payeeNameOf } from '../../common/utils/payee-key.util';
+import { truncatedTwinId } from './payee-truncation';
 
 /**
  * The payee a descriptor belongs to in this workspace, creating it (named
@@ -22,6 +23,26 @@ export async function resolvePayeeId(
   const existing = await findPayeeId(manager, workspaceId, payeeKey);
   if (existing) {
     return existing;
+  }
+
+  // A bank that cuts names short ("MAMTA KUM" for "MAMTA KUMARI DAS") still
+  // means the one payee already known under the full or the shorter name.
+  const twin = await truncatedTwinId(manager, workspaceId, payeeKey);
+  if (twin) {
+    await manager.query(
+      `INSERT INTO payee_aliases (workspace_id, payee_key, payee_id) VALUES ($1, $2, $3)
+       ON CONFLICT DO NOTHING`,
+      [workspaceId, payeeKey, twin],
+    );
+    // The fuller spelling names it from now on, unless someone renamed it.
+    await manager.query(
+      `UPDATE payees SET name = $3
+       WHERE id = $1 AND workspace_id = $2
+         AND length(replace(name, ' ', '')) < length(replace($3, ' ', ''))
+         AND replace(lower($3), ' ', '') LIKE replace(lower(name), ' ', '') || '%'`,
+      [twin, workspaceId, payeeNameOf(descriptor) ?? payeeKey],
+    );
+    return (await findPayeeId(manager, workspaceId, payeeKey)) ?? twin;
   }
 
   const [created] = await manager.query(

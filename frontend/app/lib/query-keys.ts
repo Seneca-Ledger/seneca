@@ -27,8 +27,15 @@ export const queryKeys = {
   payee: (workspaceId: string | null, id: string) => ['payees', workspaceId, 'one', id] as const,
   categorizationRules: (workspaceId: string | null) =>
     ['categorization-rules', workspaceId] as const,
-  categorizationRulePreview: (workspaceId: string | null, conditions: unknown) =>
-    ['categorization-rules', workspaceId, 'preview', conditions] as const,
+  categorizationRule: (workspaceId: string | null, id: string) =>
+    ['categorization-rules', workspaceId, 'one', id] as const,
+  categorizationRulePreview: (
+    workspaceId: string | null,
+    conditions: unknown,
+    ruleId: string | null = null,
+  ) => ['categorization-rules', workspaceId, 'preview', conditions, ruleId] as const,
+  categorizationRuleSuggestions: (workspaceId: string | null) =>
+    ['categorization-rules', workspaceId, 'suggestions'] as const,
   reviewInbox: (o: { workspaceId: string | null; params: Record<string, unknown> }) =>
     ['review-inbox', o.workspaceId, o.params] as const,
   reviewInboxCounts: (workspaceId: string | null, reviewer?: string) =>
@@ -68,6 +75,11 @@ export const queryKeys = {
     ['reports', 'spend-flow', o.workspaceId, o.params] as const,
   goalItems: (o: { workspaceId: string | null; goalId: string }) =>
     ['goals', 'items', o.workspaceId, o.goalId] as const,
+  // Under the goals prefix: a goal saved anywhere refreshes the link's name too.
+  transactionGoal: (o: { workspaceId: string | null; transactionId: string }) =>
+    ['goals', 'transaction-link', o.workspaceId, o.transactionId] as const,
+  goalDetail: (o: { workspaceId: string | null; goalId: string }) =>
+    ['goals', 'detail', o.workspaceId, o.goalId] as const,
   // Локаль в ключе: сервер отдаёт текст совета на языке интерфейса, поэтому
   // один и тот же воркспейс на разных языках — разные данные.
   insights: (workspaceId: string | null, locale: string) =>
@@ -152,8 +164,8 @@ export const queryKeys = {
     ['subscriptions', o.workspaceId, 'upcoming', o.days] as const,
   subscriptionsChargeCalendar: (o: { workspaceId: string | null; months: number }) =>
     ['subscriptions', o.workspaceId, 'charge-calendar', o.months] as const,
-  subscriptionsMonthStatus: (workspaceId: string | null) =>
-    ['subscriptions', workspaceId, 'month-status'] as const,
+  subscriptionsMonthStatus: (workspaceId: string | null, month: string) =>
+    ['subscriptions', workspaceId, 'month-status', month] as const,
   subscriptionDetail: (o: { workspaceId: string | null; id: string }) =>
     ['subscriptions', o.workspaceId, 'detail', o.id] as const,
   subscriptionChargeCandidates: (o: {
@@ -236,6 +248,8 @@ export const queryKeys = {
   // edit that refreshes the figures refreshes it too.
   receiptTax: (o: { workspaceId: string | null; receiptId: string }) =>
     ['transactions', 'receipt-tax', o.workspaceId, o.receiptId] as const,
+  transactionRecord: (o: { workspaceId: string | null; transactionId: string }) =>
+    ['transactions', 'record', o.workspaceId, o.transactionId] as const,
   /** Instance-wide (the running containers), so the one key without a workspace. */
   systemUpdate: () => ['system-update'] as const,
   /** Instance-wide too: every workspace's statements, as counts per bank and layout. */

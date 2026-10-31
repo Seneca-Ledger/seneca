@@ -18,6 +18,22 @@ import type { ReactNode } from 'react';
 
 export type GridAlign = 'start' | 'center' | 'end';
 
+/**
+ * How a cell looks while the grid loads: a text line (the default), a round
+ * mark (icon, avatar), a rounded block (chip, button) or nothing.
+ */
+export interface GridSkeletonCell {
+  shape: 'text' | 'circle' | 'rounded' | 'none';
+  /** Text: the longest line. Rounded: the block's width. */
+  width?: number;
+  /** Circle: its diameter. Rounded: the block's height. */
+  height?: number;
+  /** Rounded: the real element's radius. */
+  radius?: string;
+  /** Text: a round mark of this size before the line (a category icon). */
+  icon?: number;
+}
+
 /** Per-column presentation hints read by DataGrid when rendering th/td. */
 export interface GridColumnMeta {
   align?: GridAlign;
@@ -27,6 +43,8 @@ export interface GridColumnMeta {
   label?: string;
   /** Extra header controls rendered next to (not inside) the sort button. */
   headerActions?: ReactNode;
+  /** The placeholder in this column's cells while the first rows load. */
+  skeleton?: GridSkeletonCell;
 }
 
 /**

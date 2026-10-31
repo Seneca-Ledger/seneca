@@ -1,6 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
+import { useSearchParams } from 'next/navigation';
 import { useCallback, useMemo, useState } from 'react';
 import { useViewPreference } from '@/app/components/transactions/hooks/useViewPreference';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
@@ -42,8 +43,9 @@ export interface CashFlowMapData {
   treemap: Array<{
     id: string;
     name: string;
+    icon: string | null;
     value: number;
-    children: Array<{ id: string; name: string; value: number }>;
+    children: Array<{ id: string; name: string; icon: string | null; value: number }>;
   }>;
 }
 
@@ -74,13 +76,22 @@ function readReportsView(saved: Readonly<Record<string, unknown>>): SavedSwitche
   };
 }
 
+const DAY = /^\d{4}-\d{2}-\d{2}$/;
+
 export function useCashFlowMap() {
   const workspaceId = useWorkspaceId();
+  const searchParams = useSearchParams();
   const view = useViewPreference('reports', readReportsView);
   const includeTransfers = view.state?.includeTransfers ?? true;
   const netRefunds = view.state?.netRefunds ?? false;
   const [local, setLocal] = useState<Omit<CashFlowFilters, keyof SavedSwitches>>(() => {
-    const [from, to] = presetRangeValues(QUICK_PERIOD_PRESETS[0]);
+    // A link may name the period (`?from=&to=`, the dashboard's month); else the first preset.
+    const linkedFrom = searchParams?.get('from') ?? '';
+    const linkedTo = searchParams?.get('to') ?? '';
+    const [from, to] =
+      DAY.test(linkedFrom) && DAY.test(linkedTo) && linkedFrom <= linkedTo
+        ? [linkedFrom, linkedTo]
+        : presetRangeValues(QUICK_PERIOD_PRESETS[0]);
     return { from, to, compare: true, compareTo: 'previous', categories: [], owner: null };
   });
   const filters = useMemo<CashFlowFilters>(

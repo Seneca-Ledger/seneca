@@ -23,9 +23,12 @@ import { Statement } from './statement.entity';
 import { Tag } from './tag.entity';
 import { TaxRate } from './tax-rate.entity';
 import { TaxRule } from './tax-rule.entity';
+import { TransactionCategorySource } from './transaction-category-source';
 import { Wallet } from './wallet.entity';
 import { Workspace } from './workspace.entity';
 import { WorkspaceMember } from './workspace-member.entity';
+
+export { TransactionCategorySource };
 
 /** Why a given rate ended up on a transaction. */
 export enum TaxSource {
@@ -42,20 +45,6 @@ export enum TaxSource {
 export enum TransactionType {
   INCOME = 'income',
   EXPENSE = 'expense',
-}
-
-/**
- * Which step of the classification chain set `categoryId`, in order of
- * precedence. `manual` is sticky: re-classification never overrides it.
- */
-export enum TransactionCategorySource {
-  MANUAL = 'manual',
-  RULE = 'rule',
-  KEYWORD = 'keyword',
-  LEARNED = 'learned',
-  HISTORY = 'history',
-  AI = 'ai',
-  DEFAULT = 'default',
 }
 
 /** What a pair of linked legs represents. */

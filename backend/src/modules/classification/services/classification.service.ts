@@ -14,7 +14,7 @@ import { ActorType, AuditAction, EntityType } from '../../../entities/audit-even
 import { Branch } from '../../../entities/branch.entity';
 import { CategorizationRule } from '../../../entities/categorization-rule.entity';
 import { Category, CategorySource, CategoryType } from '../../../entities/category.entity';
-import { Payee } from '../../../entities/payee.entity';
+import { Payee, PayeeMode } from '../../../entities/payee.entity';
 import { PayeeAlias } from '../../../entities/payee-alias.entity';
 import {
   Transaction,
@@ -28,10 +28,13 @@ import { UNCATEGORIZED_CATEGORY_NAME } from '../../categories/uncategorized-cate
 import { decidePayeeCategory } from '../engine/payee-category.matcher';
 import { onlyPayeeEvidence } from '../engine/payee-evidence';
 import { matchesConditions } from '../engine/rule-conditions';
+import { applyRuleResult } from '../engine/rule-result';
+import { ruleTags } from '../engine/rule-tags';
 import {
   type ClassificationCondition,
   type ClassificationRule,
 } from '../interfaces/classification-rule.interface';
+import { newestHistoryByPayee, payeeIdOf, suggestCategory } from './auto-category';
 
 /** A category plus the step that found it and the payload the UI shows as "why". */
 export type AutoCategoryMatch = {
@@ -111,27 +114,10 @@ export class ClassificationService {
     const rule = await this.firstApplicableRule(rules, transaction, workspaceId);
     if (rule) {
       matchedRule = rule;
-      if (rule.result.categoryId) {
-        classification.categoryId = rule.result.categoryId;
-        classification.categorySource = TransactionCategorySource.RULE;
-        classification.categoryReason = rule.name;
-      }
-      if (rule.result.branchId) {
-        classification.branchId = rule.result.branchId;
-      }
-      if (rule.result.walletId) {
-        classification.walletId = rule.result.walletId;
-      }
-      if (rule.result.ownerMemberId !== undefined) {
-        classification.ownerMemberId = rule.result.ownerMemberId;
-        ruleSetOwner = true;
-      }
-      if (rule.result.article) {
-        classification.article = rule.result.article;
-      }
-      if (rule.result.activityType) {
-        classification.activityType = rule.result.activityType;
-      }
+      ({ ruleSetOwner } = applyRuleResult(rule, classification));
+      // A relation for a new row; callers updating an existing row add them instead.
+      const tags = await ruleTags(this.walletRepository.manager, workspaceId, rule.result.tagIds);
+      if (tags) classification.tags = tags;
       await this.recordRuleMatch(rule.id, workspaceId);
     }
 
@@ -281,17 +267,21 @@ export class ClassificationService {
     transactionType: TransactionType,
     workspaceId: string | null = null,
   ): Promise<AutoCategoryMatch | undefined> {
-    // No category is ever guessed from the text of a descriptor. A bank string
-    // contains a category name by accident often enough ("ENTERPRISE RENT-A-CAR"
-    // -> Rent, "TRAVELODGE" -> Travel) that the guess is wrong more often than
-    // it is right, and a wrong category reaches budgets and fires a false
-    // overspend alert. What the user taught about this payee decides instead.
-
-    const payeeMatch = workspaceId
-      ? await this.matchByPayeeHistory(transaction, workspaceId)
-      : undefined;
-    if (payeeMatch) {
-      return payeeMatch;
+    // A category name is never matched against a descriptor's text: a bank
+    // string contains one by accident often enough ("ENTERPRISE RENT-A-CAR" ->
+    // Rent, "TRAVELODGE" -> Travel). What the user taught about this payee
+    // decides first. After it only a suggestion (suggestions/): the bank's own
+    // fees and interest, or the kind of the operation. A suggestion stays
+    // unconfirmed until a person accepts it, so it reaches no budget and fires
+    // no overspend alert on its own (onlyCounted).
+    // null: the payee is set to "never", so no suggestion either.
+    const fromPayee = workspaceId ? await this.matchByPayeeHistory(transaction, workspaceId) : null;
+    const match =
+      fromPayee === undefined && workspaceId
+        ? await suggestCategory(this.categoryRepository, transaction, transactionType, workspaceId)
+        : fromPayee;
+    if (match) {
+      return match;
     }
 
     // FALLBACK: Create "Uncategorized" to ensure transaction is categorized
@@ -315,14 +305,12 @@ export class ClassificationService {
   private async matchByPayeeHistory(
     transaction: Transaction,
     workspaceId: string,
-  ): Promise<AutoCategoryMatch | undefined> {
-    let payeeId = transaction.payeeId ?? null;
-    if (!payeeId) {
-      const payeeKey = payeeKeyOf(transaction);
-      const alias = payeeKey
-        ? await this.payeeAliasRepository.findOne({ where: { workspaceId, payeeKey } })
-        : null;
-      payeeId = alias?.payeeId ?? null;
+  ): Promise<AutoCategoryMatch | null | undefined> {
+    const payeeId = await payeeIdOf(this.payeeAliasRepository, transaction, workspaceId);
+    const payee =
+      payeeId && (await this.payeeRepository.findOne({ where: { id: payeeId, workspaceId } }));
+    if (payee && payee.mode === PayeeMode.NEVER) {
+      return null;
     }
     return payeeId ? this.categoryForPayee(workspaceId, payeeId) : undefined;
   }
@@ -373,15 +361,7 @@ export class ClassificationService {
         .getMany(),
     ]);
 
-    // Newest first per payee, the most recent PAYEE_HISTORY_DEPTH of them.
-    const historyOf = new Map<string, Array<{ categoryId: string }>>();
-    for (const row of evidence) {
-      const history = historyOf.get(row.payeeId as string) ?? [];
-      if (history.length < PAYEE_HISTORY_DEPTH) {
-        history.push({ categoryId: row.categoryId as string });
-      }
-      historyOf.set(row.payeeId as string, history);
-    }
+    const historyOf = newestHistoryByPayee(evidence, PAYEE_HISTORY_DEPTH);
 
     for (const payee of payees) {
       const decision = decidePayeeCategory({
@@ -451,9 +431,8 @@ export class ClassificationService {
     }
     const userRules = await this.categorizationRuleRepository.find({
       where: { workspaceId, isActive: true },
-      order: {
-        priority: 'DESC',
-      },
+      // Equal priorities: the newer rule first, as on the rules page.
+      order: { priority: 'DESC', createdAt: 'DESC' },
     });
 
     // Convert database rules to ClassificationRule format
@@ -467,11 +446,13 @@ export class ClassificationService {
       isActive: rule.isActive,
     }));
 
-    // No built-in rule templates. The ones that used to live here matched
+    // No built-in rule templates here. The ones that used to live here matched
     // Russian wording of Kazakh bank statements and created their categories by
     // name ("Платежи Kaspi Red", "Аренда"), so the first import seeded a German
     // or Spanish workspace with Russian categories. Bank-specific wording
-    // belongs to the bank profile, not to every workspace in the product.
+    // belongs to the bank profile. The only built-in matches left are a bank's
+    // own fees and interest (engine/builtin-rules), which run after history and
+    // only ever pick an existing system category.
     return dbRules.sort((a, b) => b.priority - a.priority);
   }
 

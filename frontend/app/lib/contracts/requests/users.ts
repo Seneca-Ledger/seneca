@@ -209,7 +209,7 @@ export const UpdateMyPreferencesBody = Schema.Struct({
     ]),
   ),
   timeZone: optionalNullable(Schema.String.check(Schema.isMaxLength(64))),
-  themePreference: optionalNullable(Schema.Literals(['light', 'dark', 'auto'])),
+  themePreference: optionalNullable(Schema.Literals(['light', 'dark', 'system'])),
   dateFormat: optionalNullable(Schema.Literals(['auto', 'dmy', 'mdy', 'ymd'])),
   firstDayOfWeek: optionalNullable(
     Schema.Int.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(6)),

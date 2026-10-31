@@ -65,9 +65,9 @@ export class AuditController {
   @SchemaResponse(WorkspaceActivity)
   async activity(
     @WorkspaceId() workspaceId: string,
-    @SchemaQuery(WorkspaceActivityQuery) { limit }: WorkspaceActivityQuery,
+    @SchemaQuery(WorkspaceActivityQuery) { limit, month }: WorkspaceActivityQuery,
   ) {
-    return { items: await this.auditService.findWorkspaceActivity(workspaceId, limit) };
+    return { items: await this.auditService.findWorkspaceActivity(workspaceId, limit, month) };
   }
 
   @Get('entity/:entityType/:entityId')

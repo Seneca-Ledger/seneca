@@ -8,14 +8,7 @@ import {
 } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import {
-  Between,
-  type EntityManager,
-  type FindOperator,
-  In,
-  LessThanOrEqual,
-  Repository,
-} from 'typeorm';
+import { type EntityManager, In, LessThanOrEqual, Repository } from 'typeorm';
 import type { QueryDeepPartialEntity } from 'typeorm/query-builder/QueryPartialEntity';
 import { toEnum } from '../../common/effect/to-enum';
 import { appError } from '../../common/errors/app-error';
@@ -79,6 +72,13 @@ import {
 } from '../tax/tax-assignment.service';
 import { projectMonthlyCharges, splitMonthCharges } from './charge-calendar.util';
 import { CurrencyTotals } from './currency-totals';
+import {
+  type ConvertAt,
+  chargesInMonth,
+  dayInMonth,
+  isPastMonth,
+  pastMonthStatus,
+} from './month-status-history';
 import { payeeMatchesVendor } from './payee-match.util';
 import {
   costPerUse,
@@ -709,8 +709,21 @@ export class SubscriptionsService {
     return { currency: workspaceCurrency, months: monthLabels, monthTotals, rows: visibleRows };
   }
 
-  /** This month's charges of active subscriptions, paid (on or before today) and still to come. */
-  async getMonthStatus(workspaceId: string): Promise<SubscriptionMonthStatus> {
+  /**
+   * This month's charges of active subscriptions, paid (on or before today) and
+   * still to come; a past `month` (`YYYY-MM`) is what was charged in it.
+   */
+  async getMonthStatus(workspaceId: string, month?: string): Promise<SubscriptionMonthStatus> {
+    if (isPastMonth(month, new Date())) {
+      const workspace = await this.workspaceRepository.findOne({ where: { id: workspaceId } });
+      const currency = workspace?.currency?.toUpperCase() ?? null;
+      const convert: ConvertAt = async (amount, from, day) =>
+        currency
+          ? (await this.exchangeRatesService.convert(amount, from, currency, day, workspaceId))
+              .converted
+          : amount;
+      return pastMonthStatus(this.chargeRepository, convert, workspaceId, month, currency);
+    }
     const [active, workspace] = await Promise.all([
       this.subscriptionRepository.find({
         where: { workspaceId, status: SubscriptionStatus.ACTIVE },
@@ -719,8 +732,8 @@ export class SubscriptionsService {
     ]);
 
     const workspaceCurrency = workspace?.currency?.toUpperCase() ?? null;
-    const today = new Date();
-    const recordedThisMonth = await this.chargesInMonth(workspaceId, today);
+    const today = dayInMonth(month, new Date());
+    const recordedThisMonth = await chargesInMonth(this.chargeRepository, workspaceId, today);
     const status = { paidAmount: 0, paidCount: 0, unpaidAmount: 0, unpaidCount: 0 };
     const paidByCurrency = new CurrencyTotals();
     const unpaidByCurrency = new CurrencyTotals();
@@ -781,24 +794,6 @@ export class SubscriptionsService {
       unpaidByCurrency: unpaidByCurrency.list(),
       items,
     };
-  }
-
-  /** How many payments each subscription of the workspace has recorded in the month of `day`. */
-  private async chargesInMonth(workspaceId: string, day: Date): Promise<Map<string, number>> {
-    const first = new Date(day.getFullYear(), day.getMonth(), 1);
-    const last = new Date(day.getFullYear(), day.getMonth() + 1, 0);
-    const charges = await this.chargeRepository.find({
-      select: { subscriptionId: true },
-      where: {
-        workspaceId,
-        chargeDate: Between(localDay(first), localDay(last)) as unknown as FindOperator<Date>,
-      },
-    });
-    const counts = new Map<string, number>();
-    for (const charge of charges) {
-      counts.set(charge.subscriptionId, (counts.get(charge.subscriptionId) ?? 0) + 1);
-    }
-    return counts;
   }
 
   /** Open bills and sent invoices due inside the horizon, one row each, bucketed by due month. */

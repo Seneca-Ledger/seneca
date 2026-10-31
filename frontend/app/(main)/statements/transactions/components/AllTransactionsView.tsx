@@ -1,6 +1,5 @@
 'use client';
 
-import Skeleton from '@mui/material/Skeleton';
 import { useQuery } from '@tanstack/react-query';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useMemo, useState } from 'react';
@@ -150,7 +149,11 @@ export function AllTransactionsView(): React.JSX.Element {
         <TransactionsPageTitle page="all" span={spanOf(period)} extras={[]} />
       </header>
 
-      <OverviewPies overview={overview.data} formatAmount={formatAmount} />
+      <OverviewPies
+        loading={overview.isPending}
+        overview={overview.data}
+        formatAmount={formatAmount}
+      />
       <div className="seneca-all-tx__scope">
         {period.kind === 'all' ? (
           <button type="button" className="seneca-all-tx__text-link" onClick={() => goTo({})}>
@@ -187,16 +190,11 @@ export function AllTransactionsView(): React.JSX.Element {
           </div>
           {list.isError ? (
             <LoadError>{t.loadFailed}</LoadError>
-          ) : list.isPending ? (
-            <div className="seneca-all-tx__state">
-              {Array.from({ length: 6 }, (_, index) => (
-                <Skeleton key={index} variant="rounded" height={36} />
-              ))}
-            </div>
-          ) : rows.length === 0 ? (
+          ) : !list.isPending && rows.length === 0 ? (
             <p className="seneca-all-tx__state seneca-all-tx__muted">{t.empty}</p>
           ) : (
             <AllTransactionsTable
+              loading={list.isPending}
               rows={rows}
               categories={categoriesQuery.data ?? []}
               budgetByCategory={budgetByCategory}
@@ -220,6 +218,7 @@ export function AllTransactionsView(): React.JSX.Element {
         </section>
 
         <MonthsColumn
+          loading={overview.isPending}
           months={overview.data?.months ?? []}
           selected={period.kind === 'month' ? period.month : null}
           onSelect={month => goTo({ month })}

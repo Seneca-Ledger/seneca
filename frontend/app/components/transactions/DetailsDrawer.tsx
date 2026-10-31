@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
+import { GoalLinkField } from '@/app/components/goals/GoalLinkField';
 import { FileText } from '@/app/components/icons';
 import { NotesPanel } from '@/app/components/notes/NotesPanel';
 import { useIntlayer, useLocale } from '@/app/i18n';
@@ -228,13 +229,23 @@ export default function DetailsDrawer({
         </div>
 
         {activeTab === 'details' && (
-          <TransactionDetailsTab
-            transaction={transaction}
-            categories={categories}
-            onUpdateCategory={onUpdateCategory}
-            onMarkIgnored={onMarkIgnored}
-            onSplitDone={onSplitDone}
-          />
+          <>
+            <TransactionDetailsTab
+              transaction={transaction}
+              categories={categories}
+              onUpdateCategory={onUpdateCategory}
+              onMarkIgnored={onMarkIgnored}
+              onSplitDone={onSplitDone}
+            />
+            {/* Income adds to a goal, an expense takes from it. */}
+            <div style={{ marginTop: 24 }}>
+              <GoalLinkField
+                key={transaction.id}
+                transactionId={transaction.id}
+                syncKey={`${transaction.amount}|${transaction.transactionType}|${transaction.currency}`}
+              />
+            </div>
+          </>
         )}
         {activeTab === 'notes' && (
           <NotesPanel

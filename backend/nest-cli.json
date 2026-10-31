@@ -8,6 +8,10 @@
       {
         "include": "config-assets/bank-profiles/**/*",
         "outDir": "dist"
+      },
+      {
+        "include": "config-assets/brands/**/*",
+        "outDir": "dist"
       }
     ]
   }

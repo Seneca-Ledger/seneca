@@ -22,7 +22,11 @@ export interface ClassificationCondition {
      * happens after the rules run — so an owner condition matches when a rule
      * is re-applied to an existing row, not on the first pass of an import.
      */
-    | 'owner';
+    | 'owner'
+    /** `income` or `expense`: amounts are stored unsigned, the direction says which. */
+    | 'direction'
+    /** The account (wallet) the row sits in, by id. */
+    | 'wallet';
   operator:
     | 'contains'
     | 'equals'
@@ -45,4 +49,6 @@ export interface ClassificationResult {
    * so beats inheriting the owner from the wallet: the user asked for it by name.
    */
   ownerMemberId?: string | null;
+  /** Tags added to the row. Never a replacement: the tags it already has stay. */
+  tagIds?: string[];
 }

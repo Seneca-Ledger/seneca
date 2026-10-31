@@ -5,6 +5,7 @@ import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import MuiMenu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
+import Skeleton from '@mui/material/Skeleton';
 import Switch from '@mui/material/Switch';
 import { useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
@@ -44,7 +45,7 @@ export function AccountMenu({
   onAction?: () => void;
 }) {
   const router = useRouter();
-  const { user, logout, setUser } = useAuth();
+  const { user, loading: authLoading, logout, setUser } = useAuth();
   const { hasPermission } = usePermissions();
   const { setTheme, resolvedTheme } = useTheme();
   const { userMenu, nav } = useIntlayer('navigation');
@@ -63,7 +64,13 @@ export function AccountMenu({
   const privacy = usePrivacyMode();
 
   if (!user) {
-    return null;
+    // While the session loads the sidebar keeps the row where the account will be.
+    return variant === 'sidebar' && authLoading ? (
+      <div className="seneca-account__trigger seneca-account__trigger--sidebar" aria-hidden="true">
+        <Skeleton variant="circular" className="seneca-account__avatar" />
+        <Skeleton variant="text" width={80} />
+      </div>
+    ) : null;
   }
 
   const avatarUrl = normalizeAvatarUrl(user.avatarUrl);

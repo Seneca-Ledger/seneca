@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { useWorkspace } from '@/app/contexts/WorkspaceContext';
 import { getWorkspacesRootRedirectPath } from '@/app/lib/workspace-tabs';
+import WorkspaceTabShell from './components/WorkspaceTabShell';
 
 export default function WorkspacesPage() {
   const router = useRouter();
@@ -16,5 +17,6 @@ export default function WorkspacesPage() {
     router.replace(getWorkspacesRootRedirectPath(Boolean(currentWorkspace)));
   }, [currentWorkspace, loading, router]);
 
-  return null;
+  // Most visits land on Overview: show its frame until the redirect.
+  return loading ? <WorkspaceTabShell activeItem="overview">{null}</WorkspaceTabShell> : null;
 }

@@ -5,7 +5,6 @@ import Button from '@mui/material/Button';
 import Checkbox from '@mui/material/Checkbox';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
-import Skeleton from '@mui/material/Skeleton';
 import Typography from '@mui/material/Typography';
 import { useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
@@ -39,10 +38,11 @@ import { formatMoney } from '@/app/lib/format-money';
 import { usePrivacyMode } from '@/app/lib/privacy-mode';
 import { useCategoryName } from '@/app/lib/use-category-name';
 import { presetRangeValues, QUICK_PERIOD_PRESETS } from '../report-period-presets';
+import { CashFlowSkeleton } from './CashFlowSkeleton';
 import { CashFlowTab } from './CashFlowTab';
 import { CashFlowTile } from './CashFlowTile';
 import { CashFlowTreemap } from './CashFlowTreemap';
-import { buildCashFlowSankey, CASH_FLOW_MIN_HEIGHT, cashFlowChartHeight } from './cash-flow.chart';
+import { buildCashFlowSankey, cashFlowChartHeight } from './cash-flow.chart';
 import { useCashFlowMap } from './useCashFlowMap';
 
 type Text = (key: string, fallback: string) => string;
@@ -475,7 +475,7 @@ export function CashFlowView({
         ) : null}
       </Box>
 
-      {isPending && <Skeleton variant="rounded" height={CASH_FLOW_MIN_HEIGHT} />}
+      {isPending && <CashFlowSkeleton text={text} filters={filters} />}
       {error && (
         <LoadError spacing={2}>{text('cfError', 'Could not load the cash-flow map')}</LoadError>
       )}
@@ -491,15 +491,12 @@ export function CashFlowView({
             transition: 'opacity 150ms',
           }}
         >
-          {/* Narrow tiles from the left: a 30px figure fills one; three full-width cards left it lost. */}
           <Box
             sx={{
               display: 'grid',
-              // A phone fits one tile per row; a fixed-width tile there left a ragged gap on the right.
-              gridTemplateColumns: {
-                xs: 'minmax(0, 1fr)',
-                sm: 'repeat(auto-fill, minmax(240px, 320px))',
-              },
+              // The dashboard's KPI row: four equal shares from 1024px, one tile per row below.
+              gridTemplateColumns: 'minmax(0, 1fr)',
+              '@media (min-width: 1024px)': { gridTemplateColumns: 'repeat(4, minmax(0, 1fr))' },
               gap: 2,
             }}
           >

@@ -17,9 +17,15 @@ import { PageTitle } from '@/app/components/ui/page-title';
 import { type Insight, useInsights, useRefreshInsights } from '@/app/hooks/useInsights';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer, useLocale } from '@/app/i18n';
-import { tokens } from '@/lib/theme-tokens';
 
-const ADVICE_SKELETON_KEYS = ['advice-0', 'advice-1', 'advice-2', 'advice-3'];
+const ADVICE_SKELETON_KEYS = [
+  'advice-0',
+  'advice-1',
+  'advice-2',
+  'advice-3',
+  'advice-4',
+  'advice-5',
+];
 
 /** One column of reading width: the arrow and Dismiss stay next to the words they act on. */
 const LIST_MAX_WIDTH = 760;
@@ -184,23 +190,28 @@ function AdviceGroup({
   );
 }
 
-function AdviceCardSkeleton(): React.JSX.Element {
+/** A row of the list while it loads: the dot, the lines and the arrow in their places. */
+function AdviceRowSkeleton(): React.JSX.Element {
   return (
-    <Box
-      sx={{
-        display: 'flex',
-        gap: 2,
-        p: 2.5,
-        border: '1px solid',
-        borderColor: 'divider',
-        borderRadius: tokens.radius.md,
-        bgcolor: 'background.paper',
-      }}
-    >
-      <Skeleton variant="rounded" width={20} height={20} />
-      <Box sx={{ minWidth: 0, flex: 1 }}>
-        <Skeleton variant="text" width="40%" height={22} />
-        <Skeleton variant="text" width="85%" height={18} />
+    <Box component="li" className="seneca-advice__row">
+      {/* Centred like the loaded row, which is a button. */}
+      <Box className="seneca-advice__main" sx={{ alignItems: 'center' }}>
+        <Box
+          sx={{ width: 18, pt: 0.375, display: 'flex', justifyContent: 'center', flexShrink: 0 }}
+        >
+          <Skeleton variant="circular" width={7} height={7} sx={{ mt: 0.75 }} />
+        </Box>
+        <Box sx={{ minWidth: 0, flexGrow: 1 }}>
+          <Skeleton variant="text" width="45%" sx={{ fontSize: 15 }} />
+          <Typography variant="body2" sx={{ mt: 0.25 }}>
+            <Skeleton variant="text" width="95%" />
+            <Skeleton variant="text" width="60%" />
+          </Typography>
+          <Typography variant="caption" component="p" sx={{ mt: 0.5 }}>
+            <Skeleton variant="text" width={56} />
+          </Typography>
+        </Box>
+        <ArrowRight size={16} className="seneca-advice__arrow" aria-hidden />
       </Box>
     </Box>
   );
@@ -245,10 +256,12 @@ export default function AdvicePage() {
         <PageTitle path="/advice" />
       </Box>
       {isPending && (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {ADVICE_SKELETON_KEYS.map(key => (
-            <AdviceCardSkeleton key={key} />
-          ))}
+        <Box aria-busy sx={{ maxWidth: LIST_MAX_WIDTH, display: 'grid', gap: 4 }}>
+          <AdviceGroup title={t.needsAttention.value}>
+            {ADVICE_SKELETON_KEYS.map(key => (
+              <AdviceRowSkeleton key={key} />
+            ))}
+          </AdviceGroup>
         </Box>
       )}
 

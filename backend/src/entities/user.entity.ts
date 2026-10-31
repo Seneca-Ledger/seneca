@@ -42,7 +42,7 @@ export enum UiDensity {
 export enum ThemePreference {
   LIGHT = 'light',
   DARK = 'dark',
-  AUTO = 'auto',
+  SYSTEM = 'system',
 }
 
 @Entity('users')
@@ -96,7 +96,7 @@ export class User {
     name: 'theme_preference',
     type: 'varchar',
     length: 16,
-    default: ThemePreference.DARK,
+    default: ThemePreference.SYSTEM,
   })
   themePreference: ThemePreference;
 

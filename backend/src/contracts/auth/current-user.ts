@@ -9,7 +9,7 @@ export type UserRole = Wire<typeof UserRole>;
 export const DateFormatPreference = Schema.Literals(['auto', 'dmy', 'mdy', 'ymd']);
 export type DateFormatPreference = Wire<typeof DateFormatPreference>;
 
-export const ThemePreference = Schema.Literals(['light', 'dark', 'auto']);
+export const ThemePreference = Schema.Literals(['light', 'dark', 'system']);
 export type ThemePreference = Wire<typeof ThemePreference>;
 
 /**

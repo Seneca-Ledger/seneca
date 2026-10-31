@@ -183,6 +183,56 @@ describe('category guessing', () => {
     expect(invented.map(row => row.name)).toEqual([]);
   });
 
+  describe("a bank's own fee and interest rows", () => {
+    const seedFees = (overrides: Partial<Category>) =>
+      categories.rows.push({
+        id: 'fees',
+        name: 'Fees and charges',
+        type: CategoryType.EXPENSE,
+        workspaceId: WORKSPACE_ID,
+        systemKey: 'fees',
+        isSystem: true,
+        isEnabled: true,
+        ...overrides,
+      } as Category);
+
+    it('files a fee under the workspace’s fees category, by keyword', async () => {
+      seedFees({});
+
+      const result = await service.classifyTransaction(
+        expenseTransaction('SMS Alerts Chrgs Incl GST'),
+        USER_ID,
+      );
+
+      expect(result.categoryId).toBe('fees');
+      expect(result.categorySource).toBe(TransactionCategorySource.KEYWORD);
+    });
+
+    it.each([
+      ['disabled', { isEnabled: false }],
+      ['without the fees role', { systemKey: null }],
+    ])('leaves the fee alone when that category is %s', async (_label, overrides) => {
+      seedFees(overrides);
+
+      const result = await service.classifyTransaction(
+        expenseTransaction('SMS Alerts Chrgs Incl GST'),
+        USER_ID,
+      );
+
+      expect(result.categorySource).toBe(TransactionCategorySource.DEFAULT);
+    });
+
+    it('creates no fee category when the workspace has none', async () => {
+      const result = await service.classifyTransaction(
+        expenseTransaction('SMS Alerts Chrgs Incl GST'),
+        USER_ID,
+      );
+
+      expect(result.categorySource).toBe(TransactionCategorySource.DEFAULT);
+      expect(categories.rows.some(row => row.name === 'Fees and charges')).toBe(false);
+    });
+  });
+
   it('still honours a rule the user wrote against the raw descriptor', async () => {
     const rent = categories.rows.find(row => row.name === 'Rent');
     const rules = testingModule.get<{ find: () => Promise<CategorizationRule[]> }>(

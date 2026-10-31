@@ -5,6 +5,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { In, IsNull } from 'typeorm';
 import {
   Transaction,
+  TransactionCategorySource,
   TransactionType,
   TransferPairSource,
 } from '../../../../src/entities/transaction.entity';
@@ -83,11 +84,16 @@ describe('TransferPairingService', () => {
       const result = await service.detectAndApply(WORKSPACE, 'stmt-a');
 
       expect(result).toEqual({ found: 1, paired: 1 });
-      expect(repository.update).toHaveBeenCalledTimes(1);
       const [criteria, patch] = repository.update.mock.calls[0];
       expect(criteria).toEqual({ id: In(['a', 'b']), transferPairId: IsNull() });
       expect(patch.transferPairSource).toBe(TransferPairSource.AUTO);
       expect(patch.transferPairId).toMatch(/^[0-9a-f-]{36}$/);
+      // A leg only suggested "Transfers to people" loses the suggestion; nothing else does.
+      expect(repository.update).toHaveBeenCalledTimes(2);
+      expect(repository.update.mock.calls[1]).toEqual([
+        { id: In(['a', 'b']), categorySource: TransactionCategorySource.KIND, isVerified: false },
+        { categoryId: null, categorySource: TransactionCategorySource.DEFAULT, categoryReason: null },
+      ]);
     });
 
     it('undoes a half-written pair when one leg was taken meanwhile', async () => {

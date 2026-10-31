@@ -1,10 +1,8 @@
 'use client';
 
-import { Skeleton } from '@mui/material';
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import ConfirmModal from '@/app/components/ConfirmModal';
-import { DataGridSkeleton } from '@/app/components/data-grid';
 import { Plus } from '@/app/components/icons';
 import { ImportSuggestionBanner } from '@/app/components/import-wizard/ImportSuggestionBanner';
 import { useQuickActions } from '@/app/components/mobile/quick-actions-store';
@@ -16,34 +14,11 @@ import { GroupSummary } from './components/GroupSummary';
 import { ImportPreviewDialog } from './components/ImportPreviewDialog';
 import { SendToStatementsDialog } from './components/SendToStatementsDialog';
 import { SummariesBar, type SummaryDraft } from './components/SummariesBar';
-import { ROW_HEIGHT, TableGrid } from './components/TableGrid';
+import { TableGrid } from './components/TableGrid';
+import { TableLoading } from './components/TableLoading';
 import { TablePageHeader } from './components/TablePageHeader';
 import { TableToolbar } from './components/TableToolbar';
 import { type CustomTablePageState, useCustomTablePage } from './hooks/useCustomTablePage';
-
-/** Column count guessed for the skeleton before the table's columns arrive. */
-const SKELETON_COLUMNS = 5;
-
-function LoadingSkeleton({ rows }: { rows: number }) {
-  return (
-    <div className="seneca-ct" aria-busy>
-      <div className="seneca-ct__header">
-        <Skeleton variant="circular" width={32} height={32} />
-        <div className="seneca-ct__title-row">
-          <Skeleton variant="text" width={240} height={36} />
-          <Skeleton variant="text" width={160} height={22} />
-        </div>
-        <Skeleton variant="rounded" width={360} height={36} />
-      </div>
-      <DataGridSkeleton
-        rows={rows}
-        columns={SKELETON_COLUMNS}
-        rowHeight={ROW_HEIGHT}
-        className="seneca-ct__grid"
-      />
-    </div>
-  );
-}
 
 function Dialogs({ state }: { state: CustomTablePageState }) {
   const { labels, pendingDelete, selectedIds } = state;
@@ -288,7 +263,13 @@ export default function CustomTableDetailPage() {
   }, [params.id, total, unfiltered, loadingRows]);
 
   if (state.data.loading && !state.data.table) {
-    return <LoadingSkeleton rows={skeletonRows} />;
+    return (
+      <TableLoading
+        rows={skeletonRows}
+        labels={state.labels}
+        onBack={() => state.router.push('/custom-tables')}
+      />
+    );
   }
   if (!state.data.table) {
     return (

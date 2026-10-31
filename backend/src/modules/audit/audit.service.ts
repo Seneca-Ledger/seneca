@@ -27,11 +27,7 @@ import type {
   RollbackResult,
 } from './interfaces/audit-event.interface';
 import { RollbackService } from './rollback/rollback.service';
-import {
-  HOUSEHOLD_ENTITY_TYPES,
-  toActivityEntry,
-  type WorkspaceActivityEntry,
-} from './workspace-activity';
+import { queryWorkspaceActivity, type WorkspaceActivityEntry } from './workspace-activity';
 
 const AUDIT_RETENTION_YEARS = 1;
 
@@ -217,21 +213,14 @@ export class AuditService {
    *
    * Narrower than `findEvents` on purpose — it answers "did you change this?",
    * not "what happened on this account", so it never reaches the events that
-   * only the owner should see.
+   * only the owner should see. With `month` (`YYYY-MM`), only that month's.
    */
-  async findWorkspaceActivity(workspaceId: string, limit = 20): Promise<WorkspaceActivityEntry[]> {
-    const events = await this.auditEventRepository
-      .createQueryBuilder('event')
-      .leftJoinAndSelect('event.actor', 'actor')
-      .where('event.workspaceId = :workspaceId', { workspaceId })
-      .andWhere('event.entityType IN (:...entityTypes)', {
-        entityTypes: HOUSEHOLD_ENTITY_TYPES,
-      })
-      .orderBy('event.createdAt', 'DESC')
-      .take(Math.min(Math.max(limit, 1), 100))
-      .getMany();
-
-    return events.map(toActivityEntry);
+  async findWorkspaceActivity(
+    workspaceId: string,
+    limit = 20,
+    month?: string,
+  ): Promise<WorkspaceActivityEntry[]> {
+    return queryWorkspaceActivity(this.auditEventRepository, workspaceId, limit, month);
   }
 
   async findEventById(id: string, workspaceId?: string): Promise<AuditEvent | null> {

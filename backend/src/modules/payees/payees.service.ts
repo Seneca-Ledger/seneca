@@ -32,6 +32,7 @@ import { hasDecidedCategory } from '../classification/engine/category-decision';
 import { ClassificationService } from '../classification/services/classification.service';
 import { ViesService } from '../reference-data/vies.service';
 import { TaxAssignmentService } from '../tax/tax-assignment.service';
+import { movePayeesInto } from './payee-truncation';
 import { UNDECIDED_CATEGORY_SOURCES } from './payee-undecided';
 
 type CategoryRef = { id: string; name: string };
@@ -412,24 +413,7 @@ export class PayeesService {
       }
       const sourceIds = sources.map(source => source.id);
 
-      await manager.query(
-        'UPDATE transactions SET payee_id = $1 WHERE workspace_id = $2 AND payee_id = ANY($3::uuid[])',
-        [target.id, workspaceId, sourceIds],
-      );
-      await manager.query(
-        'UPDATE payee_aliases SET payee_id = $1 WHERE workspace_id = $2 AND payee_id = ANY($3::uuid[])',
-        [target.id, workspaceId, sourceIds],
-      );
-      // A subscription that recognised a source keeps recognising its rows,
-      // now under the target; deleting the source would drop the rule with it.
-      await manager.query(
-        `INSERT INTO subscription_payees (workspace_id, subscription_id, payee_id)
-         SELECT workspace_id, subscription_id, $1 FROM subscription_payees
-          WHERE workspace_id = $2 AND payee_id = ANY($3::uuid[])
-         ON CONFLICT (subscription_id, payee_id) DO NOTHING`,
-        [target.id, workspaceId, sourceIds],
-      );
-      await manager.delete(Payee, { id: In(sourceIds), workspaceId });
+      await movePayeesInto(manager, workspaceId, target.id, sourceIds);
 
       await this.auditService.createEvent({
         workspaceId,

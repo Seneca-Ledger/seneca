@@ -25,9 +25,9 @@ export const OVERVIEW_SECTION_IDS = [
   'cash-flow',
   'top-categories',
   'recent-transactions',
-  'spend-calendar',
   'goals',
   'net-worth',
+  'balances',
   'budgets',
   // This month's subscriptions; the id is the old cash runway card's, so saved layouts keep the slot.
   'cash-runway',
@@ -70,11 +70,26 @@ export const DEFAULT_OVERVIEW_ROWS: OverviewRows = [
   ['cash-flow', 'goals'],
   ['top-categories', 'recent-transactions'],
   ['safe-to-spend', 'cash-runway'],
-  ['spend-calendar'],
   ['net-worth', 'upcoming-charges'],
+  ['balances'],
   ['activity'],
   ['advice', 'month-close'],
 ];
+
+/**
+ * Sections that tell the present or the future (what is safe to spend, what
+ * charges next, what is owed, taxes, advice), whatever month is picked: in
+ * another month they stay in place, muted, under their "Today" note.
+ */
+const PRESENT_SECTION_IDS = new Set<string>([
+  'safe-to-spend',
+  'upcoming-charges',
+  'money-owed',
+  'taxes',
+  'advice',
+]);
+
+export const tellsThePresent = (id: string): boolean => PRESENT_SECTION_IDS.has(id);
 
 const KNOWN = new Set<string>(OVERVIEW_SECTION_IDS);
 const TILES = new Set<string>(TILE_SECTION_IDS);

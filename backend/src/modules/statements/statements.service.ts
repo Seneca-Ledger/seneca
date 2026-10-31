@@ -1,95 +1,32 @@
-import { randomUUID } from 'node:crypto';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import {
-  BadRequestException,
-  ConflictException,
-  Inject,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
-import { EventEmitter2 } from '@nestjs/event-emitter';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { ZipArchive } from 'archiver';
-import { Cache } from 'cache-manager';
-import { createHash } from 'crypto';
-import * as fs from 'fs';
-import * as path from 'path';
 import type { Repository } from 'typeorm';
 import { appError } from '../../common/errors/app-error';
-import { FileStorageService } from '../../common/services/file-storage.service';
-import { currencyCodeOrDefault } from '../../common/utils/currency.util';
-import { calculateFileHash } from '../../common/utils/file-hash.util';
-import { resolveFileType, validateFile } from '../../common/utils/file-validator.util';
-import { normalizeFilename, sanitizeArchiveEntryName } from '../../common/utils/filename.util';
-import { toMinor } from '../../common/utils/money.util';
+import { validateFile } from '../../common/utils/file-validator.util';
 import { assertNoTaxLockedTransactions } from '../../common/utils/tax-lock.util';
-import { runExecutable } from '../../common/utils/thumbnail-command.util';
-import { readUploadedFile, resolveUploadsDir } from '../../common/utils/uploads.util';
-import { assertWorkspaceRefs } from '../../common/utils/workspace-refs.util';
 import type {
   ConvertDroppedSampleBody,
   CreateManualExpenseBody,
   StatementsQuery,
   UpdateStatementBody,
 } from '../../contracts';
-import { Category, Wallet, WorkspaceMember } from '../../entities';
+import { WorkspaceMember } from '../../entities';
 import { ActorType, AuditAction, EntityType, Severity } from '../../entities/audit-event.entity';
-import { CategoryType } from '../../entities/category.entity';
-import { BankName, FileType, Statement, StatementStatus } from '../../entities/statement.entity';
-import { TaxRate } from '../../entities/tax-rate.entity';
-import {
-  Transaction,
-  TransactionCategorySource,
-  TransactionType,
-} from '../../entities/transaction.entity';
+import { Statement, StatementStatus } from '../../entities/statement.entity';
+import { Transaction } from '../../entities/transaction.entity';
 import { User } from '../../entities/user.entity';
 import { AuditService } from '../audit/audit.service';
-import {
-  type DataDeletedEvent,
-  type StatementUploadedEvent,
-  transactionCreatedEvent,
-} from '../notifications/events/notification-events';
 import { StatementParsingQueue } from '../parsing/queue/statement-parsing.queue';
 import { StatementProcessingService } from '../parsing/services/statement-processing.service';
-import { TaxAssignmentService } from '../tax/tax-assignment.service';
-import { WorkspaceCurrencyService } from '../workspaces/workspace-currency.service';
+import { DroppedSampleService } from './dropped-sample.service';
+import { ManualExpenseService } from './manual-expense.service';
 import { ReceiptStatementService } from './services/receipt-statement.service';
-import { ensureCanEditStatements, ensureCanModifyStatement } from './statement-access';
-import { removeStatementFile } from './statement-file-removal.util';
-import {
-  applyStatementFilters,
-  applyStatementRowFilters,
-  orderStatementList,
-} from './statement-list-query';
-import {
-  EMPTY_TRANSACTION_SUMMARY,
-  loadTransactionSummaries,
-  type StatementTransactionSummary,
-} from './statement-transaction-summary';
-
-type StatementFileAvailability = Awaited<ReturnType<FileStorageService['getFileAvailability']>>;
-type StatementWithFileAvailability = Statement & {
-  hasFileOnDisk?: boolean;
-  hasFileInDb?: boolean;
-  fileAvailability?: StatementFileAvailability;
-  transactionSummary?: StatementTransactionSummary;
-};
-type StatementRepositoryWithOptionalQueryBuilder = Repository<Statement> & {
-  createQueryBuilder?: Repository<Statement>['createQueryBuilder'];
-};
-
-/**
- * YYYY-MM-DD for a `date` column. Postgres returns loaded `date` values as
- * strings although the entity types them as Date; only dates set in this
- * request are Date objects.
- */
-function dateOnly(value: Date | string | null): string | undefined {
-  if (!value) {
-    return undefined;
-  }
-  return (value instanceof Date ? value.toISOString() : String(value)).split('T')[0];
-}
+import { ensureCanModifyStatement } from './statement-access';
+import { dateOnly } from './statement-date-only.util';
+import { StatementFilesService } from './statement-files.service';
+import { StatementListService } from './statement-list.service';
+import { StatementTrashService } from './statement-trash.service';
+import { StatementUploadService } from './statement-upload.service';
 
 @Injectable()
 export class StatementsService {
@@ -102,39 +39,19 @@ export class StatementsService {
     private transactionRepository: Repository<Transaction>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
-    @InjectRepository(Category)
-    private readonly categoryRepository: Repository<Category>,
-    @InjectRepository(TaxRate)
-    private readonly taxRateRepository: Repository<TaxRate>,
     @InjectRepository(WorkspaceMember)
     private readonly workspaceMemberRepository: Repository<WorkspaceMember>,
-    @InjectRepository(Wallet)
-    private readonly walletRepository: Repository<Wallet>,
-    private readonly fileStorageService: FileStorageService,
     private statementProcessingService: StatementProcessingService,
     private readonly statementParsingQueue: StatementParsingQueue,
     private readonly receiptStatementService: ReceiptStatementService,
-    @Inject(CACHE_MANAGER) private cacheManager: Cache,
     private readonly auditService: AuditService,
-    private readonly taxAssignmentService: TaxAssignmentService,
-    private readonly workspaceCurrency: WorkspaceCurrencyService,
-    private readonly eventEmitter?: EventEmitter2,
+    private readonly statementFiles: StatementFilesService,
+    private readonly statementTrash: StatementTrashService,
+    private readonly manualExpenses: ManualExpenseService,
+    private readonly uploads: StatementUploadService,
+    private readonly droppedSamples: DroppedSampleService,
+    private readonly list: StatementListService,
   ) {}
-
-  private attachFileAvailability<T extends Statement>(
-    statement: T,
-    availability: StatementFileAvailability,
-  ): T & StatementWithFileAvailability {
-    const statementWithAvailability = statement as T & StatementWithFileAvailability;
-    statementWithAvailability.hasFileOnDisk = availability.onDisk;
-    statementWithAvailability.hasFileInDb = availability.inDb;
-    statementWithAvailability.fileAvailability = availability;
-    return statementWithAvailability;
-  }
-
-  private async ensureCanEditStatements(userId: string, workspaceId: string): Promise<void> {
-    await ensureCanEditStatements(this.workspaceMemberRepository, userId, workspaceId);
-  }
 
   private async ensureCanModify(
     statement: Statement,
@@ -144,361 +61,13 @@ export class StatementsService {
     await ensureCanModifyStatement(this.workspaceMemberRepository, statement, userId, workspaceId);
   }
 
-  private escapeCsvValue(value: string): string {
-    if (value.includes(',') || value.includes('"') || value.includes('\n')) {
-      return `"${value.replaceAll('"', '""')}"`;
-    }
-    return value;
-  }
-
-  /**
-   * The account an upload was sent to (SimpleFIN mapping, a webhook default, the
-   * upload form), kept only when it is one of this workspace's: a mapping left
-   * pointing at a deleted account must not fail the upload.
-   */
-  private async accountOfUpload(
-    walletId: string | undefined,
-    workspaceId: string,
-  ): Promise<string | null> {
-    if (!walletId) {
-      return null;
-    }
-    const exists = await this.walletRepository.exists({ where: { id: walletId, workspaceId } });
-    if (!exists) {
-      this.logger.warn(
-        `[Statements] Upload named wallet ${walletId}, not in workspace ${workspaceId}`,
-      );
-    }
-    return exists ? walletId : null;
-  }
-
-  /** Who owns the wallet, or null when it is shared. */
-  private async walletOwnerMemberId(walletId: string, workspaceId: string): Promise<string | null> {
-    const wallet = await this.walletRepository.findOne({
-      where: { id: walletId, workspaceId },
-      select: {
-        ownerMemberId: true,
-      },
-    });
-    return wallet?.ownerMemberId ?? null;
-  }
-
-  private normalizePositiveAmount(value: number | string | null | undefined): number | null {
-    if (value === null || value === undefined || value === '') {
-      return null;
-    }
-
-    const parsed = Number(value);
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
-  }
-
-  private async generateThumbnailWithPython(
-    pdfPath: string,
-    thumbnailPath: string,
-    thumbnailWidth: number,
-  ): Promise<void> {
-    const scriptPath = path.join(__dirname, '../../../scripts/generate-thumbnail.py');
-    await runExecutable('python3', [scriptPath, pdfPath, thumbnailPath, String(thumbnailWidth)]);
-  }
-
-  private async generateThumbnailWithQuickLook(
-    pdfPath: string,
-    outputDir: string,
-    thumbnailWidth: number,
-  ): Promise<string> {
-    await runExecutable('qlmanage', ['-t', '-s', String(thumbnailWidth), '-o', outputDir, pdfPath]);
-    const generatedPath = path.join(outputDir, `${path.basename(pdfPath)}.png`);
-    if (!fs.existsSync(generatedPath)) {
-      throw new Error('Quick Look thumbnail output not found');
-    }
-    return generatedPath;
-  }
-
   async createManualExpense(params: {
     user: User;
     workspaceId: string;
     payload: CreateManualExpenseBody;
     files: Express.Multer.File[];
   }): Promise<Statement> {
-    const { user, workspaceId, payload, files } = params;
-    await this.ensureCanEditStatements(user.id, workspaceId);
-
-    const amountValue = Number(
-      String(payload.amount || '')
-        .replace(',', '.')
-        .trim(),
-    );
-    if (!Number.isFinite(amountValue) || amountValue <= 0) {
-      throw new BadRequestException(appError('EXPENSE_AMOUNT_INVALID'));
-    }
-
-    const merchant = payload.merchant?.trim();
-    if (!merchant) {
-      throw new BadRequestException(appError('EXPENSE_MERCHANT_REQUIRED'));
-    }
-
-    const currency = await this.workspaceCurrency.resolveFor(workspaceId, payload.currency);
-    if (!currency) {
-      throw new BadRequestException(appError('EXPENSE_CURRENCY_REQUIRED'));
-    }
-
-    const parsedDate = new Date(payload.date);
-    if (Number.isNaN(parsedDate.getTime())) {
-      throw new BadRequestException(appError('EXPENSE_DATE_INVALID'));
-    }
-
-    const allowDuplicates = payload.allowDuplicates ?? false;
-    const description = payload.description?.trim() || '';
-    const categoryId = payload.categoryId?.trim();
-    if (!categoryId) {
-      throw new BadRequestException(appError('EXPENSE_CATEGORY_REQUIRED'));
-    }
-
-    const category = await this.categoryRepository.findOne({
-      where: { id: categoryId, workspaceId },
-    });
-
-    if (!category) {
-      throw new BadRequestException(appError('CATEGORY_NOT_FOUND'));
-    }
-
-    if (category.isEnabled === false) {
-      throw new BadRequestException(appError('EXPENSE_CATEGORY_DISABLED'));
-    }
-
-    if (category.type !== CategoryType.EXPENSE) {
-      throw new BadRequestException(appError('EXPENSE_CATEGORY_NOT_EXPENSE'));
-    }
-
-    const taxRateId = payload.taxRateId?.trim();
-    let taxRate: TaxRate | null = null;
-
-    if (taxRateId) {
-      taxRate = await this.taxRateRepository.findOne({
-        where: {
-          id: taxRateId,
-          workspaceId,
-          isEnabled: true,
-        },
-      });
-
-      if (!taxRate) {
-        throw new BadRequestException(appError('EXPENSE_TAX_RATE_NOT_FOUND'));
-      }
-    } else {
-      taxRate = await this.taxRateRepository.findOne({
-        where: {
-          workspaceId,
-          isDefault: true,
-          isEnabled: true,
-        },
-      });
-    }
-
-    const transactionDate = new Date(parsedDate.toISOString().slice(0, 10));
-
-    // Array.isArray, not `files || []`: `files` comes from a multipart
-    // upload field decorated with @UploadedFiles(), and although Multer's
-    // FilesInterceptor always produces an array (or omits the field), an
-    // explicit type check rather than truthiness keeps that guarantee from
-    // ever being taken on faith for this parameter.
-    const normalizedFiles = Array.isArray(files) ? files : [];
-    for (const file of normalizedFiles) {
-      validateFile(file);
-    }
-
-    let fileName: string;
-    let filePath: string;
-    let fileType: FileType;
-    let fileHash: string;
-    let fileSize: number;
-    let fileData: Buffer;
-
-    const primaryFile = normalizedFiles[0];
-    if (primaryFile) {
-      fileName = normalizeFilename(primaryFile.originalname);
-      filePath = primaryFile.path;
-      fileType = resolveFileType(primaryFile) as FileType;
-      fileHash = await calculateFileHash(primaryFile.path);
-      fileSize = primaryFile.size;
-      fileData = await readUploadedFile(primaryFile.path);
-    } else {
-      fileName = `manual-expense-${Date.now()}.csv`;
-      filePath = path.join(resolveUploadsDir(), `${randomUUID()}.csv`);
-      const csv = [
-        'date,merchant,description,amount,currency',
-        [
-          payload.date,
-          this.escapeCsvValue(merchant),
-          this.escapeCsvValue(description),
-          amountValue.toFixed(2),
-          currency,
-        ].join(','),
-      ].join('\n');
-
-      fileData = Buffer.from(csv, 'utf8');
-      await fs.promises.writeFile(filePath, fileData);
-      fileType = FileType.CSV;
-      fileHash = createHash('sha256').update(fileData).digest('hex');
-      fileSize = fileData.length;
-    }
-
-    // Resolved from the user's own choice where they made one, otherwise from
-    // the workspace rules and default as they stood on the expense's date.
-    const taxAssignment = await this.taxAssignmentService.resolve({
-      workspaceId,
-      transactionDate,
-      amountMinor: toMinor(amountValue),
-      categoryId: category.id,
-      transactionType: TransactionType.EXPENSE,
-      transactionNature: null,
-      explicitTaxRateId: taxRateId || null,
-    });
-
-    // Проверка дубликата и обе вставки — в одной транзакции под advisory-lock:
-    // иначе double-submit формы проходил check-then-act дважды и создавал два
-    // одинаковых расхода (тот же паттерн, что в create() для выписок).
-    const accountId = await this.accountOfUpload(payload.walletId ?? undefined, workspaceId);
-    const accountOwner = accountId ? await this.walletOwnerMemberId(accountId, workspaceId) : null;
-
-    let createdTransaction: Transaction | null = null;
-    const savedStatement = await this.statementRepository.manager.transaction(async manager => {
-      await manager.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [
-        `manual-expense:${workspaceId}:${payload.date}:${merchant}:${amountValue}:${currency}`,
-      ]);
-
-      if (!allowDuplicates) {
-        const existingDuplicate = await manager.getRepository(Transaction).findOne({
-          where: {
-            workspaceId,
-            transactionType: TransactionType.EXPENSE,
-            transactionDate,
-            currency,
-            counterpartyName: merchant,
-            debit: amountValue,
-          },
-        });
-
-        if (existingDuplicate) {
-          throw new ConflictException(appError('EXPENSE_DUPLICATE'));
-        }
-      }
-
-      const statements = manager.getRepository(Statement);
-      const statement = statements.create({
-        userId: user.id,
-        workspaceId,
-        fileName,
-        filePath,
-        fileType,
-        fileSize,
-        fileHash,
-        bankName: BankName.OTHER,
-        status: StatementStatus.COMPLETED,
-        processedAt: new Date(),
-        statementDateFrom: transactionDate,
-        statementDateTo: transactionDate,
-        totalTransactions: 1,
-        totalDebit: amountValue,
-        totalCredit: 0,
-        currency,
-        categoryId: category.id,
-        walletId: accountId,
-        parsingDetails: {
-          detectedBy: 'manual-expense',
-          parserUsed: 'manual-expense',
-          parserVersion: '1',
-          transactionsFound: 1,
-          transactionsCreated: 1,
-          metadataExtracted: {
-            dateFrom: payload.date,
-            dateTo: payload.date,
-            currency,
-          },
-          importPreview: {
-            source: 'manual-expense',
-            merchant,
-            description,
-            attachments: normalizedFiles.length,
-            categoryId: category.id,
-            taxRateId: taxRate?.id || null,
-            taxRateLabel: taxRate
-              ? `${taxRate.name} (${Number(taxRate.rate || 0).toFixed(0)}%)`
-              : null,
-          },
-        },
-      });
-
-      const created = (await statements.save(statement)) as Statement;
-
-      const transaction = manager.getRepository(Transaction).create({
-        workspaceId,
-        statementId: created.id,
-        transactionDate,
-        counterpartyName: merchant,
-        paymentPurpose: description || merchant,
-        debit: amountValue,
-        credit: null,
-        amount: amountValue,
-        currency,
-        transactionType: TransactionType.EXPENSE,
-        categoryId: category.id,
-        // The person filling the form picked it, so the payee learns from it.
-        categorySource: TransactionCategorySource.MANUAL,
-        taxRateId: taxAssignment.taxRateId ?? taxRate?.id ?? null,
-        taxRuleId: taxAssignment.taxRuleId,
-        taxSource: taxAssignment.taxSource,
-        taxAmount: taxAssignment.taxAmount,
-        taxNetAmount: taxAssignment.taxNetAmount,
-        taxReverseCharge: taxAssignment.taxReverseCharge,
-        taxNotionalAmount: taxAssignment.taxNotionalAmount,
-        walletId: accountId,
-        ownerMemberId: accountOwner,
-        isVerified: true,
-      });
-
-      createdTransaction = await manager.getRepository(Transaction).save(transaction);
-      return created;
-    });
-
-    try {
-      await this.statementRepository.update(savedStatement.id, { fileData });
-    } catch (error) {
-      this.logger.warn(
-        `[Statements] Failed to persist manual expense file in DB: ${(error as Error)?.message}`,
-      );
-    }
-
-    await this.auditService.createEvent({
-      workspaceId,
-      actorType: ActorType.USER,
-      actorId: user.id,
-      actorLabel: user.email || user.name || 'User',
-      entityType: EntityType.STATEMENT,
-      entityId: savedStatement.id,
-      action: AuditAction.IMPORT,
-      diff: { before: null, after: savedStatement },
-      meta: {
-        source: 'manual-expense',
-        amount: amountValue,
-        currency,
-        merchant,
-        categoryId: category.id,
-        taxRateId: taxRate?.id || null,
-      },
-      severity: Severity.INFO,
-      isUndoable: false,
-    });
-
-    // After the commit: a listener must never see a row that rolled back.
-    if (createdTransaction) {
-      this.eventEmitter?.emit(
-        'transaction.created',
-        transactionCreatedEvent(createdTransaction, 'manual_expense'),
-      );
-    }
-
-    return savedStatement;
+    return this.manualExpenses.create(params);
   }
 
   async createFromReceiptScan(params: {
@@ -517,146 +86,7 @@ export class StatementsService {
     payload: ConvertDroppedSampleBody,
   ): Promise<{ statement: Statement; transaction: Transaction }> {
     const statement = await this.findOne(id, workspaceId);
-    await this.ensureCanModify(statement, userId, workspaceId);
-
-    const warnings = statement.parsingDetails?.warnings || [];
-    const droppedSamples = statement.parsingDetails?.droppedSamples || [];
-    const warning = payload.warning || warnings[payload.index] || null;
-    const warningTxKey = warning?.match(/tx#\d+/i)?.[0]?.toLowerCase() || null;
-    const sampleIndex = droppedSamples.findIndex(sample => {
-      const sampleTxKey = sample.reason.match(/tx#\d+/i)?.[0]?.toLowerCase() || null;
-      return sample.reason === warning || Boolean(warningTxKey && sampleTxKey === warningTxKey);
-    });
-    const sample = sampleIndex >= 0 ? droppedSamples[sampleIndex] : null;
-
-    if (!(sample || warning)) {
-      throw new NotFoundException(appError('STATEMENT_SAMPLE_NOT_FOUND'));
-    }
-
-    const transactionDate = new Date(payload.transaction.transactionDate);
-    if (Number.isNaN(transactionDate.getTime())) {
-      throw new BadRequestException(appError('STATEMENT_TRANSACTION_DATE_INVALID'));
-    }
-
-    const debit = this.normalizePositiveAmount(payload.transaction.debit);
-    const credit = this.normalizePositiveAmount(payload.transaction.credit);
-
-    if (!(debit || credit)) {
-      throw new BadRequestException(appError('STATEMENT_AMOUNT_REQUIRED'));
-    }
-
-    const transactionType = debit ? TransactionType.EXPENSE : TransactionType.INCOME;
-    const amount = debit || credit || 0;
-    const originalTransaction = sample?.transaction as
-      | Record<string, string | number | null | undefined>
-      | undefined;
-
-    const walletId =
-      payload.transaction.walletId || (originalTransaction?.walletId as string) || null;
-    const categoryId =
-      payload.transaction.categoryId || (originalTransaction?.categoryId as string) || null;
-    const branchId =
-      payload.transaction.branchId || (originalTransaction?.branchId as string) || null;
-    await assertWorkspaceRefs(this.transactionRepository.manager, workspaceId, {
-      categoryId,
-      branchId,
-      walletId,
-    });
-
-    const transaction = this.transactionRepository.create({
-      workspaceId,
-      statementId: statement.id,
-      transactionDate: new Date(transactionDate.toISOString().slice(0, 10)),
-      documentNumber:
-        payload.transaction.documentNumber ||
-        (originalTransaction?.documentNumber as string) ||
-        null,
-      counterpartyName:
-        payload.transaction.counterpartyName?.trim() ||
-        String(originalTransaction?.counterpartyName || '').trim() ||
-        'Неизвестный контрагент',
-      counterpartyBin:
-        payload.transaction.counterpartyBin ||
-        (originalTransaction?.counterpartyBin as string) ||
-        null,
-      counterpartyAccount:
-        payload.transaction.counterpartyAccount ||
-        (originalTransaction?.counterpartyAccount as string) ||
-        null,
-      counterpartyBank:
-        payload.transaction.counterpartyBank ||
-        (originalTransaction?.counterpartyBank as string) ||
-        null,
-      debit: debit ?? null,
-      credit: credit ?? null,
-      amount,
-      currency: currencyCodeOrDefault(
-        payload.transaction.currency || String(originalTransaction?.currency || ''),
-        statement.currency,
-      ),
-      paymentPurpose:
-        payload.transaction.paymentPurpose?.trim() ||
-        String(originalTransaction?.paymentPurpose || '').trim() ||
-        'Не указано',
-      categoryId,
-      categorySource: payload.transaction.categoryId ? TransactionCategorySource.MANUAL : null,
-      branchId,
-      walletId,
-      // Same rule as the import path: the row starts on whoever owns the wallet.
-      ownerMemberId: walletId ? await this.walletOwnerMemberId(walletId, workspaceId) : null,
-      article: payload.transaction.article || (originalTransaction?.article as string) || null,
-      comments: payload.transaction.comments || (originalTransaction?.comments as string) || null,
-      transactionType,
-      isVerified: true,
-    });
-
-    const savedTransaction = await this.transactionRepository.save(transaction);
-
-    const nextDroppedSamples =
-      sampleIndex >= 0
-        ? droppedSamples.filter((_, index) => index !== sampleIndex)
-        : droppedSamples;
-    const warningToRemove = warning || sample?.reason || null;
-    const nextWarnings = warnings.filter(currentWarning => currentWarning !== warningToRemove);
-
-    statement.totalTransactions = Number(statement.totalTransactions || 0) + 1;
-    statement.totalDebit = Number(statement.totalDebit || 0) + (debit || 0);
-    statement.totalCredit = Number(statement.totalCredit || 0) + (credit || 0);
-    statement.parsingDetails = {
-      ...(statement.parsingDetails || {}),
-      warnings: nextWarnings,
-      droppedSamples: nextDroppedSamples,
-      transactionsCreated: Number(statement.parsingDetails?.transactionsCreated || 0) + 1,
-    };
-
-    const savedStatement = await this.statementRepository.save(statement);
-
-    await this.auditService.createEvent({
-      workspaceId,
-      actorType: ActorType.USER,
-      actorId: userId,
-      actorLabel: (await this.userRepository.findOne({ where: { id: userId } }))?.email || 'User',
-      entityType: EntityType.TRANSACTION,
-      entityId: savedTransaction.id,
-      action: AuditAction.CREATE,
-      diff: { before: null, after: savedTransaction },
-      meta: {
-        source: 'statement-dropped-sample-conversion',
-        statementId: statement.id,
-        droppedSampleIndex: payload.index,
-      },
-      severity: Severity.INFO,
-      isUndoable: false,
-    });
-    this.eventEmitter?.emit(
-      'transaction.created',
-      transactionCreatedEvent(savedTransaction, 'dropped_sample'),
-    );
-
-    return {
-      statement: savedStatement,
-      transaction: savedTransaction,
-    };
+    return this.droppedSamples.convert(statement, userId, workspaceId, payload);
   }
 
   async create(
@@ -668,127 +98,15 @@ export class StatementsService {
     allowDuplicates = false,
     requireManualCategorySelection = false,
   ): Promise<Statement> {
-    await this.ensureCanEditStatements(user.id, workspaceId);
-    const normalizedName = normalizeFilename(file.originalname);
-    const fileHash = await calculateFileHash(file.path);
-
-    let fileData: Buffer | null = null;
-    try {
-      fileData = await readUploadedFile(file.path);
-    } catch (error) {
-      this.logger.warn(
-        `[Statements] Failed to read uploaded file for DB storage: ${(error as Error)?.message}`,
-      );
-    }
-
-    // Проверка дубликата и вставка — в одной транзакции под advisory-lock:
-    // без него два одновременных аплоада одного файла (double-submit, retry)
-    // оба проходили check-then-act и создавали дубль выписки с транзакциями.
-    // Уникальный индекс тут не подходит — allowDuplicates легально обходит проверку.
-    // Parsing replaces it with the currency the file states; until then the
-    // statement carries the workspace's own (the column has no default).
-    const currency = await this.workspaceCurrency.resolve(workspaceId);
-    const accountId = await this.accountOfUpload(walletId, workspaceId);
-
-    const savedStatement = await this.statementRepository.manager.transaction(async manager => {
-      const statements = manager.getRepository(Statement);
-      await manager.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [
-        `statement-upload:${workspaceId}:${fileHash}`,
-      ]);
-
-      // Check for exact file hash duplicate
-      const hashDuplicate = await statements.findOne({ where: { workspaceId, fileHash } });
-
-      if (hashDuplicate && !allowDuplicates) {
-        throw new ConflictException({
-          ...appError('STATEMENT_DUPLICATE_FILE'),
-          duplicateStatementId: hashDuplicate.id,
-        });
-      }
-
-      // Check for near-duplicate (same name, size, within 5 minutes)
-      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
-      const recentStatements = await statements
-        .createQueryBuilder('statement')
-        .where('statement.workspaceId = :workspaceId', { workspaceId })
-        .andWhere('statement.fileName = :fileName', { fileName: normalizedName })
-        .andWhere('statement.fileSize = :fileSize', { fileSize: file.size })
-        .andWhere('statement.createdAt >= :fiveMinutesAgo', { fiveMinutesAgo })
-        .getMany();
-
-      if (recentStatements.length > 0 && !allowDuplicates) {
-        throw new ConflictException({
-          ...appError('STATEMENT_DUPLICATE_RECENT'),
-          duplicateStatementId: recentStatements[0].id,
-        });
-      }
-
-      // Create new statement
-      const statement = statements.create({
-        userId: user.id,
-        workspaceId,
-        fileName: normalizedName,
-        filePath: file.path,
-        fileType: resolveFileType(file) as FileType,
-        fileSize: file.size,
-        fileHash,
-        bankName: BankName.OTHER, // Will be determined during parsing
-        currency,
-        walletId: accountId,
-        status: StatementStatus.UPLOADED,
-        parsingDetails: requireManualCategorySelection
-          ? {
-              manualCategorySelectionRequired: true,
-            }
-          : null,
-      });
-
-      return (await statements.save(statement)) as unknown as Statement;
-    });
-    let storedInDb = false;
-    if (fileData) {
-      try {
-        await this.statementRepository.update(savedStatement.id, { fileData });
-        storedInDb = true;
-      } catch (error) {
-        this.logger.warn(
-          `[Statements] Failed to persist uploaded file in DB: ${(error as Error)?.message}`,
-        );
-      }
-    }
-
-    // Keep disk copy even if stored in DB to allow previews without DB select issues
-
-    // Audit: record statement import for traceability.
-    await this.auditService.createEvent({
+    return this.uploads.create(
+      user,
       workspaceId,
-      actorType: ActorType.USER,
-      actorId: user.id,
-      actorLabel: user.email || user.name || 'User',
-      entityType: EntityType.STATEMENT,
-      entityId: savedStatement.id,
-      action: AuditAction.IMPORT,
-      diff: { before: null, after: savedStatement },
-      meta: {
-        fileName: normalizeFilename(file.originalname),
-        fileSize: file.size,
-      },
-      severity: Severity.INFO,
-      isUndoable: false,
-    });
-
-    this.eventEmitter?.emit('statement.uploaded', {
-      workspaceId,
-      actorId: user.id,
-      actorName: user.name || user.email || 'User',
-      statementId: savedStatement.id,
-      statementName: savedStatement.fileName,
-      bankName: savedStatement.bankName,
-    } satisfies StatementUploadedEvent);
-
-    await this.statementParsingQueue.enqueue(savedStatement.id);
-
-    return savedStatement;
+      file,
+      walletId,
+      branchId,
+      allowDuplicates,
+      requireManualCategorySelection,
+    );
   }
 
   async findAll(
@@ -801,115 +119,11 @@ export class StatementsService {
     page: number;
     limit: number;
   }> {
-    const page = filters.page;
-    const limit = filters.limit ?? (page ? 20 : undefined);
-    const qb = this.statementRepository
-      .createQueryBuilder('statement')
-      .leftJoinAndSelect('statement.user', 'user')
-      .leftJoinAndSelect('statement.category', 'category')
-      .leftJoinAndSelect('statement.tags', 'tags')
-      .where('statement.deletedAt IS NULL')
-      .andWhere('statement.workspaceId = :workspaceId', { workspaceId })
-      .orderBy('statement.createdAt', 'DESC');
-
-    if (page && limit) {
-      qb.skip((page - 1) * limit).take(limit);
-    } else if (!page && limit) {
-      qb.take(limit);
-    }
-
-    applyStatementFilters(qb, filters);
-    const categoryIds =
-      filters.categoryId && filters.categoryId !== 'uncategorized'
-        ? await this.categoryWithDescendants(workspaceId, filters.categoryId)
-        : null;
-    applyStatementRowFilters(qb, filters, this.transactionRepository, workspaceId, categoryIds);
-    orderStatementList(qb, filters.groupBy);
-
-    const [dataRaw, totalCount] = await qb.getManyAndCount();
-    const transactionSummaries = await loadTransactionSummaries(
-      this.transactionRepository,
-      workspaceId,
-      dataRaw.map(statement => statement.id),
-      viewerMemberId,
-    );
-    const data = await Promise.all(
-      dataRaw.map(async st => {
-        const availability = await this.fileStorageService.getFileAvailability(st);
-        const statement = this.attachFileAvailability(st, availability);
-        statement.transactionSummary = transactionSummaries.get(st.id) ?? EMPTY_TRANSACTION_SUMMARY;
-        return statement;
-      }),
-    );
-
-    const total = page ? totalCount : data.length;
-
-    return {
-      data,
-      total,
-      page: page ?? 1,
-      limit: limit ?? total,
-    };
-  }
-
-  /** The category and every category below it, within the workspace. */
-  private async categoryWithDescendants(
-    workspaceId: string,
-    categoryId: string,
-  ): Promise<string[]> {
-    const categories = await this.categoryRepository.find({
-      where: { workspaceId },
-      select: { id: true, parentId: true },
-    });
-    const ids = [categoryId];
-    for (let index = 0; index < ids.length; index++) {
-      for (const category of categories) {
-        if (category.parentId === ids[index] && !ids.includes(category.id)) ids.push(category.id);
-      }
-    }
-    return ids;
+    return this.list.list(workspaceId, filters, viewerMemberId);
   }
 
   async findOne(id: string, workspaceId: string): Promise<Statement> {
-    const statementRepository = this
-      .statementRepository as StatementRepositoryWithOptionalQueryBuilder;
-
-    if (typeof statementRepository.createQueryBuilder !== 'function') {
-      const statement = await this.statementRepository.findOne({
-        where: { id, workspaceId },
-        relations: {
-          transactions: true,
-          user: true,
-        },
-      });
-
-      if (!statement) {
-        throw new NotFoundException(appError('STATEMENT_NOT_FOUND'));
-      }
-
-      const availability = await this.fileStorageService.getFileAvailability(statement);
-      this.attachFileAvailability(statement, availability);
-
-      return statement;
-    }
-
-    const qb = statementRepository
-      .createQueryBuilder('statement')
-      .leftJoinAndSelect('statement.transactions', 'transactions')
-      .leftJoinAndSelect('statement.user', 'owner')
-      .where('statement.id = :id', { id })
-      .andWhere('statement.workspaceId = :workspaceId', { workspaceId });
-
-    const statement = await qb.getOne();
-
-    if (!statement) {
-      throw new NotFoundException(appError('STATEMENT_NOT_FOUND'));
-    }
-
-    const availability = await this.fileStorageService.getFileAvailability(statement);
-    this.attachFileAvailability(statement, availability);
-
-    return statement;
+    return this.list.findOne(id, workspaceId);
   }
 
   async updateMetadata(
@@ -965,159 +179,15 @@ export class StatementsService {
     file: Express.Multer.File,
   ): Promise<Statement> {
     validateFile(file);
-
-    const statement = await this.findOne(id, workspaceId);
-    await this.ensureCanModify(statement, userId, workspaceId);
-
-    const previousFilePath = statement.filePath;
-    statement.fileName = normalizeFilename(file.originalname);
-    statement.filePath = file.path;
-    statement.fileType = resolveFileType(file) as FileType;
-    statement.fileSize = file.size;
-    statement.fileHash = await calculateFileHash(file.path);
-
-    if (statement.parsingDetails?.importPreview?.source === 'manual-expense') {
-      const previousAttachmentCount = Number(
-        statement.parsingDetails.importPreview.attachments || 0,
-      );
-      statement.parsingDetails = {
-        ...statement.parsingDetails,
-        importPreview: {
-          ...(statement.parsingDetails.importPreview || {}),
-          attachments: Math.max(previousAttachmentCount, 1),
-        },
-      };
-    }
-
-    const updatedStatement = await this.statementRepository.save(statement);
-
-    try {
-      const fileData = await readUploadedFile(file.path);
-      await this.statementRepository.update(updatedStatement.id, { fileData });
-    } catch (error) {
-      this.logger.warn(
-        `[Statements] Failed to persist attached file in DB: ${(error as Error).message}`,
-      );
-    }
-
-    if (previousFilePath && previousFilePath !== file.path && fs.existsSync(previousFilePath)) {
-      try {
-        const sharedReferenceCount = await this.statementRepository
-          .createQueryBuilder('statement')
-          .where('statement.filePath = :filePath', { filePath: previousFilePath })
-          .andWhere('statement.id != :id', { id: updatedStatement.id })
-          .getCount();
-
-        if (sharedReferenceCount === 0) {
-          await fs.promises.unlink(previousFilePath);
-        }
-      } catch (error) {
-        this.logger.warn(
-          `[Statements] Failed to clean up previous file ${previousFilePath}: ${(error as Error).message}`,
-        );
-      }
-    }
-
-    await this.cacheManager.del(`statements:thumbnail:${id}`);
-    return updatedStatement;
+    return this.uploads.attachFile(await this.findOne(id, workspaceId), userId, workspaceId, file);
   }
 
   async moveToTrash(id: string, userId: string, workspaceId: string): Promise<Statement> {
-    const statement = await this.findOne(id, workspaceId);
-    await this.ensureCanModify(statement, userId, workspaceId);
-    // A trashed statement's rows drop out of every total, including the
-    // filed return they were reported on.
-    await assertNoTaxLockedTransactions(this.transactionRepository, {
-      statementId: statement.id,
-      workspaceId,
-    });
-
-    // Mark as deleted (soft delete)
-    const beforeState = { ...statement };
-    statement.deletedAt = new Date();
-    await this.statementRepository.save(statement);
-
-    // Audit: record statement deletion with before snapshot.
-    await this.auditService.createEvent({
-      workspaceId,
-      actorType: ActorType.USER,
-      actorId: userId,
-      entityType: EntityType.STATEMENT,
-      entityId: statement.id,
-      action: AuditAction.DELETE,
-      diff: { before: beforeState, after: null },
-      meta: {
-        fileName: statement.fileName,
-        source: 'trash',
-      },
-      isUndoable: true,
-    });
-
-    this.eventEmitter?.emit('data.deleted', {
-      workspaceId,
-      actorId: userId,
-      actorName: statement.user?.name || statement.user?.email || 'User',
-      entityType: 'statement',
-      entityLabel: statement.fileName,
-      count: 1,
-    } satisfies DataDeletedEvent);
-
-    return statement;
+    return this.statementTrash.trash(await this.findOne(id, workspaceId), userId, workspaceId);
   }
 
   async permanentDelete(id: string, userId: string, workspaceId: string): Promise<void> {
-    const statement = await this.statementRepository.findOne({
-      where: { id, workspaceId },
-      relations: {
-        user: true,
-      },
-    });
-
-    if (!statement) {
-      throw new NotFoundException(appError('STATEMENT_NOT_FOUND'));
-    }
-    await assertNoTaxLockedTransactions(this.transactionRepository, {
-      statementId: statement.id,
-      workspaceId,
-    });
-
-    await this.ensureCanModify(statement, userId, workspaceId);
-
-    // Audit: record statement rollback for restore operations.
-    await this.auditService.createEvent({
-      workspaceId,
-      actorType: ActorType.USER,
-      actorId: userId,
-      entityType: EntityType.STATEMENT,
-      entityId: statement.id,
-      action: AuditAction.DELETE,
-      diff: { before: { ...statement }, after: null },
-      meta: {
-        fileName: statement.fileName,
-        source: 'permanent',
-      },
-      isUndoable: true,
-    });
-
-    this.eventEmitter?.emit('data.deleted', {
-      workspaceId,
-      actorId: userId,
-      actorName: statement.user?.name || statement.user?.email || 'User',
-      entityType: 'statement',
-      entityLabel: statement.fileName,
-      count: 1,
-    } satisfies DataDeletedEvent);
-
-    // Delete all related transactions first
-    await this.transactionRepository.delete({ statementId: id });
-
-    await removeStatementFile(this.statementRepository, statement, this.logger);
-
-    // Finally delete the statement
-    await this.statementRepository.remove(statement);
-
-    // Invalidate thumbnail cache
-    await this.cacheManager.del(`statements:thumbnail:${id}`);
+    await this.statementTrash.permanentDelete(id, userId, workspaceId);
   }
 
   async remove(id: string, userId: string, workspaceId: string): Promise<void> {
@@ -1260,167 +330,19 @@ export class StatementsService {
     fileName: string;
     mimeType: string;
   }> {
-    const statement = await this.findOne(id, workspaceId);
-    const { stream, fileName, mimeType } =
-      await this.fileStorageService.getStatementFileStream(statement);
-    return { stream, fileName, mimeType };
+    return this.statementFiles.fileStream(await this.findOne(id, workspaceId));
   }
 
   async restoreFile(id: string, userId: string, workspaceId: string) {
-    const statement = await this.statementRepository.findOne({
-      where: { id, workspaceId },
-      relations: {
-        user: true,
-      },
-    });
-
-    if (!statement) {
-      throw new NotFoundException(appError('STATEMENT_NOT_FOUND'));
-    }
-
-    await this.ensureCanModify(statement, userId, workspaceId);
-
-    // If the file is in trash, restore it from trash
-    if (statement.deletedAt) {
-      statement.deletedAt = null;
-      await this.statementRepository.save(statement);
-
-      // Audit: record permanent removal (used for hard delete flow).
-      await this.auditService.createEvent({
-        workspaceId,
-        actorType: ActorType.USER,
-        actorId: userId,
-        entityType: EntityType.STATEMENT,
-        entityId: statement.id,
-        action: AuditAction.ROLLBACK,
-        diff: { before: null, after: statement },
-        meta: {
-          source: 'trash_restore',
-        },
-        severity: Severity.INFO,
-        isUndoable: false,
-      });
-
-      return { status: 'restored', source: 'trash' };
-    }
-
-    // Otherwise, restore file from database if it's missing from disk
-    const restored = await this.fileStorageService.restoreFile(statement);
-    if (!restored) {
-      throw new NotFoundException(appError('STATEMENT_FILE_RESTORE_UNAVAILABLE'));
-    }
-    return { status: 'restored', source: restored.source };
+    return this.statementTrash.restore(id, userId, workspaceId);
   }
 
   async getThumbnail(id: string, workspaceId: string, requestedWidth?: number): Promise<Buffer> {
-    const statement = await this.findOne(id, workspaceId);
-
-    const normalizedWidth = Number.isFinite(requestedWidth ?? Number.NaN)
-      ? Math.round(requestedWidth ?? 200)
-      : 200;
-    const thumbnailWidth = Math.min(1600, Math.max(80, normalizedWidth));
-
-    const cacheVersion = statement.updatedAt?.getTime?.() ?? 0;
-    const cacheKey = `statements:thumbnail:${id}:${cacheVersion}:${thumbnailWidth}`;
-    const cached = await this.cacheManager.get<string>(cacheKey);
-    if (cached) {
-      return Buffer.from(cached, 'base64');
-    }
-
-    // Check if file is PDF
-    if (statement.fileType !== 'pdf' && !statement.fileName.toLowerCase().endsWith('.pdf')) {
-      throw new BadRequestException(appError('STATEMENT_THUMBNAIL_PDF_ONLY'));
-    }
-
-    // Determine source file path
-    let pdfPath: string | null = null;
-    let tempPdfPath: string | null = null;
-
-    if (statement.filePath && fs.existsSync(statement.filePath)) {
-      // Use existing file on disk
-      pdfPath = statement.filePath;
-    } else if (statement.fileData) {
-      // Write data to temporary file
-      tempPdfPath = path.join('/tmp', `temp-${statement.id}-${Date.now()}.pdf`);
-      await fs.promises.writeFile(tempPdfPath, statement.fileData);
-      pdfPath = tempPdfPath;
-    }
-
-    if (!pdfPath) {
-      throw new NotFoundException(appError('STATEMENT_FILE_DATA_UNAVAILABLE'));
-    }
-
-    try {
-      // Generate thumbnail using Python script
-      const thumbnailPath = path.join('/tmp', `thumbnail-${statement.id}-${Date.now()}.png`);
-      let generatedThumbnailPath = thumbnailPath;
-
-      try {
-        await this.generateThumbnailWithPython(pdfPath, thumbnailPath, thumbnailWidth);
-      } catch (pythonError) {
-        if (process.platform !== 'darwin') {
-          throw pythonError;
-        }
-        generatedThumbnailPath = await this.generateThumbnailWithQuickLook(
-          pdfPath,
-          '/tmp',
-          thumbnailWidth,
-        );
-      }
-
-      // Read generated thumbnail
-      const thumbnailData = await fs.promises.readFile(generatedThumbnailPath);
-
-      // Cache the thumbnail (1 week)
-      await this.cacheManager.set(cacheKey, thumbnailData.toString('base64'), 604800);
-
-      // Clean up temporary files
-      try {
-        await fs.promises.unlink(generatedThumbnailPath);
-        if (tempPdfPath) {
-          await fs.promises.unlink(tempPdfPath);
-        }
-      } catch (cleanupError) {
-        this.logger.warn('Error cleaning up temporary files:', cleanupError);
-      }
-
-      return thumbnailData;
-    } catch (error) {
-      // Clean up temp PDF if it was created
-      if (tempPdfPath) {
-        try {
-          await fs.promises.unlink(tempPdfPath);
-        } catch (cleanupError) {
-          // Ignore cleanup errors
-        }
-      }
-
-      this.logger.error('Error generating thumbnail:', error);
-      throw new BadRequestException(appError('STATEMENT_THUMBNAIL_FAILED'));
-    }
+    return this.statementFiles.thumbnail(await this.findOne(id, workspaceId), requestedWidth);
   }
 
   async exportZip(workspaceId: string, outputStream: NodeJS.WritableStream): Promise<void> {
     const { data: statements } = await this.findAll(workspaceId, {});
-
-    const archive = new ZipArchive({ zlib: { level: 5 } });
-    archive.pipe(outputStream);
-
-    for (const statement of statements) {
-      try {
-        const { stream, fileName } =
-          await this.fileStorageService.getStatementFileStream(statement);
-        const isReceipt = statement.fileType === FileType.IMAGE || !statement.bankName;
-        const folder = isReceipt ? 'receipts' : (statement.bankName ?? 'other');
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const safeFolder = sanitizeArchiveEntryName(folder);
-        const safeFileName = sanitizeArchiveEntryName(fileName);
-        archive.append(stream as any, { name: `${safeFolder}/${safeFileName}` });
-      } catch {
-        // Skip files that cannot be retrieved
-      }
-    }
-
-    await archive.finalize();
+    await this.statementFiles.exportZip(statements, outputStream);
   }
 }

@@ -19,27 +19,27 @@ import Alert from '@mui/material/Alert';
 import { useParams, useRouter } from 'next/navigation';
 import { buildSourceColumnTitles } from '@/app/(main)/custom-tables/labels';
 import CustomDatePicker from '@/app/components/CustomDatePicker';
-import { ArrowLeft, CheckCircle2, ChevronDown, Layers, Save, Trash2 } from '@/app/components/icons';
+import { ArrowLeft, CheckCircle2, ChevronDown, Layers, Trash2 } from '@/app/components/icons';
 import { NotesPanel } from '@/app/components/notes/NotesPanel';
 import { DetailActionButton } from '@/app/components/ui/detail-action-button';
-import { fillTemplateNodes, PrivateAmount } from '@/app/components/ui/private-amount';
 import { Spinner } from '@/app/components/ui/spinner';
 import { useAuth } from '@/app/hooks/useAuth';
 import { useIntlayer, useLocale } from '@/app/i18n';
-import { flattenStatementCategories, getCategoryDisplayName } from '@/app/lib/statement-categories';
 import { formatStoredDate } from '@/app/lib/user-format-store';
 import { tokens } from '@/lib/theme-tokens';
 import { BalanceReviewAlert, balanceReviewLabels } from './components/BalanceReviewAlert';
 import { EditStatementSkeleton } from './components/EditStatementSkeleton';
-import { EditTransactionsTable } from './components/EditTransactionsTable';
 import { StatementDetailsFields } from './components/StatementDetailsFields';
+import { StatementRowsSection } from './components/StatementRowsSection';
+import { StatementSummaryCards } from './components/StatementSummaryCards';
 import {
   filterEnabledCategories,
   formatLabel,
   formatNumber as formatNumberHelper,
-  isIdEmpty,
   resolveLocale,
 } from './editHelpers';
+import { confirmButtonLabel, needsCategory, sharedCategoryId } from './helpers/payee-groups';
+import { spreadMessages } from './hooks/category-target';
 import { useConfirmStatement } from './hooks/useConfirmStatement';
 import { useStatementEditForm } from './hooks/useStatementEditForm';
 import { ParsingWarningsPanel } from './ParsingWarningsPanel';
@@ -64,23 +64,15 @@ export default function EditStatementPage(): React.JSX.Element {
     loading,
     saving,
     exportingToTable,
-    optionsLoading,
     error,
     setError,
     success,
     setSuccess,
     selectedRows,
     setSelectedRows: SetSelectedRows,
-    editingRow,
-    editedData,
     categories,
-    branches,
-    wallets,
     bulkCategoryDialogOpen,
-    setBulkCategoryDialogOpen,
-    statementCategoryDrawerOpen,
-    setStatementCategoryDrawerOpen,
-    statementCategorySaving,
+    categoryTarget,
     metadataForm,
     setMetadataForm: SetMetadataForm,
     exportConfirmOpen,
@@ -93,19 +85,16 @@ export default function EditStatementPage(): React.JSX.Element {
     handleExportToCustomTable,
     handleRowSelect,
     handleSelectAll,
-    handleEdit,
-    handleFieldChange,
-    handleSave,
-    handleCancel,
     handleMetadataChange,
     handleResolveParsingWarning,
     handleConvertDroppedSample,
     handleDelete,
-    handleBulkUpdate,
     handleBulkDelete,
     handleOpenBulkCategory,
-    handleApplyBulkCategory,
-    handleStatementCategorySelect,
+    handleOpenRowCategory,
+    handleOpenRowsCategory,
+    handleCloseCategory,
+    handleApplyCategory,
   } = useStatementEditForm({
     statementId,
     user,
@@ -114,7 +103,6 @@ export default function EditStatementPage(): React.JSX.Element {
       loadDataError: t.errors.loadData.value,
       saveTransactionError: t.errors.saveTransaction.value,
       deleteTransactionError: t.errors.deleteTransaction.value,
-      updateTransactionsError: t.errors.updateTransactions.value,
       deleteTransactionsError: t.errors.deleteTransactions.value,
       assignCategoryError: t.errors.assignCategory.value,
       exportLoading: t.labels.exportLoading.value,
@@ -122,8 +110,7 @@ export default function EditStatementPage(): React.JSX.Element {
       exportFailure: t.labels.exportFailure.value,
       exportDescription: t.labels.exportDescription.value,
       statementNamePrefix: t.labels.statementNamePrefix.value,
-      categoryUpdated: labels.categoryUpdated?.value,
-      categoryUpdateFailed: labels.categoryUpdateFailed?.value,
+      spread: spreadMessages(labels),
     },
     sourceColumnTitles: buildSourceColumnTitles(tablesDictionary),
   });
@@ -137,28 +124,18 @@ export default function EditStatementPage(): React.JSX.Element {
   });
 
   const enabledStatementCategories = filterEnabledCategories(categories);
-  // The drawer ticks the category only when every selected row already shares it.
-  const selectedCategoryIds = new Set(
-    transactions.filter(row => selectedRows.has(row.id)).map(row => row.categoryId ?? ''),
+  const bulkSelectedCategoryId = sharedCategoryId(
+    transactions.filter(row => (categoryTarget?.ids ?? [...selectedRows]).includes(row.id)),
   );
-  const bulkSelectedCategoryId =
-    selectedCategoryIds.size === 1 ? ([...selectedCategoryIds][0] ?? '') : '';
-  const flattenedStatementCategories = flattenStatementCategories(categories, '', locale);
-  const flattenedEnabledStatementCategories = flattenStatementCategories(
-    enabledStatementCategories,
-    '',
-    locale,
-  );
-
   if (loading) {
     return <EditStatementSkeleton />;
   }
 
   const hasUnconfirmedRows = transactions.some(transaction => transaction.isVerified === false);
-  const missingCategoryCount = transactions.filter(transaction => {
-    const noCategory = isIdEmpty(transaction.categoryId) && isIdEmpty(transaction.category?.id);
-    return noCategory || transaction.category?.isEnabled === false;
-  }).length;
+  // The fallback "Uncategorized" counts as no category: it is what the import put there.
+  const missingCategoryCount = transactions.filter(
+    transaction => needsCategory(transaction) || transaction.category?.isEnabled === false,
+  ).length;
 
   const totalIncome = transactions.reduce((sum, t) => {
     const credit = Number(t.credit);
@@ -170,32 +147,14 @@ export default function EditStatementPage(): React.JSX.Element {
     return sum + (Number.isNaN(debit) ? 0 : debit);
   }, 0);
 
-  const selectedStatementCategoryName =
-    (statement?.category?.name
-      ? getCategoryDisplayName(
-          {
-            name: statement.category.name,
-            source: statement.category.source,
-            isSystem: statement.category.isSystem,
-          },
-          locale,
-        ).trim()
-      : '') ||
-    flattenedStatementCategories.find(category => category.id === statement?.categoryId)?.name ||
-    labels.categoryButton?.value;
-  const hasStatementCategory = !(
-    isIdEmpty(statement?.categoryId) && isIdEmpty(statement?.category?.id || undefined)
-  );
-  const hasDisabledStatementCategory = statement?.category?.isEnabled === false;
   const parsingErrorCount = statement?.parsingDetails?.errors?.length || 0;
   const parsingWarningCount = statement?.parsingDetails?.warnings?.length || 0;
-  const hasCategoryIssues =
-    !hasStatementCategory || hasDisabledStatementCategory || missingCategoryCount > 0;
-  const readinessSeverity: 'success' | 'warning' | 'error' = hasCategoryIssues
-    ? 'error'
-    : parsingErrorCount > 0 || parsingWarningCount > 0
-      ? 'warning'
-      : 'success';
+  const readinessSeverity: 'success' | 'warning' | 'error' =
+    missingCategoryCount > 0
+      ? 'error'
+      : parsingErrorCount > 0 || parsingWarningCount > 0
+        ? 'warning'
+        : 'success';
 
   const readinessTitle =
     readinessSeverity === 'error'
@@ -205,14 +164,6 @@ export default function EditStatementPage(): React.JSX.Element {
         : labels.alertReadyTitle?.value;
 
   const readinessDetails: string[] = [];
-
-  if (!hasStatementCategory) {
-    readinessDetails.push(labels.alertStatementCategoryMissing?.value);
-  }
-
-  if (hasDisabledStatementCategory) {
-    readinessDetails.push(labels.alertStatementCategoryDisabled?.value);
-  }
 
   if (missingCategoryCount > 0) {
     readinessDetails.push(
@@ -324,32 +275,6 @@ export default function EditStatementPage(): React.JSX.Element {
             </Typography>
           </Box>
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-            {/* A missing category is already called out by the readiness card and the
-                "require category" chip, so the button stays neutral beside its siblings
-                and only its icon carries the warning colour. */}
-            <DetailActionButton
-              onClick={() => setStatementCategoryDrawerOpen(true)}
-              disabled={statementCategorySaving || optionsLoading}
-              title={selectedStatementCategoryName}
-              style={{
-                minWidth: 0,
-                maxWidth: 280,
-                justifyContent: 'flex-start',
-                padding: '8px 16px',
-                fontWeight: 500,
-              }}
-            >
-              {statementCategorySaving ? (
-                <Spinner size={18} />
-              ) : (
-                <Layers size={18} style={{ color: 'var(--text-muted)' }} />
-              )}
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {hasDisabledStatementCategory
-                  ? `${selectedStatementCategoryName}${t.labels.disabledSuffix.value}`
-                  : selectedStatementCategoryName}
-              </span>
-            </DetailActionButton>
             <DetailActionButton
               onClick={() => setExportConfirmOpen(true)}
               disabled={exportingToTable || !transactions.length}
@@ -364,7 +289,7 @@ export default function EditStatementPage(): React.JSX.Element {
               disabled={confirming || !hasUnconfirmedRows}
             >
               {confirming ? <Spinner size={18} /> : <CheckCircle2 size={18} />}
-              {labels.confirmAll?.value}
+              {confirmButtonLabel(transactions, labels)}
             </DetailActionButton>
           </Box>
         </Box>
@@ -416,16 +341,6 @@ export default function EditStatementPage(): React.JSX.Element {
             </Box>
             {`: ${readinessMessage}`}
           </Typography>
-          {!hasStatementCategory || hasDisabledStatementCategory ? (
-            <Button
-              size="small"
-              variant="text"
-              onClick={() => setStatementCategoryDrawerOpen(true)}
-              sx={{ flexShrink: 0, textTransform: 'none', fontWeight: 500 }}
-            >
-              {labels.chooseCategory?.value}
-            </Button>
-          ) : null}
         </Box>
       ) : null}
 
@@ -457,87 +372,17 @@ export default function EditStatementPage(): React.JSX.Element {
         </Alert>
       )}
 
-      {/* Summary: the figures in ink, the currency beside them, and the closing
-          balance they add up to, checked against the one the bank printed —
-          the plainest sign the statement was read right. */}
-      <Box
-        sx={{
-          mb: 2,
-          display: 'grid',
-          gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(4, 1fr)' },
-          gap: 2,
-        }}
-      >
-        {[
-          {
-            key: 'start',
-            label: labels.balanceStart?.value,
-            value: openingBalance,
-          },
-          { key: 'expense', label: labels.expenses?.value, value: safeExpense },
-          { key: 'income', label: labels.income?.value, value: safeIncome },
-          {
-            key: 'end',
-            label: labels.closingBalance?.value,
-            value: closingBalance,
-          },
-        ].map(card => (
-          <Paper
-            key={card.key}
-            elevation={0}
-            sx={{ border: '1px solid', borderColor: 'divider', p: 2 }}
-          >
-            <Typography sx={{ fontSize: 13, color: 'var(--text-muted)' }}>{card.label}</Typography>
-            <Typography
-              sx={{ fontSize: 16, fontWeight: 500, mt: 0.5, fontVariantNumeric: 'tabular-nums' }}
-            >
-              {card.value === null ? (
-                labels.notSpecified?.value
-              ) : (
-                <>
-                  <PrivateAmount>{formatNumber(card.value)}</PrivateAmount>
-                  {statementCurrency ? (
-                    <Box
-                      component="span"
-                      sx={{ fontSize: 13, fontWeight: 400, color: 'var(--muted-foreground)' }}
-                    >
-                      {' '}
-                      {statementCurrency}
-                    </Box>
-                  ) : null}
-                </>
-              )}
-            </Typography>
-            {card.key === 'end' && closingBalance !== null && bankClosing !== null ? (
-              <Typography
-                sx={{
-                  mt: 0.5,
-                  fontSize: 13,
-                  color: 'var(--text-muted)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 0.75,
-                }}
-              >
-                <Box
-                  aria-hidden
-                  sx={{
-                    width: 6,
-                    height: 6,
-                    borderRadius: '50%',
-                    bgcolor: closingMatches ? 'var(--money-up)' : 'var(--attention)',
-                  }}
-                />
-                {closingMatches
-                  ? labels.closingMatches?.value
-                  : fillTemplateNodes(labels.closingBankSays?.value, {
-                      amount: formatNumber(bankClosing),
-                    })}
-              </Typography>
-            ) : null}
-          </Paper>
-        ))}
-      </Box>
+      <StatementSummaryCards
+        opening={openingBalance}
+        expense={safeExpense}
+        income={safeIncome}
+        closing={closingBalance}
+        bankClosing={bankClosing}
+        closingMatches={closingMatches}
+        currency={statementCurrency}
+        formatNumber={formatNumber}
+        labels={labels}
+      />
 
       {/* Editing & Parsing Details Accordion */}
       <Accordion
@@ -873,20 +718,6 @@ export default function EditStatementPage(): React.JSX.Element {
         </DialogActions>
       </Dialog>
 
-      <StatementCategoryDrawer
-        open={statementCategoryDrawerOpen}
-        onClose={() => setStatementCategoryDrawerOpen(false)}
-        categories={enabledStatementCategories}
-        selectedCategoryId={statement?.categoryId || ''}
-        selecting={statementCategorySaving}
-        onSelect={categoryId => handleStatementCategorySelect(categoryId)}
-        onCreated={category => {
-          setStatementCategoryDrawerOpen(false);
-          void handleStatementCategorySelect(category.id);
-        }}
-        clearLabel={labels.categoryAllOption?.value}
-      />
-
       {/* Bulk Actions */}
       {selectedRows.size > 0 && (
         <Paper
@@ -938,20 +769,6 @@ export default function EditStatementPage(): React.JSX.Element {
                 {labels.assignCategory?.value}
               </Button>
               <Button
-                variant="contained"
-                onClick={handleBulkUpdate}
-                disabled={saving}
-                startIcon={saving ? <Spinner size={20} /> : <Save size={18} />}
-                size="small"
-                sx={{
-                  textTransform: 'none',
-                  fontWeight: 600,
-                  boxShadow: 'none',
-                }}
-              >
-                {labels.save?.value}
-              </Button>
-              <Button
                 variant="outlined"
                 color="error"
                 onClick={() =>
@@ -975,26 +792,18 @@ export default function EditStatementPage(): React.JSX.Element {
         </Paper>
       )}
 
-      {/* Transactions Table */}
-      <EditTransactionsTable
+      <StatementRowsSection
         transactions={transactions}
-        editingRow={editingRow}
-        editedData={editedData}
         selectedRows={selectedRows}
-        categories={flattenedEnabledStatementCategories}
-        branches={branches}
-        wallets={wallets}
         locale={locale}
         formatNumber={formatNumber}
         columns={columns}
         labels={labels}
         onSelectAll={handleSelectAll}
         onRowSelect={handleRowSelect}
-        onEdit={handleEdit}
-        onSave={handleSave}
-        onCancel={handleCancel}
+        onCategoryClick={handleOpenRowCategory}
         onDelete={handleDelete}
-        onFieldChange={({ id, field, value }) => handleFieldChange(id, field, value)}
+        onPickRows={handleOpenRowsCategory}
       />
 
       {statement && (
@@ -1011,14 +820,15 @@ export default function EditStatementPage(): React.JSX.Element {
         </div>
       )}
 
-      {/* Bulk category: the app's category drawer; a pick applies to every selected row. */}
+      {/* The app's category drawer: opened from a row's category it sets that row,
+          from the bulk bar every selected row. */}
       <StatementCategoryDrawer
         open={bulkCategoryDialogOpen}
-        onClose={() => setBulkCategoryDialogOpen(false)}
+        onClose={handleCloseCategory}
         categories={enabledStatementCategories}
         selectedCategoryId={bulkSelectedCategoryId}
         selecting={saving}
-        onSelect={categoryId => void handleApplyBulkCategory(categoryId)}
+        onSelect={categoryId => void handleApplyCategory(categoryId)}
       />
     </Container>
   );

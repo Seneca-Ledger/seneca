@@ -129,6 +129,7 @@ import {
   CategorizationRule as CategorizationRuleContract,
   CategorizationRuleApplyResult,
   CategorizationRuleList,
+  CategorizationRuleSuggestionList,
   CategorizationRuleTestResult,
   PaymentCandidateList,
   PeppolLookup,
@@ -193,6 +194,7 @@ import {
   TelegramReportPage,
   TransactionAttachmentList,
   TransactionCandidates,
+  TransactionGoalLink,
   TransactionList,
   TrialBalance,
   TwoFactorSetup,
@@ -462,6 +464,60 @@ describe('API contracts (e2e)', () => {
       matches(GoalFlowResponse, (await get(`/goals/${goalId}/flow?month=${month}`)).body);
       matches(GoalPlanResponse, (await get(`/goals/${goalId}/plan`)).body);
     });
+
+    it('PUT/GET /transactions/:id/goal takes an expense out of the goal', async () => {
+      const files = await get('/storage/files');
+      const rows = await get(`/transactions?statement_id=${files.body[0].id}`);
+      const transactionId = rows.body.data[0].id;
+      const put = (goal: string | null) =>
+        request(app.getHttpServer())
+          .put(`/transactions/${transactionId}/goal`)
+          .set('Authorization', `Bearer ${owner.token}`)
+          .set('x-workspace-id', owner.workspaceId)
+          .send({ goalId: goal })
+          .expect(200);
+
+      const item = await request(app.getHttpServer())
+        .post(`/goals/${goalId}/items`)
+        .set('Authorization', `Bearer ${owner.token}`)
+        .set('x-workspace-id', owner.workspaceId)
+        .send({ name: 'Moving boxes', estimatedAmount: 50 })
+        .expect(201);
+      const itemId = item.body.items[0].id;
+
+      const linked = await request(app.getHttpServer())
+        .put(`/transactions/${transactionId}/goal`)
+        .set('Authorization', `Bearer ${owner.token}`)
+        .set('x-workspace-id', owner.workspaceId)
+        .send({ goalId, goalItemId: itemId })
+        .expect(200);
+      matches(TransactionGoalLink, linked.body);
+      expect(linked.body).toEqual({
+        goal: expect.objectContaining({ id: goalId }),
+        amount: -42.5,
+        itemId,
+      });
+      expect((await get(`/goals/${goalId}/items`)).body.items[0]).toEqual(
+        expect.objectContaining({ status: 'paid', actualAmount: 42.5 }),
+      );
+      matches(TransactionGoalLink, (await get(`/transactions/${transactionId}/goal`)).body);
+
+      const detail = await get(`/goals/${goalId}`);
+      matches(GoalDetail, detail.body);
+      expect(detail.body.currentAmount).toBe(57.5);
+      expect(detail.body.contributions).toContainEqual(
+        expect.objectContaining({
+          amount: -42.5,
+          transaction: expect.objectContaining({ id: transactionId, counterpartyName: 'Contract Coffee' }),
+        }),
+      );
+
+      expect((await put(null)).body).toEqual({ goal: null, amount: null, itemId: null });
+      expect((await get(`/goals/${goalId}`)).body.currentAmount).toBe(100);
+      expect((await get(`/goals/${goalId}/items`)).body.items[0]).toEqual(
+        expect.objectContaining({ status: 'planned', actualAmount: null }),
+      );
+    });
   });
 
   describe('wealth', () => {
@@ -626,6 +682,14 @@ describe('API contracts (e2e)', () => {
       // A monthly charge lands in every month, paid or still to come.
       expect(status.body.paidCount + status.body.unpaidCount).toBeGreaterThan(0);
       expect(status.body.items.length).toBeGreaterThan(0);
+      // A month that is over is what was charged in it: nothing is left to come.
+      const now = new Date();
+      const last = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const lastMonth = `${last.getFullYear()}-${String(last.getMonth() + 1).padStart(2, '0')}`;
+      const past = await get(`/subscriptions/month-status?month=${lastMonth}`);
+      matches(SubscriptionMonthStatus, past.body);
+      expect(past.body.month).toBe(lastMonth);
+      expect(past.body.unpaidCount).toBe(0);
     });
 
     it('GET /subscriptions/upcoming', async () => {
@@ -996,6 +1060,91 @@ describe('API contracts (e2e)', () => {
           await send('delete', `/categorization-rules/${created.body.id}`).expect(204);
         }
       }
+    });
+
+    it('rules on direction and account that tag, in an order, and the preview of the one below', async () => {
+      const categories = await get('/categories?type=expense');
+      const wallets = await get('/wallets');
+      const tag = await send('post', '/tags', { name: 'Rule tag' }).expect(201);
+      const coffee = [
+        { field: 'counterparty_name', operator: 'contains', value: 'contract coffee' },
+        { field: 'direction', operator: 'equals', value: 'expense' },
+      ];
+      const ids: string[] = [];
+      try {
+        const tagging = await send('post', '/categorization-rules', {
+          name: 'Coffee spending is tagged',
+          conditions: coffee,
+          result: { tagIds: [tag.body.id] },
+        }).expect(201);
+        ids.push(tagging.body.id);
+        matches(CategorizationRuleContract, tagging.body);
+        const broad = await send('post', '/categorization-rules', {
+          name: 'Any coffee',
+          conditions: [{ field: 'counterparty_name', operator: 'contains', value: 'coffee' }],
+          result: { categoryId: categories.body[1].id },
+        }).expect(201);
+        ids.push(broad.body.id);
+        const byAccount = await send('post', '/categorization-rules', {
+          name: 'This account',
+          conditions: [{ field: 'wallet', operator: 'equals', value: wallets.body[0].id }],
+          result: { categoryId: categories.body[1].id },
+        }).expect(201);
+        ids.push(byAccount.body.id);
+        // A new rule goes on top.
+        expect(byAccount.body.priority).toBeGreaterThan(broad.body.priority);
+
+        // The broad rule first: it takes every row the tagging one matches.
+        const order = [broad.body.id, tagging.body.id, byAccount.body.id];
+        const reordered = await send('put', '/categorization-rules/order', { ids: order }).expect(200);
+        matches(CategorizationRuleList, reordered.body);
+        expect(reordered.body.data.map((rule: { id: string }) => rule.id)).toEqual(order);
+        await send('put', '/categorization-rules/order', { ids: order.slice(1) }).expect(400);
+
+        const preview = await send('post', '/categorization-rules/test', {
+          conditions: coffee,
+          ruleId: tagging.body.id,
+        }).expect(200);
+        matches(CategorizationRuleTestResult, preview.body);
+        expect(preview.body.matchedTransactions).toBeGreaterThan(0);
+        expect(preview.body.shadowed).toBe(preview.body.matchedTransactions);
+        expect(preview.body.matches[0].wonBy).toEqual({ id: broad.body.id, name: 'Any coffee' });
+
+        const applied = await send('post', `/categorization-rules/${tagging.body.id}/apply`).expect(200);
+        matches(CategorizationRuleApplyResult, applied.body);
+        expect(applied.body).toEqual({
+          applied: 0,
+          skippedManual: 0,
+          tagged: preview.body.matchedTransactions,
+        });
+      } finally {
+        for (const id of ids) {
+          await send('delete', `/categorization-rules/${id}`).expect(204);
+        }
+      }
+    });
+
+    it('GET /categorization-rules/suggestions offers a payee filed by hand again and again', async () => {
+      const categories = await get('/categories?type=expense');
+      const merchant = 'Suggested Bakery';
+      for (const amount of ['3.10', '4.20', '5.30']) {
+        await request(app.getHttpServer())
+          .post('/statements/manual-expense')
+          .set('Authorization', `Bearer ${owner.token}`)
+          .set('x-workspace-id', owner.workspaceId)
+          .field('amount', amount)
+          .field('currency', 'USD')
+          .field('merchant', merchant)
+          .field('categoryId', categories.body[2].id)
+          .field('date', '2026-10-0' + amount[0])
+          .expect(201);
+      }
+
+      const suggestions = await get('/categorization-rules/suggestions');
+      matches(CategorizationRuleSuggestionList, suggestions.body);
+      expect(suggestions.body.data).toContainEqual(
+        expect.objectContaining({ categoryId: categories.body[2].id, decidedCount: 3 }),
+      );
     });
   });
 
@@ -1789,6 +1938,10 @@ describe('API contracts (e2e)', () => {
 
     it('GET activity, a usage count, a rate, the daily quote and the map styles', async () => {
       matches(WorkspaceActivity, (await get('/audit-events/activity?limit=8')).body);
+      // A month long past has nothing in it; the activity above all happened now.
+      const longAgo = await get('/audit-events/activity?limit=8&month=2000-01');
+      matches(WorkspaceActivity, longAgo.body);
+      expect(longAgo.body.items).toHaveLength(0);
       const categories = await get('/categories?type=expense');
       matches(CategoryUsageCount, (await get(`/categories/${categories.body[0].id}/usage-count`)).body);
       matches(ExchangeRateQuote, (await get('/exchange-rates?from=USD&to=USD')).body);
@@ -2326,6 +2479,10 @@ describe('API contracts (e2e)', () => {
       const transactions = await get('/transactions?page=1&limit=50');
       matches(TransactionListPage, transactions.body);
       expect(transactions.body.data[0]).toHaveProperty('statementId');
+      // The statement editor groups its rows by this payee.
+      expect(
+        transactions.body.data.some((row: { payee?: { name?: string } | null }) => row.payee?.name),
+      ).toBe(true);
       const ledger = await get('/transactions?page=1&limit=50&running_balance=1');
       matches(TransactionListPage, ledger.body);
       expect(ledger.body.data[0]).toHaveProperty('runningBalance');

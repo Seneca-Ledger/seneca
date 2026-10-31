@@ -27,7 +27,6 @@ import { formatMoney } from '@/app/lib/format-money';
 import {
   type Invoice,
   type InvoiceDelivery,
-  type InvoiceStatus,
   invoicesApi,
   type SendInvoiceEmailInput,
 } from '@/app/lib/invoices-api';
@@ -39,6 +38,7 @@ import { InvoiceWizard } from './invoice-wizard/InvoiceWizard';
 import { lineAmount, useInvoiceForm } from './invoice-wizard/useInvoiceForm';
 import { formatInvoiceDate, getInvoiceStatusVariant } from './invoices-format';
 import { PeppolPanel } from './PeppolPanel';
+import { useInvoiceStatusLabels } from './useInvoiceStatusLabels';
 import { LineAdjustmentInput, UnitSelect, XRechnungMissingAlert } from './XRechnungFields';
 
 interface InvoiceDetailViewProps {
@@ -117,16 +117,7 @@ export function InvoiceDetailView({ invoiceId }: InvoiceDetailViewProps): React.
     void loadInvoice();
   }, [loadInvoice]);
 
-  // Read one key at a time: indexing an intlayer dictionary with a variable
-  // types as `any` and silently loses a missing status.
-  const statusLabels: Record<InvoiceStatus, string> = {
-    draft: String(t.statusLabels.draft.value),
-    sent: String(t.statusLabels.sent.value),
-    partially_paid: String(t.statusLabels.partially_paid.value),
-    paid: String(t.statusLabels.paid.value),
-    overdue: String(t.statusLabels.overdue.value),
-    void: String(t.statusLabels.void.value),
-  };
+  const statusLabels = useInvoiceStatusLabels();
 
   const handleSave = async (): Promise<void> => {
     if (!form.canSave) {
@@ -307,7 +298,7 @@ export function InvoiceDetailView({ invoiceId }: InvoiceDetailViewProps): React.
   };
 
   if (loading) {
-    return <InvoiceDetailSkeleton />;
+    return <InvoiceDetailSkeleton onBack={() => router.push('/invoices')} />;
   }
 
   return (

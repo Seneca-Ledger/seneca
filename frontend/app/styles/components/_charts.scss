@@ -44,15 +44,10 @@
   }
 
   &__total {
-    font-size: 32px;
     font-weight: 500;
     line-height: 1.15;
     font-variant-numeric: tabular-nums;
     color: var(--foreground);
-
-    @media (max-width: 640px) {
-      font-size: 24px;
-    }
   }
 
   &__breakdown {

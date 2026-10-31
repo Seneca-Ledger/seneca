@@ -2,7 +2,6 @@
 
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
-import Skeleton from '@mui/material/Skeleton';
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
 import Typography from '@mui/material/Typography';
@@ -65,6 +64,7 @@ import {
   type ReviewInboxItem,
   type ReviewInboxKind,
 } from '../lib/review-inbox-model';
+import { ReviewRowsSkeleton } from './ReviewRowsSkeleton';
 
 const SWIPE_THRESHOLD_PX = 80;
 
@@ -191,15 +191,9 @@ export function ReviewInboxView({ state }: Props) {
     (dateApplied?.mode && dateModes.find(o => o.value === dateApplied.mode)?.label) ||
     buildFilterLabels(statementsText).date;
 
-  const sourceLabels: Record<string, string> = {
-    manual: drawer.categorySource.manual.value,
-    rule: drawer.categorySource.rule.value,
-    keyword: drawer.categorySource.keyword.value,
-    learned: drawer.categorySource.learned.value,
-    history: drawer.categorySource.history.value,
-    ai: drawer.categorySource.ai.value,
-    default: drawer.categorySource.default.value,
-  };
+  const sourceLabels: Record<string, string> = Object.fromEntries(
+    Object.entries(drawer.categorySource).map(([source, label]) => [source, label.value]),
+  );
   const issueLabels: Record<string, string> = {
     missing_amount: t.issueMissingAmount.value,
     missing_date: t.issueMissingDate.value,
@@ -427,7 +421,10 @@ export function ReviewInboxView({ state }: Props) {
     const source =
       item.categorySource && item.categorySource !== 'manual'
         ? `${sourceLabels[item.categorySource] ?? item.categorySource}${
-            item.categoryReason ? ` · ${item.categoryReason}` : ''
+            // `kind:p2p`, `brand:Q123`, `receipt:<id>` are for code; the source label says it.
+            item.categoryReason && !/^(kind|brand|receipt):/.test(item.categoryReason)
+              ? ` · ${item.categoryReason}`
+              : ''
           }`
         : null;
     return (
@@ -618,11 +615,11 @@ export function ReviewInboxView({ state }: Props) {
   );
 
   const listBody = state.isPending ? (
-    ['a', 'b', 'c'].map(key => (
-      <Box key={key} className="seneca-stmt-list-item">
-        <Skeleton variant="rounded" height={40} />
-      </Box>
-    ))
+    <ReviewRowsSkeleton
+      columnStyle={columnStyle}
+      selectCellSx={SELECT_CELL_SX}
+      showCategory={showCategoryColumn}
+    />
   ) : orderedItems.length === 0 ? (
     <EmptyState icon={EMPTY_ICONS[kind]} title={t.empty.value} compact />
   ) : groups ? (

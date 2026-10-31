@@ -14,7 +14,11 @@ import EditStatementPage from './page';
 const apiGet = vi.hoisted(() => vi.fn());
 const apiPatch = vi.hoisted(() => vi.fn());
 const apiPost = vi.hoisted(() => vi.fn());
+const apiPut = vi.hoisted(() => vi.fn());
 const apiDelete = vi.hoisted(() => vi.fn());
+const offerAction = vi.hoisted(() => vi.fn());
+// Rows a test adds after the statement's one categorised row.
+const extraRows = vi.hoisted(() => ({ value: [] as unknown[] }));
 
 const push = vi.hoisted(() => vi.fn());
 const back = vi.hoisted(() => vi.fn());
@@ -26,6 +30,7 @@ vi.mock('@/app/lib/api', () => ({
     get: apiGet,
     patch: apiPatch,
     post: apiPost,
+    put: apiPut,
     delete: apiDelete,
   },
 }));
@@ -54,6 +59,9 @@ vi.mock('@/app/i18n', () => {
     },
     labels: {
       back: 'Back',
+      alsoFiledPayeeRows: token('Filed {count} more rows of {payee} the same way'),
+      undo: token('Undo'),
+      keep: token('Keep'),
       disabledSuffix: token(' (disabled)'),
       exportDescription: token('Exported statement'),
       requireCategory: token('Category required'),
@@ -190,8 +198,15 @@ vi.mock('react-hot-toast', () => ({
   },
 }));
 
+vi.mock('@/app/components/payees/offer-action-toast', () => ({ offerAction }));
+
 vi.mock('./components/StatementDetailsFields', () => ({
   StatementDetailsFields: () => <div data-testid="statement-tags" />,
+}));
+
+// The loading skeleton draws the real tags field, which needs a workspace.
+vi.mock('@/app/components/tags/RecordTagsField', () => ({
+  StatementTagsField: () => <div data-testid="statement-tags-loading" />,
 }));
 
 vi.mock('@/app/components/notes/NotesPanel', () => ({
@@ -219,17 +234,68 @@ vi.mock('./ParsingWarningsPanel', () => ({
   formatDroppedSample: (value: unknown) => String(value),
 }));
 
+// A stand-in that lists the categories while open, enough to pick one.
 vi.mock('./StatementCategoryDrawer', () => ({
-  default: () => null,
+  default: ({
+    open,
+    categories,
+    onSelect,
+  }: {
+    open: boolean;
+    categories: { id: string; name: string }[];
+    onSelect: (categoryId: string) => void;
+  }) =>
+    open
+      ? categories.map(category => (
+          <button
+            key={category.id}
+            type="button"
+            className="seneca-cat-drawer__option"
+            onClick={() => onSelect(category.id)}
+          >
+            {category.name}
+          </button>
+        ))
+      : null,
 }));
 
 const flushPromises = () => new Promise(resolve => setTimeout(resolve, 0));
+
+const courier = { id: 'payee-2', name: 'Example Courier' };
+
+/** A row of `GET /transactions`: the list item plus what only the list adds. */
+function listedRow(overrides: Parameters<typeof transactionItem>[0]) {
+  return {
+    ...transactionItem(overrides),
+    reimbursementOf: null,
+    payee: { id: 'payee-1', name: overrides.counterpartyName ?? 'Test counterparty' },
+  };
+}
+
+/** Two rows of one payee the import left uncategorised. */
+function courierRows() {
+  return ['tx-2', 'tx-3'].map(id => ({
+    ...listedRow({
+      id,
+      transactionDate: '2026-03-10',
+      counterpartyName: courier.name,
+      paymentPurpose: 'Delivery',
+      debit: '10.00',
+      amount: '-10.00',
+      currency: 'KZT',
+      createdAt: '2026-03-10T08:00:00.000Z',
+      updatedAt: '2026-03-10T08:00:00.000Z',
+    }),
+    payee: courier,
+  }));
+}
 
 describe('EditStatementPage locale', () => {
   let container: HTMLDivElement;
   let root: ReturnType<typeof createRoot>;
 
   beforeEach(() => {
+    extraRows.value = [];
     (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
     container = document.createElement('div');
     document.body.appendChild(container);
@@ -274,10 +340,10 @@ describe('EditStatementPage locale', () => {
 
       if (url === '/transactions?statement_id=statement-1&limit=1000') {
         return Promise.resolve({
-          // The wire format (packages/contracts TransactionListItem): decimals
+          // The wire format (packages/contracts ListedTransaction): decimals
           // as strings, `date` columns as YYYY-MM-DD, absent values as null.
           data: [
-            transactionItem({
+            listedRow({
               id: 'tx-1',
               transactionDate: '2026-03-17',
               counterpartyName: 'Test counterparty',
@@ -290,16 +356,13 @@ describe('EditStatementPage locale', () => {
               createdAt: '2026-03-17T08:00:00.000Z',
               updatedAt: '2026-03-17T08:00:00.000Z',
             }),
+            ...extraRows.value,
           ],
         });
       }
 
       if (url === '/categories') {
         return Promise.resolve({ data: [categoryItem({ id: 'cat-1', name: 'Services' })] });
-      }
-
-      if (url === '/branches' || url === '/wallets') {
-        return Promise.resolve({ data: [] });
       }
 
       return Promise.reject(new Error(`Unexpected GET ${url}`));
@@ -346,8 +409,8 @@ describe('EditStatementPage locale', () => {
     });
 
     expect(replace).toHaveBeenCalledWith('/storage/receipts/rc-1');
-    // The editor itself never shows.
-    expect(container.textContent).not.toContain('Counterparty');
+    // The editor itself never shows: only its loading skeleton, without the statement's line.
+    expect(container.querySelector('[data-testid="statement-transactions-chip"]')).toBeNull();
   });
 
   it('renders transaction table headers in English when locale is en', async () => {
@@ -398,7 +461,9 @@ describe('EditStatementPage locale', () => {
 
     expect(loadingContainer).toBeTruthy();
     expect(loadingContainer?.querySelectorAll('.MuiSkeleton-root').length).toBeGreaterThan(0);
-    expect(container.textContent).not.toContain('Counterparty');
+    // The column titles stay; the statement's own line waits for it.
+    expect(container.textContent).toContain('Counterparty');
+    expect(container.querySelector('[data-testid="statement-transactions-chip"]')).toBeNull();
   });
 
   it('colours the parsing details link and the summary line from theme variables', async () => {
@@ -430,8 +495,7 @@ describe('EditStatementPage locale', () => {
     expect(getComputedStyle(summaryLine as HTMLElement).color).toBe('var(--text-muted)');
   });
 
-  it('shows the statement category in a shared detail action button', async () => {
-
+  it('has no statement-wide category: no header button, nothing to fix for it', async () => {
     await act(async () => {
       root.render(
         <LocalizationProvider dateAdapter={AdapterDateFns}>
@@ -444,14 +508,48 @@ describe('EditStatementPage locale', () => {
       await flushPromises();
     });
 
-    const categoryButton = Array.from(container.querySelectorAll('button')).find(button =>
-      button.textContent?.includes('Services'),
-    ) as HTMLButtonElement | undefined;
+    const headerLabels = Array.from(container.querySelectorAll('button')).map(button =>
+      button.textContent?.trim(),
+    );
+    expect(headerLabels).not.toContain('Category');
+    expect(headerLabels).not.toContain('Choose category');
+    expect(container.textContent).not.toContain('Statement category is not selected.');
+  });
 
-    // DetailActionButton = общий MUI Button outline/sm (8ae15e59).
-    expect(categoryButton?.title).toBe('Services');
-    expect(categoryButton?.className).toContain('MuiButton-outlined');
-    expect(categoryButton?.className).toContain('MuiButton-sizeSmall');
+  it('sets a row category from a click on it, with no pencil and no edit mode', async () => {
+    apiPut.mockResolvedValue({ data: {} });
+
+    await act(async () => {
+      root.render(
+        <LocalizationProvider dateAdapter={AdapterDateFns}>
+          <EditStatementPage />
+        </LocalizationProvider>,
+      );
+    });
+    await act(async () => {
+      await flushPromises();
+    });
+
+    const chip = Array.from(container.querySelectorAll('table button')).find(
+      button => button.textContent?.trim() === 'Services',
+    ) as HTMLButtonElement | undefined;
+    expect(chip).toBeTruthy();
+    expect(container.querySelector('table input[type="text"], table textarea')).toBeNull();
+    await act(async () => {
+      chip?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await flushPromises();
+    });
+
+    const option = Array.from(document.querySelectorAll('.seneca-cat-drawer__option')).find(
+      button => button.textContent?.includes('Services'),
+    ) as HTMLButtonElement | undefined;
+    expect(option).toBeTruthy();
+    await act(async () => {
+      option?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await flushPromises();
+    });
+
+    expect(apiPut).toHaveBeenCalledWith('/transactions/tx-1', { categoryId: 'cat-1' });
   });
 
   it('focuses closing balance input when resolving balance mismatch warning', async () => {
@@ -600,5 +698,139 @@ describe('EditStatementPage locale', () => {
 
     expect(apiPost).toHaveBeenCalledWith('/review-inbox/statements/statement-1/approve');
     expect(apiGet.mock.calls.length).toBeGreaterThan(loadsBefore);
+  });
+
+  const renderPage = async () => {
+    await act(async () => {
+      root.render(
+        <LocalizationProvider dateAdapter={AdapterDateFns}>
+          <EditStatementPage />
+        </LocalizationProvider>,
+      );
+    });
+    await act(async () => {
+      await flushPromises();
+    });
+  };
+  const click = async (element: Element | undefined) => {
+    expect(element).toBeTruthy();
+    await act(async () => {
+      element?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await flushPromises();
+    });
+  };
+  const pickCategory = (name: string) =>
+    click(
+      Array.from(document.querySelectorAll('.seneca-cat-drawer__option')).find(
+        button => button.textContent?.includes(name),
+      ),
+    );
+
+  it('opens on payees while rows wait, and one pick files all of a payee’s rows', async () => {
+    extraRows.value = courierRows();
+    apiPost.mockResolvedValue({ data: {} });
+    await renderPage();
+
+    const tabs = Array.from(container.querySelectorAll('[role="tab"]'));
+    const payeesTab = tabs.find(tab => tab.textContent?.startsWith('By payee'));
+    expect(payeesTab?.getAttribute('aria-selected')).toBe('true');
+    expect(payeesTab?.textContent).toBe('By payee · 1');
+
+    const courierGroup = Array.from(container.querySelectorAll('table tbody tr')).find(row =>
+      row.textContent?.includes(courier.name),
+    );
+    expect(courierGroup?.textContent).toContain('2');
+    await click(courierGroup);
+    await pickCategory('Services');
+
+    expect(apiPost).toHaveBeenCalledWith('/transactions/bulk-update', {
+      items: [
+        { id: 'tx-2', updates: { categoryId: 'cat-1' } },
+        { id: 'tx-3', updates: { categoryId: 'cat-1' } },
+      ],
+    });
+    expect(offerAction).not.toHaveBeenCalled();
+  });
+
+  it('files a payee’s waiting rows along with the one picked, and offers to undo them', async () => {
+    extraRows.value = courierRows();
+    apiPost.mockResolvedValue({ data: {} });
+    await renderPage();
+
+    await click(
+      Array.from(container.querySelectorAll('[role="tab"]')).find(
+        tab => tab.textContent === 'Rows',
+      ),
+    );
+    const courierChip = Array.from(container.querySelectorAll('table tbody tr'))
+      .find(row => row.textContent?.includes(courier.name))
+      ?.querySelector('.seneca-stmt-edit-table__category');
+    await click(courierChip ?? undefined);
+    await pickCategory('Services');
+
+    expect(apiPost).toHaveBeenCalledWith('/transactions/bulk-update', {
+      items: [
+        { id: 'tx-2', updates: { categoryId: 'cat-1' } },
+        { id: 'tx-3', updates: { categoryId: 'cat-1' } },
+      ],
+    });
+    expect(offerAction).toHaveBeenCalledTimes(1);
+    const offer = offerAction.mock.calls[0]?.[0] as { message: string; onApply: () => void };
+    expect(offer.message).toBe(`Filed 1 more rows of ${courier.name} the same way`);
+
+    apiPost.mockClear();
+    await act(async () => {
+      offer.onApply();
+      await flushPromises();
+    });
+    expect(apiPut).toHaveBeenCalledWith('/transactions/tx-3', { categoryId: null });
+  });
+
+  it('files every row still waiting with one pick from the tail line', async () => {
+    extraRows.value = courierRows();
+    apiPost.mockResolvedValue({ data: {} });
+    await renderPage();
+
+    expect(container.textContent).toContain('2 rows still without a category');
+    await click(
+      Array.from(container.querySelectorAll('button')).find(
+        button => button.textContent === 'File them all at once',
+      ),
+    );
+    await pickCategory('Services');
+
+    expect(apiPost).toHaveBeenCalledWith('/transactions/bulk-update', {
+      items: [
+        { id: 'tx-2', updates: { categoryId: 'cat-1' } },
+        { id: 'tx-3', updates: { categoryId: 'cat-1' } },
+      ],
+    });
+  });
+
+  it('asks once for suggestions while rows wait, and reloads the rows when some came', async () => {
+    extraRows.value = courierRows();
+    const url = '/classification/statements/statement-1/suggestions';
+    apiPost.mockImplementation(async (target: string) =>
+      target === url ? { data: { suggested: 2, unchanged: 0 } } : { data: {} },
+    );
+    await renderPage();
+    await act(async () => {
+      await flushPromises();
+    });
+
+    const asked = apiPost.mock.calls.filter(([target]) => target === url);
+    expect(asked).toHaveLength(1);
+    const rowLoads = apiGet.mock.calls.filter(([target]) =>
+      String(target).startsWith('/transactions?statement_id=statement-1'),
+    );
+    expect(rowLoads.length).toBeGreaterThan(1);
+  });
+
+  it('does not ask for suggestions when every row has a category', async () => {
+    await renderPage();
+
+    expect(
+      apiPost.mock.calls.some(([target]) => String(target).includes('/suggestions')),
+    ).toBe(false);
   });
 });

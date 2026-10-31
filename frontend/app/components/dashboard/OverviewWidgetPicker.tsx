@@ -20,9 +20,9 @@ type SectionNameKey =
   | 'crypto'
   | 'topCategories'
   | 'recentTransactions'
-  | 'spendCalendar'
   | 'goals'
   | 'netWorth'
+  | 'balances'
   | 'budgets'
   | 'subscriptionsMonth'
   | 'activity'
@@ -42,9 +42,9 @@ const NAME_KEYS: Record<Exclude<OverviewSectionId, 'getting-started'>, SectionNa
   crypto: 'crypto',
   'top-categories': 'topCategories',
   'recent-transactions': 'recentTransactions',
-  'spend-calendar': 'spendCalendar',
   goals: 'goals',
   'net-worth': 'netWorth',
+  balances: 'balances',
   budgets: 'budgets',
   'cash-runway': 'subscriptionsMonth',
   activity: 'activity',

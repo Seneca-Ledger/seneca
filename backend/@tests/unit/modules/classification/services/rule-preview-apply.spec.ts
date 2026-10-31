@@ -1,4 +1,4 @@
-import type { CategorizationRule } from '@/entities/categorization-rule.entity';
+import { CategorizationRule } from '@/entities/categorization-rule.entity';
 import {
   type Transaction,
   TransactionCategorySource,
@@ -41,7 +41,10 @@ const storeRule = {
   isActive: true,
 } as unknown as CategorizationRule;
 
-function build(rows: Transaction[], options: { ownsRefs?: boolean; rules?: unknown[] } = {}) {
+function build(
+  rows: Transaction[],
+  options: { ownsRefs?: boolean; rules?: unknown[]; allRules?: unknown[]; tags?: string[] } = {},
+) {
   const query = {
     where: vi.fn().mockReturnThis(),
     andWhere: vi.fn().mockReturnThis(),
@@ -50,9 +53,22 @@ function build(rows: Transaction[], options: { ownsRefs?: boolean; rules?: unkno
     take: vi.fn().mockReturnThis(),
     getMany: vi.fn(async () => rows),
   };
+  // Every rule of the workspace, best first, as the preview reads them to rank.
+  const allRules = { find: vi.fn(async () => options.allRules ?? []) };
+  // The tags of the workspace that still exist.
+  const tags = {
+    find: vi.fn(async ({ where }: { where: { id: { value: string[] } } }) =>
+      where.id.value.filter(id => (options.tags ?? []).includes(id)).map(id => ({ id })),
+    ),
+  };
+  const manager = {
+    getRepository: (entity: unknown) => (entity === CategorizationRule ? allRules : tags),
+    query: vi.fn(async () => undefined),
+  };
   const transactions = {
     createQueryBuilder: vi.fn(() => query),
     update: vi.fn(async () => undefined),
+    manager,
   };
   const rules = {
     find: vi.fn(async () => options.rules ?? []),
@@ -86,7 +102,7 @@ function build(rows: Transaction[], options: { ownsRefs?: boolean; rules?: unkno
     audit as unknown as AuditService,
     cache as never,
   );
-  return { service, rulesService, query, transactions, rules, cache, audit };
+  return { service, rulesService, query, transactions, rules, cache, audit, manager };
 }
 
 describe('rule preview', () => {
@@ -157,11 +173,123 @@ describe('rule preview', () => {
 
     expect(preview.truncated).toBe(true);
     expect(preview.totalTransactions).toBe(5000);
-    expect(preview.matches).toHaveLength(20);
+    expect(preview.matches).toHaveLength(50);
+  });
+});
+
+describe('rule preview against the rules ranked above', () => {
+  const bakeryFirst = {
+    id: 'rule-top',
+    name: 'Anything with buds is a gift',
+    conditions: [{ field: 'counterparty_name', operator: 'contains', value: 'wireless buds' }],
+    isActive: true,
+  };
+
+  it('marks the matches a higher rule takes first, and counts them', async () => {
+    const { rulesService } = build([row('buds'), row('cable', { counterpartyName: 'ACME Store - Cable' })], {
+      allRules: [bakeryFirst, { ...storeRule }],
+    });
+
+    const preview = await rulesService.previewRule({
+      workspaceId: WORKSPACE,
+      viewerMemberId: ME,
+      conditions: storeRule.conditions,
+      ruleId: storeRule.id,
+    });
+
+    expect(preview.shadowed).toBe(1);
+    expect(preview.matches.map(match => [match.id, match.wonBy?.id ?? null])).toEqual([
+      ['buds', 'rule-top'],
+      ['cable', null],
+    ]);
+  });
+
+  it('ignores a paused rule above, and ranks nothing above a rule not saved yet', async () => {
+    const { rulesService } = build([row('buds')], {
+      allRules: [{ ...bakeryFirst, isActive: false }, { ...storeRule }],
+    });
+
+    const saved = await rulesService.previewRule({
+      workspaceId: WORKSPACE,
+      viewerMemberId: ME,
+      conditions: storeRule.conditions,
+      ruleId: storeRule.id,
+    });
+    const draft = await rulesService.previewRule({
+      workspaceId: WORKSPACE,
+      viewerMemberId: ME,
+      conditions: storeRule.conditions,
+    });
+
+    expect(saved.shadowed).toBe(0);
+    expect(draft.shadowed).toBe(0);
+  });
+
+  it('matches on direction and account, and says which a row is', async () => {
+    const { rulesService } = build([
+      row('spent', { transactionType: TransactionType.EXPENSE, walletId: 'wallet-card' }),
+      row('refund', { transactionType: TransactionType.INCOME, walletId: 'wallet-card' }),
+      row('cash', { transactionType: TransactionType.EXPENSE, walletId: 'wallet-cash' }),
+    ]);
+
+    const preview = await rulesService.previewRule({
+      workspaceId: WORKSPACE,
+      viewerMemberId: ME,
+      conditions: [
+        { field: 'direction', operator: 'equals', value: 'expense' },
+        { field: 'wallet', operator: 'equals', value: 'wallet-card' },
+      ],
+    });
+
+    expect(preview.matches.map(match => [match.id, match.direction])).toEqual([['spent', 'expense']]);
   });
 });
 
 describe('applying a rule to existing rows', () => {
+  it('adds its tags to every match, filed by hand or not, and the category only where nobody decided', async () => {
+    const taggingRule = {
+      ...storeRule,
+      result: { categoryId: 'cat-electronics', tagIds: ['tag-gadgets', 'tag-deleted'] },
+    } as unknown as CategorizationRule;
+    const { rulesService, transactions, manager } = build(
+      [
+        row('open'),
+        row('picked', { categoryId: 'cat-food', categorySource: TransactionCategorySource.MANUAL }),
+        row('other', { counterpartyName: 'Corner Bakery' }),
+      ],
+      { tags: ['tag-gadgets'] },
+    );
+
+    const result = await rulesService.applyRuleToExisting({
+      rule: taggingRule,
+      userId: 'user-1',
+      viewerMemberId: ME,
+    });
+
+    expect(result).toEqual({ applied: 1, skippedManual: 1, tagged: 2 });
+    expect((transactions.update.mock.calls[0] as unknown as [{ id: { value: string[] } }])[0].id.value).toEqual([
+      'open',
+    ]);
+    // Added with ON CONFLICT DO NOTHING, never assigned: a deleted tag is dropped.
+    const [sql, params] = manager.query.mock.calls[0] as unknown as [string, unknown[]];
+    expect(sql).toContain('ON CONFLICT DO NOTHING');
+    expect(params).toEqual([WORKSPACE, ['open', 'picked'], ['tag-gadgets']]);
+  });
+
+  it('tags without a category leaves every category as it was', async () => {
+    const tagOnly = { ...storeRule, result: { tagIds: ['tag-gadgets'] } } as unknown as CategorizationRule;
+    const { rulesService, transactions } = build([row('open')], { tags: ['tag-gadgets'] });
+
+    const result = await rulesService.applyRuleToExisting({
+      rule: tagOnly,
+      userId: 'user-1',
+      viewerMemberId: ME,
+    });
+
+    expect(result).toEqual({ applied: 0, skippedManual: 0, tagged: 1 });
+    expect(transactions.update).not.toHaveBeenCalled();
+  });
+
   it('files only undecided matches and keeps what a person or a rule chose', async () => {
     const { rulesService, transactions, rules, audit } = build([
       row('open'),
@@ -177,7 +305,7 @@ describe('applying a rule to existing rows', () => {
       viewerMemberId: ME,
     });
 
-    expect(result).toEqual({ applied: 2, skippedManual: 2 });
+    expect(result).toEqual({ applied: 2, skippedManual: 2, tagged: 0 });
     const [where, values] = transactions.update.mock.calls[0] as unknown as [
       { id: { value: string[] }; workspaceId: string },
       Record<string, unknown>,
@@ -207,7 +335,7 @@ describe('applying a rule to existing rows', () => {
       viewerMemberId: ME,
     });
 
-    expect(result).toEqual({ applied: 0, skippedManual: 0 });
+    expect(result).toEqual({ applied: 0, skippedManual: 0, tagged: 0 });
     expect(transactions.update).not.toHaveBeenCalled();
   });
 });

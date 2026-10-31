@@ -124,6 +124,12 @@ function pushText(walk: Walk, node: Text): void {
   }
 }
 
+/**
+ * Marks decoration a skeleton should not draw: a faint background icon or a
+ * grip that shows on hover would come out as a solid block over the content.
+ */
+export const SKELETON_SKIP_ATTR = 'data-skeleton-skip';
+
 const isHidden = (style: CSSStyleDeclaration): boolean =>
   style.display === 'none' ||
   style.visibility === 'hidden' ||
@@ -158,7 +164,7 @@ function walkElement(walk: Walk, el: Element, parentBackground: string | null): 
   }
   walk.visited += 1;
   const tag = el.tagName.toUpperCase();
-  if (IGNORED.has(tag)) {
+  if (IGNORED.has(tag) || el.hasAttribute(SKELETON_SKIP_ATTR)) {
     return;
   }
   const style = getComputedStyle(el);

@@ -25,6 +25,14 @@ const CATEGORIES = [
   { id: 'gifts', name: 'Gifts', type: CategoryType.EXPENSE, isEnabled: true },
   { id: 'dining', name: 'Dining', type: CategoryType.EXPENSE, isEnabled: true },
   { id: 'uncategorized', name: 'Uncategorized', type: CategoryType.EXPENSE, isEnabled: true },
+  // The system category the built-in fee rule files under.
+  {
+    id: 'fees',
+    name: 'Fees and charges',
+    systemKey: 'fees',
+    type: CategoryType.EXPENSE,
+    isEnabled: true,
+  },
 ] as Category[];
 
 /**
@@ -78,6 +86,7 @@ describe('categorising from what this payee was filed as before', () => {
   const KNOWN_KEYS: Record<string, string> = {
     'rewe sagt danke berlin de': 'payee-rewe',
     'rewe sagt danke': 'payee-rewe',
+    'rewe annual fee': 'payee-rewe',
   };
 
   /** Newest first, the way the query returns them. */
@@ -112,8 +121,12 @@ describe('categorising from what this payee was filed as before', () => {
         {
           provide: getRepositoryToken(Category),
           useValue: {
-            findOne: async ({ where }: { where: { name?: string } }) =>
-              CATEGORIES.find(category => category.name === where.name) ?? null,
+            findOne: async ({ where }: { where: { name?: string; systemKey?: string } }) =>
+              CATEGORIES.find(category =>
+                where.systemKey
+                  ? category.systemKey === where.systemKey
+                  : category.name === where.name,
+              ) ?? null,
             create: (input: Partial<Category>) => input,
             save: async (input: Category) => input,
             find: async () => CATEGORIES,
@@ -256,6 +269,24 @@ describe('categorising from what this payee was filed as before', () => {
     const result = await classify('1234567');
 
     expect(result.categorySource).toBe(TransactionCategorySource.DEFAULT);
+  });
+
+  it('lets the payee history win over the built-in fee rule', async () => {
+    await build(['groceries', 'groceries', 'groceries']);
+
+    const result = await classify('REWE annual fee');
+
+    expect(result.categoryId).toBe('groceries');
+    expect(result.categorySource).toBe(TransactionCategorySource.HISTORY);
+  });
+
+  it('falls back to the built-in fee rule for a payee with no history', async () => {
+    await build([]);
+
+    const result = await classify('Example Bank SMS Alerts Chrgs');
+
+    expect(result.categoryId).toBe('fees');
+    expect(result.categorySource).toBe(TransactionCategorySource.KEYWORD);
   });
 
   it('still lets a rule the user wrote win over the payee history', async () => {

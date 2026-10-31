@@ -16,6 +16,7 @@ import { useIntlayer, useLocale } from '@/app/i18n';
 import apiClient from '@/app/lib/api';
 import { apiQueryDecoded, type ContractInput } from '@/app/lib/query-fn-schema';
 import { tokens } from '@/lib/theme-tokens';
+import { SCHEDULE_ROW_SX, ScheduleRowsSkeleton } from './ReportSchedulesSkeleton';
 
 type Cadence = 'daily' | 'weekly' | 'monthly';
 type Format = 'pdf' | 'excel' | 'csv';
@@ -68,7 +69,8 @@ export function ReportSchedules({ templates }: ReportSchedulesProps): React.JSX.
   const labels = t.labels as Record<string, { value?: string } | undefined>;
   const text = (key: string, fallback: string): string => labels[key]?.value ?? fallback;
 
-  const [rows, setRows] = useState<ReportScheduleRow[]>([]);
+  // Null until the first answer: the list shows bars, not "no schedules".
+  const [rows, setRows] = useState<ReportScheduleRow[] | null>(null);
   const [templateId, setTemplateId] = useState(templates[0]?.id ?? 'pnl');
   const [format, setFormat] = useState<Format>('pdf');
   // Only the formats the chosen template can be written in; the server refuses the rest.
@@ -246,26 +248,15 @@ export function ReportSchedules({ templates }: ReportSchedulesProps): React.JSX.
         </Box>
       </Paper>
 
-      {rows.length === 0 ? (
+      {rows === null ? (
+        <ScheduleRowsSkeleton />
+      ) : rows.length === 0 ? (
         <Typography variant="body2" sx={{ color: 'var(--muted-foreground)' }}>
           {text('scheduleEmpty', 'No scheduled reports yet')}
         </Typography>
       ) : (
         rows.map(row => (
-          <Paper
-            key={row.id}
-            elevation={0}
-            sx={{
-              borderRadius: tokens.radius.md,
-              border: '1px solid var(--border)',
-              bgcolor: 'var(--card)',
-              p: 2,
-              mb: 1.5,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 2,
-            }}
-          >
+          <Paper key={row.id} elevation={0} sx={SCHEDULE_ROW_SX}>
             <Box sx={{ minWidth: 0, flex: 1 }}>
               <Typography
                 variant="body2"

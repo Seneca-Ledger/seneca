@@ -34,7 +34,15 @@ const REVIEW_PATH = '/review';
 
 // Matches the top-level rows (single items and group headers, groups folded) so
 // the skeleton doesn't jump when real items land.
-const NAV_ITEM_SKELETON_KEYS = Array.from({ length: 8 }, (_, i) => `nav-skeleton-${i}`);
+// As many rows as the folded menu has, with labels of differing length.
+const NAV_ITEM_SKELETON_WIDTHS = [72, 88, 52, 64, 96, 56, 44, 84, 64, 80, 64, 80];
+const NAV_ITEM_SKELETON_KEYS = NAV_ITEM_SKELETON_WIDTHS.map((_, i) => `nav-skeleton-${i}`);
+const NAV_ICON_SKELETON_SX = {
+  width: 'var(--seneca-sidebar-icon)',
+  height: 'var(--seneca-sidebar-icon)',
+  flex: '0 0 auto',
+  borderRadius: '4px',
+};
 
 /** The rail shows icons alone, so it names each row beside it on hover. */
 function RailTip({
@@ -204,12 +212,12 @@ function SidebarContent({ collapsed }: { collapsed: boolean }) {
         style={rowsStyle}
       >
         {isLoading
-          ? NAV_ITEM_SKELETON_KEYS.map(key => (
+          ? NAV_ITEM_SKELETON_KEYS.map((key, index) => (
               <div className="seneca-sidebar__nav-item" key={key}>
-                <Skeleton variant="rounded" width={18} height={18} />
+                <Skeleton variant="rounded" sx={NAV_ICON_SKELETON_SX} />
                 {/* Labelled like a real row, so the collapsed rail folds it away. */}
                 <span className="seneca-sidebar__nav-label">
-                  <Skeleton variant="text" width="60%" height={16} />
+                  <Skeleton variant="text" width={NAV_ITEM_SKELETON_WIDTHS[index]} />
                 </span>
               </div>
             ))
@@ -239,9 +247,9 @@ function SidebarContent({ collapsed }: { collapsed: boolean }) {
                       </span>
                     </button>
                   </RailTip>
-                  {open ? (
+                  <div className="seneca-sidebar__group-collapse" data-open={open}>
                     <div className="seneca-sidebar__group-items">{items.map(renderItem)}</div>
-                  ) : null}
+                  </div>
                 </div>
               );
             })}

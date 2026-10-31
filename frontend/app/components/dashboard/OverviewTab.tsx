@@ -1,6 +1,7 @@
 'use client';
 
 import UploadFileOutlined from '@mui/icons-material/UploadFileOutlined';
+import Skeleton from '@mui/material/Skeleton';
 import Link from 'next/link';
 import type React from 'react';
 import { useMemo } from 'react';
@@ -16,7 +17,6 @@ import type { DashboardData } from '@/app/hooks/useDashboard';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { PiggyBank, Scale, TrayArrowDown, WalletArrowUp } from '@/app/lib/category-line-icons';
 import { formatMoney } from '@/app/lib/format-money';
-import { Spinner } from '../ui/spinner';
 import { AdviceCard } from './AdviceCard';
 import { CashFlowCard } from './CashFlowCard';
 import { CryptoPortfolioCard } from './CryptoPortfolioCard';
@@ -26,19 +26,18 @@ import { GoalsProgressCard } from './GoalsProgressCard';
 import { leftToSpend } from './left-to-spend';
 import { MoneyOwedCard } from './MoneyOwedCard';
 import { MonthCloseCard } from './MonthCloseCard';
-import { NetWorthCard } from './NetWorthCard';
 import { OverviewLayout } from './OverviewLayout';
 import type { KpiSectionId } from './overview-layout';
 import { OverviewMonthProvider } from './overview-month';
 import { RecentTransactionsCard } from './RecentTransactionsCard';
 import { SafeToSpendTile } from './SafeToSpendTile';
-import { SpendCalendarCard } from './SpendCalendarCard';
 import { TaxesCard } from './TaxesCard';
 import { TopCategoriesCard } from './TopCategoriesCard';
 import { UpcomingChargesCard } from './UpcomingChargesCard';
 import { CardLink, DashboardCard, KpiCard, type KpiCardProps } from './ui';
 import { useMonthLabel } from './use-month-label';
 import { WorkspaceActivityCard } from './WorkspaceActivityCard';
+import { wealthSections } from './wealth-sections';
 
 interface OverviewTabProps {
   data: DashboardData;
@@ -163,7 +162,7 @@ function SpentTile({ month, leftLabel, spentValue, ...spent }: SpentTileProps): 
   const { budgets, loaded } = useBudgets(month);
   // Until the budgets are in it is not known which of the two the tile is.
   if (!loaded) {
-    return <KpiCard {...spent} value={<Spinner size={12} />} />;
+    return <KpiCard {...spent} value={<Skeleton variant="text" width={120} />} />;
   }
   const left = leftToSpend(budgets, month);
   if (!left) {
@@ -196,7 +195,7 @@ function kpiTiles({
   const net = computeNet(income, expense);
   const savingsRate = computeSavingsRate(income, expense);
   const spark = sparkSeries(data);
-  const spinner = isLoading ? <Spinner size={12} /> : null;
+  const spinner = isLoading ? <Skeleton variant="text" width={120} /> : null;
 
   // What a tile with room adds: the whole month's line and how the total came about.
   const days = elapsedDays(data);
@@ -387,9 +386,8 @@ export function OverviewTab({
               viewAllHref={viewAllHref}
             />
           ),
-          'spend-calendar': <SpendCalendarCard displayMonth={displayMonth} />,
           goals: <GoalsProgressCard month={monthKey(displayMonth)} monthLabel={monthLabel} />,
-          'net-worth': <NetWorthCard month={monthKey(displayMonth)} monthLabel={monthLabel} />,
+          ...wealthSections(monthKey(displayMonth), monthLabel),
           budgets: <BudgetSummaryWidget month={monthKey(displayMonth)} monthLabel={monthLabel} />,
           'cash-runway': <SubscriptionsMonthWidget formatAmount={formatAmount} />,
           activity: <WorkspaceActivityCard />,

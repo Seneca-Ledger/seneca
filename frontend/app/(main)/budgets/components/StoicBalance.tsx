@@ -2,7 +2,6 @@
 
 import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
-import Skeleton from '@mui/material/Skeleton';
 import { useTheme } from '@mui/material/styles';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
@@ -21,6 +20,7 @@ import {
   useStoicBalance,
 } from '../hooks/useStoicBalance';
 import { useClassText } from '../hooks/useStoicClassText';
+import { StoicBalanceSkeleton } from './StoicBalanceSkeleton';
 import { StoicClassifyList } from './StoicClassifyList';
 
 type Segment = StoicClass | 'unclassified';
@@ -295,7 +295,7 @@ export function StoicBalance(): React.JSX.Element | null {
   const monthIndex = pickedIndex ?? (linkedIndex >= 0 ? linkedIndex : 0);
 
   if (isPending) {
-    return <Skeleton variant="rounded" height={220} sx={{ mb: 3 }} />;
+    return <StoicBalanceSkeleton />;
   }
   if (!balance || balance.categories.length === 0) {
     return null;

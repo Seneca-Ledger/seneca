@@ -381,21 +381,21 @@ describe('UsersService', () => {
         .mockResolvedValue(userWithPassword);
       const saveSpy = vi.spyOn(repository, 'save').mockResolvedValue({
         ...userWithPassword,
-        themePreference: 'auto',
+        themePreference: 'system',
       } as User);
 
       const result = await service.updateMyPreferences('1', {
-        themePreference: 'auto',
+        themePreference: 'system',
       } as any);
 
       expect(saveSpy).toHaveBeenCalledWith(
         expect.objectContaining({
-          themePreference: 'auto',
+          themePreference: 'system',
           timeZone: 'Asia/Almaty',
           locale: 'ru',
         }),
       );
-      expect(result.themePreference).toBe('auto');
+      expect(result.themePreference).toBe('system');
     });
 
     it('turns the daily quote off and leaves the other preferences alone', async () => {

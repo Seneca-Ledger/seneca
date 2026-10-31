@@ -8,19 +8,28 @@ import type { CurrencyAmounts, CurrencyConverter } from '../exchange-rates/curre
 /** Per balance line code, its amounts at each date: the lines kept up from the books rather than from snapshots. */
 export type ComputedLines = Map<string, Map<string, CurrencyAmounts>>;
 
+/**
+ * Not a sheet line: the part of the account debts owed on credit cards, so a
+ * summary can show cards apart from loans. No leaf carries this code, so it
+ * never counts twice.
+ */
+export const CARD_DEBTS_CODE = `${DEBTS_ACCOUNT_CODE}:credit_card`;
+
 /** Cash and the debts of cards and loans at each of `dates`. */
 export async function loadComputedLines(
   balanceService: BalanceService,
   workspaceId: string,
   dates: string[],
 ): Promise<ComputedLines> {
-  const [cash, debts] = await Promise.all([
+  const [cash, debts, cardDebts] = await Promise.all([
     balanceService.getCashSeries(workspaceId, dates),
     balanceService.getDebtSeries(workspaceId, dates),
+    balanceService.getDebtSeries(workspaceId, dates, ['credit_card']),
   ]);
   return new Map([
     [CASH_ACCOUNT_CODE, cash],
     [DEBTS_ACCOUNT_CODE, debts],
+    [CARD_DEBTS_CODE, cardDebts],
   ]);
 }
 

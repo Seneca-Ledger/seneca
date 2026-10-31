@@ -137,6 +137,7 @@ export function PayeesView(): React.JSX.Element {
         <section className="seneca-all-tx__card seneca-all-tx__list">
           <div className="seneca-all-tx__list-head">
             <h2 className="seneca-all-tx__card-title">{periodName}</h2>
+            {!data && overview.isPending && <Skeleton variant="text" width={180} />}
             {data && (
               <span className="seneca-all-tx__muted">
                 {fillTemplateNodes(t.total.value, {
@@ -155,12 +156,7 @@ export function PayeesView(): React.JSX.Element {
           {overview.isError ? (
             <LoadError>{t.loadFailed}</LoadError>
           ) : overview.isPending ? (
-            <div className="seneca-all-tx__state">
-              {Array.from({ length: 6 }, (_, index) => (
-                // biome-ignore lint/suspicious/noArrayIndexKey: static skeleton list
-                <Skeleton key={index} variant="rounded" height={36} />
-              ))}
-            </div>
+            <PayeesTable rows={null} currency="" />
           ) : (data?.rows.length ?? 0) === 0 ? (
             <p className="seneca-all-tx__state seneca-all-tx__muted">{t.empty}</p>
           ) : (
@@ -177,6 +173,7 @@ export function PayeesView(): React.JSX.Element {
         </section>
 
         <MonthsColumn
+          loading={overview.isPending}
           months={data?.months ?? []}
           selected={period.kind === 'month' ? period.month : null}
           onSelect={month => goTo({ month })}

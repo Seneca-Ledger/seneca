@@ -5,13 +5,7 @@ import { getApiErrorMessage } from '@/app/lib/api-error';
 import { invalidateDocumentLists } from '@/app/lib/invalidate-document-lists';
 import { unwrapEnvelope } from '@/app/lib/query-fn';
 import { type ContractInput, checkBody, checkContract } from '@/app/lib/query-fn-schema';
-import type {
-  BranchOption,
-  CategoryOption,
-  Statement,
-  Transaction,
-  WalletOption,
-} from '../editHelpers';
+import type { CategoryOption, Statement, Transaction } from '../editHelpers';
 import {
   formatDate,
   normalizeDateInput,
@@ -70,8 +64,6 @@ type LoadSetters = {
   setStatement: (v: Statement | null) => void;
   setTransactions: (v: Transaction[]) => void;
   setCategories: (v: CategoryOption[]) => void;
-  setBranches: (v: BranchOption[]) => void;
-  setWallets: (v: WalletOption[]) => void;
   setMetadataForm: (v: MetaForm) => void;
   setError: (v: string) => void;
   /** Leaves the editor for another page instead of showing it. */
@@ -90,12 +82,10 @@ export async function loadStatementData(
     set.setLoading(true);
     set.setOptionsLoading(true);
     const transactionsUrl = `/transactions?statement_id=${statementId}&limit=1000`;
-    const [statementData, tRes, cRes, bRes, wRes] = await Promise.all([
+    const [statementData, tRes, cRes] = await Promise.all([
       readStatement(statementId),
       apiClient.get(transactionsUrl),
       apiClient.get('/categories'),
-      apiClient.get('/branches'),
-      apiClient.get('/wallets'),
     ]);
     // A scan's statement is the receipt's internal twin, hidden in every list:
     // its page is the receipt's. Any link that still lands here goes on there.
@@ -110,11 +100,9 @@ export async function loadStatementData(
       }
     }
     set.setStatement(statementData);
-    const rows = await checkContract('TransactionList', payloadOf(tRes), transactionsUrl);
+    const rows = await checkContract('ListedTransactions', payloadOf(tRes), transactionsUrl);
     set.setTransactions(rows.map(toEditableTransaction));
     set.setCategories(await checkContract('CategoryList', payloadOf(cRes), '/categories'));
-    set.setBranches(await checkContract('BranchList', payloadOf(bRes), '/branches'));
-    set.setWallets(await checkContract('WalletList', payloadOf(wRes), '/wallets'));
     set.setMetadataForm(buildMetadataForm(statementData, extractMeta(statementData)));
   } catch (err: unknown) {
     set.setError(getApiErrorMessage(err, messages.loadDataError));
@@ -222,54 +210,6 @@ export async function convertDroppedSampleAction({
   await loadData();
   setSuccess(true);
   setTimeout(() => setSuccess(false), 3000);
-}
-
-function canUpdateCategory(statement: Statement | null, saving: boolean): statement is Statement {
-  return Boolean(statement?.id) && !saving;
-}
-
-type CategoryArgs = {
-  statement: Statement | null;
-  categoryId: string;
-  messages: { categoryUpdated: string; categoryUpdateFailed: string };
-  statementCategorySaving: boolean;
-  setStatementCategorySaving: (v: boolean) => void;
-  setStatement: React.Dispatch<React.SetStateAction<Statement | null>>;
-  setError: (v: string) => void;
-};
-
-export async function updateStatementCategoryAction({
-  statement,
-  categoryId,
-  messages,
-  statementCategorySaving,
-  setStatementCategorySaving,
-  setStatement,
-  setError,
-}: CategoryArgs): Promise<void> {
-  if (!canUpdateCategory(statement, statementCategorySaving)) {
-    return;
-  }
-  try {
-    setStatementCategorySaving(true);
-    const response = await apiClient.patch(`/storage/files/${statement.id}/category`, {
-      categoryId: categoryId || null,
-    } satisfies ContractInput<'UpdateFileCategoryBody'>);
-    const updated = await checkContract(
-      'FileCategoryUpdate',
-      response.data,
-      '/storage/files/:id/category',
-    );
-    setStatement(prev =>
-      prev ? { ...prev, categoryId: updated.categoryId, category: updated.category } : prev,
-    );
-    invalidateDocumentLists();
-    toast.success(messages.categoryUpdated);
-  } catch (err: unknown) {
-    setError(getApiErrorMessage(err, '') || messages.categoryUpdateFailed);
-  } finally {
-    setStatementCategorySaving(false);
-  }
 }
 
 type AutoSaveArgs = {

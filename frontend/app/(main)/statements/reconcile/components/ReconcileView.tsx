@@ -3,7 +3,6 @@
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
-import Skeleton from '@mui/material/Skeleton';
 import Typography from '@mui/material/Typography';
 import type React from 'react';
 import { LoadError } from '@/app/components/ui/load-error';
@@ -13,6 +12,7 @@ import { formatMoney } from '@/app/lib/format-money';
 import { formatStoredDateWithOptions } from '@/app/lib/user-format-store';
 import { tokens } from '@/lib/theme-tokens';
 import { type AgeingBucket, useReconciliation } from '../useReconciliation';
+import { ReconcileSkeleton } from './ReconcileSkeleton';
 
 const BUCKETS: Array<{ key: AgeingBucket; label: string }> = [
   { key: 'current', label: 'bucketCurrent' },
@@ -72,7 +72,7 @@ export function ReconcileView(): React.JSX.Element {
         </Typography>
       </Box>
 
-      {isPending && <Skeleton variant="rounded" height={320} />}
+      {isPending && <ReconcileSkeleton card={card} buckets={BUCKETS} />}
       {error && <LoadError spacing={2}>{t.error}</LoadError>}
 
       {data && (

@@ -1,13 +1,11 @@
 'use client';
 
 import Box from '@mui/material/Box';
-import Skeleton from '@mui/material/Skeleton';
 import { useRouter } from 'next/navigation';
 import React, { useMemo, useState } from 'react';
 import { PageTitle } from '@/app/components/ui/page-title';
 import { useWorkspace } from '@/app/contexts/WorkspaceContext';
 import { useIntlayer } from '@/app/i18n';
-import { tokens } from '@/lib/theme-tokens';
 import { WorkspaceGridView } from './WorkspaceGridView';
 import { type ViewMode, WorkspaceListFilters } from './WorkspaceListFilters';
 import { WorkspaceListView } from './WorkspaceListView';
@@ -78,50 +76,9 @@ function useWorkspaceListState({ workspaces }: { workspaces: WorkspaceListItem[]
   };
 }
 
-const CARD_SKELETON_KEYS = ['card-0', 'card-1', 'card-2', 'card-3', 'card-4', 'card-5'];
-
-function LoadingView(): React.JSX.Element {
-  return (
-    <Box sx={{ maxWidth: '100%', px: 3, py: 4 }}>
-      <Box
-        sx={{
-          display: 'grid',
-          gridTemplateColumns: {
-            xs: '1fr',
-            sm: 'repeat(2, 1fr)',
-            lg: 'repeat(3, 1fr)',
-            xl: 'repeat(4, 1fr)',
-          },
-          gap: 3,
-        }}
-      >
-        {/* Same two zones as a loaded card: cover, then name and details. */}
-        {CARD_SKELETON_KEYS.map(key => (
-          <Box
-            key={key}
-            sx={{
-              border: '1px solid var(--border)',
-              borderRadius: tokens.radius.lg,
-              overflow: 'hidden',
-            }}
-          >
-            <Skeleton
-              variant="rectangular"
-              sx={{ aspectRatio: '16/9', width: '100%', height: 'auto' }}
-            />
-            <Box sx={{ px: 2, py: 1.5 }}>
-              <Skeleton variant="text" width="60%" height={20} />
-              <Skeleton variant="text" width="40%" height={16} />
-            </Box>
-          </Box>
-        ))}
-      </Box>
-    </Box>
-  );
-}
-
 type BodyProps = {
   ls: ReturnType<typeof useWorkspaceListState>;
+  loading: boolean;
   allCount: number;
   currentWorkspaceId: string | undefined;
   createLabel: string;
@@ -135,6 +92,7 @@ type BodyProps = {
 
 function WorkspaceListBody({
   ls,
+  loading,
   allCount,
   currentWorkspaceId,
   createLabel,
@@ -145,10 +103,10 @@ function WorkspaceListBody({
   onCreateClick,
   onFavoriteToggle,
 }: BodyProps): React.JSX.Element {
-  const showGrid = ls.viewMode === 'grid' || allCount === 0;
+  const showGrid = loading || ls.viewMode === 'grid' || allCount === 0;
   return (
     <Box sx={{ maxWidth: '100%', px: 3, py: 4 }}>
-      {allCount > 0 && (
+      {(loading || allCount > 0) && (
         <WorkspaceListFilters
           searchQuery={ls.searchQuery}
           searchPlaceholder={searchPlaceholder}
@@ -167,9 +125,10 @@ function WorkspaceListBody({
       )}
       {showGrid ? (
         <WorkspaceGridView
-          workspaces={ls.sortedWorkspaces}
-          allWorkspacesEmpty={allCount === 0}
-          filteredEmpty={ls.filteredWorkspaces.length === 0}
+          workspaces={loading ? [] : ls.sortedWorkspaces}
+          loadingCards={loading ? 3 : 0}
+          allWorkspacesEmpty={!loading && allCount === 0}
+          filteredEmpty={!loading && ls.filteredWorkspaces.length === 0}
           createLabel={createLabel}
           noWorkspacesLabel={noWorkspacesLabel}
           onWorkspaceClick={onWorkspaceClick}
@@ -235,10 +194,6 @@ export default function WorkspacesListContent({
   const noWorkspacesLabel = content.noWorkspaces.value;
   const searchPlaceholder = content.searchPlaceholder.value;
 
-  if (loading) {
-    return <LoadingView />;
-  }
-
   return (
     // No fixed height: the page scrolls, and the shell keeps the room under the
     // mobile bottom bar. A screen-high box with hidden overflow cut off the last cards.
@@ -251,6 +206,7 @@ export default function WorkspacesListContent({
       )}
       <WorkspaceListBody
         ls={ls}
+        loading={loading}
         allCount={workspaces.length}
         currentWorkspaceId={currentWorkspace?.id}
         createLabel={createLabel}

@@ -168,12 +168,13 @@ export default function ReportsPage(): React.JSX.Element {
     },
   ];
 
-  const [tab, setTab] = useState<ReportsTab>('cash-flow');
-  const [cashFlowPeriod, setCashFlowPeriod] = useState('');
   // Tax (threshold notifications) and cash flow (advice links) are linked to.
   // Followed on change, not just read once: the link can be opened while this
   // page is already up.
   const linkedTab = readLinkedTab(useSearchParams().get('tab'));
+  // Starts on the linked tab, so the first paint is not the cash-flow tab.
+  const [tab, setTab] = useState<ReportsTab>(linkedTab ?? 'cash-flow');
+  const [cashFlowPeriod, setCashFlowPeriod] = useState('');
   useEffect(() => {
     if (linkedTab) {
       setTab(linkedTab);

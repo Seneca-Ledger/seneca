@@ -116,9 +116,15 @@ export const CashFlowMap = Schema.Struct({
     Schema.Struct({
       id: Schema.String,
       name: Schema.String,
+      icon: Schema.NullOr(Schema.String),
       value: Schema.Number,
       children: Schema.Array(
-        Schema.Struct({ id: Schema.String, name: Schema.String, value: Schema.Number }),
+        Schema.Struct({
+          id: Schema.String,
+          name: Schema.String,
+          icon: Schema.NullOr(Schema.String),
+          value: Schema.Number,
+        }),
       ),
     }),
   ),

@@ -3,28 +3,8 @@ import { formatStoredDate } from '@/app/lib/user-format-store';
 import type { Transaction } from '../editHelpers';
 import { isIdEmpty, resolveLocale } from '../editHelpers';
 
-export function computeMissingCategory(edited: Partial<Transaction>, tx: Transaction): boolean {
-  return isIdEmpty(edited.categoryId) && isIdEmpty(tx.categoryId) && isIdEmpty(tx.category?.id);
-}
-
-export function getEditedTransaction(
-  editedData: Record<string, Partial<Transaction>>,
-  tx: Transaction,
-): Partial<Transaction> {
-  return editedData[tx.id] ?? tx;
-}
-
-export function isMultilineField(field: keyof Transaction): boolean {
-  return field === 'paymentPurpose' || field === 'comments';
-}
-
-export function getEditValue(
-  edited: Partial<Transaction>,
-  tx: Transaction,
-  field: keyof Transaction,
-): string {
-  const v = edited[field] ?? tx[field];
-  return v != null ? String(v) : '';
+export function computeMissingCategory(tx: Transaction): boolean {
+  return isIdEmpty(tx.categoryId) && isIdEmpty(tx.category?.id);
 }
 
 function getCategoryDisplay(tx: Transaction, locale: string): string {
@@ -105,9 +85,9 @@ export type EditTableLabels = {
   deleteAction: string;
   moreActions: string;
   cancel: string;
-  notSelected: string;
   noCategory: string;
   assignCategory: string;
+  suggested: string;
 };
 export function getEditTableLabels(
   labels: Record<string, { value?: string } | undefined>,
@@ -117,9 +97,9 @@ export function getEditTableLabels(
     deleteAction: labelVal(labels, 'delete', 'Delete'),
     moreActions: labelVal(labels, 'moreActions', 'More actions'),
     cancel: labelVal(labels, 'cancel', 'Cancel'),
-    notSelected: labelVal(labels, 'notSelected', 'Not selected'),
     noCategory: labelVal(labels, 'noCategoryOption', 'No category'),
     assignCategory: labelVal(labels, 'assignCategory', 'Assign category'),
+    suggested: labelVal(labels, 'suggestedCategory', 'Suggested'),
   };
 }
 

@@ -19,6 +19,10 @@ function ruleFieldValue(transaction: Transaction, field: string): string | numbe
     // value" and refuses to match, so a rule about shared rows needs a word.
     case 'owner':
       return transaction.ownerMemberId ?? OWNER_SHARED;
+    case 'direction':
+      return transaction.transactionType ?? null;
+    case 'wallet':
+      return transaction.walletId ?? null;
     default:
       return null;
   }

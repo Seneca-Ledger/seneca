@@ -83,7 +83,7 @@ export function ThemeSection({
             >
               <MenuItem value="light">{t.appearanceCard.light.value}</MenuItem>
               <MenuItem value="dark">{t.appearanceCard.dark.value}</MenuItem>
-              <MenuItem value="auto">{tx(['appearanceCard', 'auto'])}</MenuItem>
+              <MenuItem value="system">{tx(['appearanceCard', 'system'])}</MenuItem>
             </TextField>
             <Typography
               variant="caption"

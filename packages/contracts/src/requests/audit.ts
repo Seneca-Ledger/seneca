@@ -1,5 +1,5 @@
 import * as Schema from 'effect/Schema';
-import { IsoDateString, NumericInput } from '../common/requests';
+import { IsoDateString, MonthInput, NumericInput } from '../common/requests';
 import type { Wire } from '../common/wire';
 
 /** Entity, actor, batch and event ids of the trail are all uuid columns. */
@@ -72,8 +72,14 @@ export const AuditEventsQuery = Schema.Struct({
 });
 export type AuditEventsQuery = Wire<typeof AuditEventsQuery>;
 
-/** `GET /audit-events/activity`: how many entries (20 when absent, clamped to 1..100). */
-export const WorkspaceActivityQuery = Schema.Struct({ limit: Schema.optional(Count) });
+/**
+ * `GET /audit-events/activity`: how many entries (20 when absent, clamped to
+ * 1..100), and with `month` only that month's, newest first.
+ */
+export const WorkspaceActivityQuery = Schema.Struct({
+  limit: Schema.optional(Count),
+  month: Schema.optional(MonthInput),
+});
 export type WorkspaceActivityQuery = Wire<typeof WorkspaceActivityQuery>;
 
 /** `GET /audit-events/entity/:entityType/:entityId`. */

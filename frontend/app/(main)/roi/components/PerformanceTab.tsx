@@ -22,6 +22,12 @@ import {
 import { ReturnsFlags } from './ReturnsFlags';
 import { SourcesTable } from './SourcesTable';
 
+const KPI_GRID_SX = {
+  display: 'grid',
+  gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(4, 1fr)' },
+  gap: 1.5,
+} as const;
+
 /** An annual rate is only stated for a window that is at least a year long. */
 const YEAR_DAYS = 365;
 
@@ -50,9 +56,34 @@ export function PerformanceTab({ range, onRangeChange }: PerformanceTabProps) {
       </Box>
 
       {isError && <Alert severity="error">{t.loadError}</Alert>}
-      {isPending && <Skeleton variant="rounded" height={320} />}
+      {isPending && <PerformanceSkeleton />}
       {data && <PerformanceBody data={data} />}
     </Box>
+  );
+}
+
+/** The tab while the returns load: the cards and headers in place, the figures as bars. */
+function PerformanceSkeleton() {
+  const t = useIntlayer('roiPage');
+  const bar = <Skeleton variant="text" width={120} />;
+  const caption = <Skeleton variant="text" width={140} />;
+  return (
+    <>
+      <Box sx={KPI_GRID_SX}>
+        <KpiCard label={t.netInvested.value} value={bar} caption={caption} />
+        <KpiCard label={t.valueNow.value} value={bar} />
+        <KpiCard label={t.gainPeriod.value} value={bar} />
+        <KpiCard label={t.returnLabel.value} value={bar} caption={caption} />
+      </Box>
+      <DashboardCard title={t.chartTitle}>
+        <div className="seneca-chart__box">
+          <Skeleton variant="rounded" height="100%" />
+        </div>
+      </DashboardCard>
+      <DashboardCard title={t.sourcesTitle}>
+        <SourcesTable sources={null} formatMoney={String} sourceName={() => ''} />
+      </DashboardCard>
+    </>
   );
 }
 
@@ -93,14 +124,7 @@ function PerformanceBody({ data }: { data: ReturnsData }) {
 
   return (
     <>
-      <Box
-        data-testid="returns-kpis"
-        sx={{
-          display: 'grid',
-          gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(4, 1fr)' },
-          gap: 1.5,
-        }}
-      >
+      <Box data-testid="returns-kpis" sx={KPI_GRID_SX}>
         <KpiCard
           label={t.netInvested.value}
           value={money(summary.netInvested)}

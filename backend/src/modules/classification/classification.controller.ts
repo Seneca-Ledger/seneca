@@ -15,9 +15,11 @@ import {
   ClassifiedTransaction,
   ClassifyBulkResult,
 } from '../../contracts/classification/categorization-rules';
+import type { Tag } from '../../entities/tag.entity';
 import { Transaction, TransactionCategorySource } from '../../entities/transaction.entity';
 import type { User } from '../../entities/user.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { addTransactionTags } from './engine/rule-tags';
 import { ClassificationService } from './services/classification.service';
 
 /** Re-running the rules rewrites a row's category, so it takes the right to edit transactions. */
@@ -52,13 +54,14 @@ export class ClassificationController {
       return redactPrivate(transaction, selfMemberId);
     }
 
-    const classification = await this.classificationService.classifyTransaction(
+    const { tags, ...classification } = await this.classificationService.classifyTransaction(
       transaction,
       user.id,
     );
 
     Object.assign(transaction, classification);
     await this.transactionRepository.save(transaction);
+    await this.addRuleTags(workspaceId, transaction.id, tags);
 
     return redactPrivate(transaction, selfMemberId);
   }
@@ -105,7 +108,7 @@ export class ClassificationController {
         }
 
         // Bypass the 5-minute cache: the point of a re-run is new rules or patterns.
-        const classification = await this.classificationService.classifyTransaction(
+        const { tags, ...classification } = await this.classificationService.classifyTransaction(
           transaction,
           user.id,
           batchId,
@@ -124,6 +127,7 @@ export class ClassificationController {
 
         Object.assign(transaction, classification);
         await this.transactionRepository.save(transaction);
+        await this.addRuleTags(workspaceId, transaction.id, tags);
         results.successful++;
       } catch (error) {
         results.failed++;
@@ -135,5 +139,15 @@ export class ClassificationController {
     }
 
     return results;
+  }
+
+  /** A rule's tags join the row's own: assigning the relation would drop those. */
+  private addRuleTags(workspaceId: string, transactionId: string, tags: Tag[] | undefined) {
+    return addTransactionTags(
+      this.transactionRepository.manager,
+      workspaceId,
+      [transactionId],
+      (tags ?? []).map(tag => tag.id),
+    );
   }
 }

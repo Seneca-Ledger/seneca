@@ -12,6 +12,12 @@ import { StatementParsingQueue } from '@/modules/parsing/queue/statement-parsing
 import { StatementProcessingService } from '@/modules/parsing/services/statement-processing.service';
 import { ReceiptStatementService } from '@/modules/statements/services/receipt-statement.service';
 import { StatementsService } from '@/modules/statements/statements.service';
+import { StatementFilesService } from '@/modules/statements/statement-files.service';
+import { StatementTrashService } from '@/modules/statements/statement-trash.service';
+import { ManualExpenseService } from '@/modules/statements/manual-expense.service';
+import { DroppedSampleService } from '@/modules/statements/dropped-sample.service';
+import { StatementListService } from '@/modules/statements/statement-list.service';
+import { StatementUploadService } from '@/modules/statements/statement-upload.service';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -70,6 +76,13 @@ describe('StatementsService — business logic', () => {
   beforeAll(async () => {
     module = await Test.createTestingModule({
       providers: [
+        // These specs do not reach the stored file.
+        { provide: StatementFilesService, useValue: {} },
+        StatementTrashService,
+        { provide: ManualExpenseService, useValue: {} },
+        StatementUploadService,
+        DroppedSampleService,
+        StatementListService,
         StatementsService,
         workspaceCurrencyProvider(),
         {

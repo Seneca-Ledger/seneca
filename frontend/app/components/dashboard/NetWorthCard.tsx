@@ -1,6 +1,7 @@
 'use client';
 
 import AccountBalanceOutlined from '@mui/icons-material/AccountBalanceOutlined';
+import Skeleton from '@mui/material/Skeleton';
 import type React from 'react';
 import { ASSET_CLASS_KEYS } from '@/app/(main)/net-worth/components/InvestmentsCard';
 import { NetWorthChart } from '@/app/(main)/net-worth/components/NetWorthChart';
@@ -13,7 +14,7 @@ import { formatMoney } from '@/app/lib/format-money';
 import { formatStoredDateWithOptions } from '@/app/lib/user-format-store';
 import { monthEndOrToday } from './month-end';
 import { useIsWideSection } from './section-span';
-import { CardEmpty, CardLink, DashboardCard } from './ui';
+import { CardEmpty, CardLink, DashboardCard, Figure } from './ui';
 
 /**
  * The periods the tabs offer, shortest first. A fixed span is labelled short
@@ -46,10 +47,50 @@ export function NetWorthCard({ month, monthLabel }: NetWorthCardProps): React.JS
   const { data, isFetching, range, setRange } = useNetWorthPreset('30d', asOf);
   const wide = useIsWideSection();
 
-  // Until the first answer is in there is nothing honest to draw; a failed
-  // request says nothing either. A period switch keeps the previous figures.
+  const options = PERIODS.map(({ range: value, span }) => ({
+    value,
+    label: span
+      ? new Intl.NumberFormat(locale, {
+          style: 'unit',
+          unit: span[1],
+          unitDisplay: 'short',
+        }).format(span[0])
+      : value === 'ytd'
+        ? t.netWorthYearToDate.value
+        : netWorthText.rangeAll.value,
+  }));
+  const action = (
+    <>
+      <TextTabs<NetWorthRange>
+        value={range}
+        options={options}
+        onChange={setRange}
+        ariaLabel={t.netWorthPeriod.value}
+      />
+      <CardLink href="/net-worth">{t.viewAll}</CardLink>
+    </>
+  );
+
+  // Until the first answer is in there is no figure to draw, only its place;
+  // a failed request says nothing. A period switch keeps the previous figures.
   if (!data) {
-    return null;
+    return isFetching ? (
+      <DashboardCard
+        title={netWorthText.title}
+        subtitle={asOf ? monthLabel : undefined}
+        action={action}
+      >
+        <Figure className="seneca-chart__total">
+          <Skeleton variant="text" width={180} />
+        </Figure>
+        <div className="seneca-chart__breakdown">
+          <Skeleton variant="text" width={220} />
+        </div>
+        <div className="seneca-chart__box">
+          <Skeleton variant="rounded" height="100%" />
+        </div>
+      </DashboardCard>
+    ) : null;
   }
 
   const money = (value: number): string => formatMoney(value, data.currency, locale);
@@ -67,37 +108,14 @@ export function NetWorthCard({ month, monthLabel }: NetWorthCardProps): React.JS
   const isPositive = data.change >= 0;
   const hasData = data.assetsTotal !== 0 || data.liabilitiesTotal !== 0;
 
-  const options = PERIODS.map(({ range: value, span }) => ({
-    value,
-    label: span
-      ? new Intl.NumberFormat(locale, {
-          style: 'unit',
-          unit: span[1],
-          unitDisplay: 'short',
-        }).format(span[0])
-      : value === 'ytd'
-        ? t.netWorthYearToDate.value
-        : netWorthText.rangeAll.value,
-  }));
-
   return (
     <DashboardCard
       title={netWorthText.title}
       subtitle={asOf ? monthLabel : undefined}
-      action={
-        <>
-          <TextTabs<NetWorthRange>
-            value={range}
-            options={options}
-            onChange={setRange}
-            ariaLabel={t.netWorthPeriod.value}
-          />
-          <CardLink href="/net-worth">{t.viewAll}</CardLink>
-        </>
-      }
+      action={action}
     >
       <div style={{ opacity: isFetching ? 0.6 : 1, transition: 'opacity 150ms ease' }}>
-        <div className="seneca-chart__total">{whole(data.current)}</div>
+        <Figure className="seneca-chart__total">{whole(data.current)}</Figure>
         <div className="seneca-chart__breakdown">
           <span
             className={

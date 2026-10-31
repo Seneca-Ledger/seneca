@@ -222,6 +222,11 @@ describe('UpcomingChargesCard', () => {
     renderWithQuery(<UpcomingChargesCard formatAmount={money} />);
 
     expect(await screen.findByText('Netflix')).toBeInTheDocument();
+    // A row leads to its own subscription, ringed.
+    expect(screen.getByText('Netflix').closest('a')).toHaveAttribute(
+      'href',
+      '/subscriptions?focus=subscription:s-1',
+    );
     // The chip leads to the subscriptions it is about, ringed.
     expect((await screen.findByText('priceChanges')).closest('a')).toHaveAttribute(
       'href',
@@ -246,7 +251,8 @@ describe('UpcomingChargesCard', () => {
     const { container } = renderWithQuery(<UpcomingChargesCard formatAmount={money} />);
 
     await waitFor(() => expect(apiGet).toHaveBeenCalled());
-    expect(container).toBeEmptyDOMElement();
+    // The card holds its place while the request is out, then leaves.
+    await waitFor(() => expect(container).toBeEmptyDOMElement());
   });
 });
 
