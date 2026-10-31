@@ -1,6 +1,6 @@
 'use client';
 
-import { Alert, AlertTitle, Dialog, DialogTitle, Typography } from '@mui/material';
+import { Dialog, DialogTitle } from '@mui/material';
 import { useMemo } from 'react';
 import { CurrencyDrawer } from '@/app/components/receipts/components/CurrencyDrawer';
 import { useIntlayer } from '@/app/i18n';
@@ -198,29 +198,24 @@ export function ParsingWarningsPanel({
 
   return (
     <>
-      <Alert severity="warning" variant="outlined" sx={{ mt: 3, alignItems: 'flex-start' }}>
-        <AlertTitle sx={{ mb: 0.5 }}>{title ?? t.panelTitle}</AlertTitle>
-        <Typography
-          variant="body2"
-          sx={{
-            color: 'text.secondary',
-            mb: 1.5,
-          }}
-        >
-          {helperText ?? t.panelHelper}
-        </Typography>
+      {/* No frame and no icon per line: one ochre dot says "look here", the rows stay ink. */}
+      <section className="seneca-parse-warnings" aria-label={title ?? t.panelTitle.value}>
+        <h3 className="seneca-parse-warnings__title">{title ?? t.panelTitle}</h3>
+        <p className="seneca-parse-warnings__helper">{helperText ?? t.panelHelper}</p>
         <WarningsList
           warnings={warnings}
           editableEntryByReason={panel.editableEntryByReason}
           editableEntryByTxKey={panel.editableEntryByTxKey}
           fixTooltipLabel={fixTooltipLabel ?? t.panelFix.value}
           resolveBalanceTooltipLabel={resolveBalanceTooltipLabel ?? t.panelReviewBalances.value}
+          showAllLabel={t.panelShowAll.value}
+          showLessLabel={t.panelShowLess.value}
           extractTxKey={extractTxKey}
           onSelectWarning={panel.handleSelectWarning}
           onResolve={panel.handleResolve}
         />
         <ConvertDialog panel={panel} />
-      </Alert>
+      </section>
       <CurrencyDrawer
         isOpen={
           panel.currencyPickerOpen && panel.selectedEntry !== null && panel.selectedDraft !== null

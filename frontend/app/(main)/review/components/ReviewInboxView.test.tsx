@@ -12,6 +12,27 @@ vi.mock('@/app/i18n', async importOriginal => ({
   useLocale: () => ({ locale: appLocale.current }),
 }));
 
+const reviewCounts = vi.hoisted(() => ({ current: {} as Record<string, number> }));
+vi.mock('@/app/(main)/statements/components/hooks/useStatementReviewCounts', () => ({
+  useStatementReviewCounts: () => reviewCounts.current,
+}));
+const confirmStatement = vi.hoisted(() => vi.fn());
+vi.mock('@/app/(main)/statements/[id]/edit/hooks/useConfirmStatement', () => ({
+  useConfirmStatement: (statementId: string) => ({
+    confirming: false,
+    confirmAll: async () => confirmStatement(statementId),
+  }),
+}));
+vi.mock('@/app/(main)/statements/components/StatementTransactionsPanel', () => ({
+  StatementTransactionsPanel: (props: { statementId: string; unconfirmedOnly?: boolean }) => (
+    <div
+      data-testid="statement-rows-panel"
+      data-statement={props.statementId}
+      data-unconfirmed-only={String(Boolean(props.unconfirmedOnly))}
+    />
+  ),
+}));
+
 const routerPush = vi.fn();
 // The picture tile fetches on its own and has its own tests.
 vi.mock('@/app/components/item-images/ItemThumb', () => ({ ItemThumb: () => null }));
@@ -90,6 +111,8 @@ const state = (overrides: Partial<UseReviewInboxResult> = {}): UseReviewInboxRes
 describe('ReviewInboxView', () => {
   beforeEach(() => {
     appLocale.current = 'en';
+    routerPush.mockReset();
+    confirmStatement.mockReset();
   });
 
   it('sets the currency code apart from the figure', () => {
@@ -186,5 +209,73 @@ describe('ReviewInboxView', () => {
 
     expect(screen.getByTitle('Реклама')).toHaveTextContent('Реклама');
     expect(screen.queryByText('Advertising')).toBeNull();
+  });
+  describe('a statement with several waiting rows', () => {
+    const statement = {
+      source: 'statement' as const,
+      id: 'stmt-1',
+      fileName: 'example-bank-2026-01.pdf',
+      fileType: 'pdf',
+    };
+    const statementRows = [
+      row({ id: 'tx-a', date: '2026-01-30', document: statement, statementId: statement.id }),
+      row({ id: 'tx-b', date: '2026-01-05', document: statement, statementId: statement.id }),
+    ];
+    // The statement's own count: the page holds only the first rows of the queue.
+    const waitingOnServer = 72;
+
+    beforeEach(() => {
+      reviewCounts.current = { [statement.id]: waitingOnServer };
+    });
+
+    it('shows one Documents-style line with the statement count, its rows folded', () => {
+      renderWithQuery(<ReviewInboxView state={state({ items: statementRows })} />);
+      expect(screen.getAllByTestId('review-document-group')).toHaveLength(1);
+      expect(screen.getByText(statement.fileName)).toBeInTheDocument();
+      const toggle = screen.getByRole('button', { name: new RegExp(String(waitingOnServer)) });
+      expect(toggle).toHaveAttribute('aria-expanded', 'false');
+      expect(screen.queryAllByTestId('review-row')).toHaveLength(0);
+      expect(screen.queryByTestId('statement-rows-panel')).toBeNull();
+    });
+
+    it("opens the Documents rows panel on its toggle, with only the statement's waiting rows", async () => {
+      renderWithQuery(<ReviewInboxView state={state({ items: statementRows })} />);
+      screen.getByRole('button', { name: new RegExp(String(waitingOnServer)) }).click();
+      const panel = await screen.findByTestId('statement-rows-panel');
+      expect(panel).toHaveAttribute('data-statement', statement.id);
+      expect(panel).toHaveAttribute('data-unconfirmed-only', 'true');
+      expect(routerPush).not.toHaveBeenCalled();
+    });
+
+    it("confirms with the statement page's own action", () => {
+      renderWithQuery(<ReviewInboxView state={state({ items: statementRows })} />);
+      screen.getByRole('button', { name: 'Confirm all' }).click();
+      expect(confirmStatement).toHaveBeenCalledWith(statement.id);
+      expect(routerPush).not.toHaveBeenCalled();
+    });
+
+    it('opens the statement on a click on its line', () => {
+      renderWithQuery(<ReviewInboxView state={state({ items: statementRows })} />);
+      screen.getByTestId('review-document-group').click();
+      expect(routerPush).toHaveBeenCalledWith(`/statements/${statement.id}/edit`);
+    });
+
+    it('lists every row on the duplicates tab', () => {
+      renderWithQuery(
+        <ReviewInboxView
+          state={state({
+            kind: 'duplicate',
+            items: statementRows.map(r => ({
+              ...r,
+              kind: 'duplicate' as const,
+              duplicateOfId: null,
+              confidence: null,
+            })) as unknown as UseReviewInboxResult['items'],
+          })}
+        />,
+      );
+      expect(screen.queryByTestId('review-document-group')).toBeNull();
+      expect(screen.getAllByTestId('review-row')).toHaveLength(statementRows.length);
+    });
   });
 });

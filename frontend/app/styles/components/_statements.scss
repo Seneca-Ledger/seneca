@@ -3458,6 +3458,31 @@
   }
 }
 
+// Review: a statement's line, built from the Documents row. Its "Confirm all"
+// is always shown, unlike a row's "Approve as is": it is the line's one action.
+.seneca-review-group {
+  &__confirm {
+    border: 0;
+    background: none;
+    padding: 4px 0;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+    color: var(--primary);
+    cursor: pointer;
+
+    &:hover:not(:disabled) {
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    &:disabled {
+      cursor: not-allowed;
+    }
+  }
+}
+
 // Review tab counts: "Receipts 0", the zero greyed out so only real work stands out.
 .seneca-review-tab-count {
   font-variant-numeric: tabular-nums;
@@ -5790,5 +5815,115 @@
   a {
     color: var(--primary, #0584c7);
     font-weight: 600;
+  }
+}
+
+// Statement page: parsing warnings as a quiet list. One ochre dot by the title
+// is the only colour; each line is a row number and its reason in ink, and a
+// line that can be fixed shows its sage "Fix" on hover, like Review's rows.
+.seneca-parse-warnings {
+  margin-top: 24px;
+
+  &__title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    padding: 0 8px;
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--foreground);
+
+    &::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--attention);
+      flex-shrink: 0;
+    }
+  }
+
+  &__helper {
+    margin: 4px 0 12px;
+    padding: 0 8px 0 22px;
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+
+  &__list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border-top: 1px solid var(--border);
+  }
+
+  &__item {
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    width: 100%;
+    padding: 8px;
+    border: 0;
+    border-bottom: 1px solid var(--border);
+    background: none;
+    font: inherit;
+    font-size: 13px;
+    text-align: left;
+    color: var(--foreground);
+
+    &--action {
+      cursor: pointer;
+
+      &:hover,
+      &:focus-visible {
+        background: var(--surface-soft);
+      }
+
+      &:focus-visible {
+        outline: 2px solid var(--primary);
+        outline-offset: -2px;
+      }
+    }
+  }
+
+  &__row {
+    flex: 0 0 48px;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__message {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__fix {
+    font-weight: 500;
+    color: var(--primary);
+    opacity: 0;
+    transition: opacity 0.15s;
+
+    .seneca-parse-warnings__item:hover &,
+    .seneca-parse-warnings__item:focus-visible & {
+      opacity: 1;
+    }
+  }
+
+  &__more {
+    margin-top: 8px;
+    padding: 4px 8px;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--primary);
+    cursor: pointer;
+
+    &:hover {
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
   }
 }
