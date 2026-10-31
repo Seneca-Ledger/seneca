@@ -88,6 +88,20 @@ export class User {
   @Column({ name: 'show_daily_quote', type: 'boolean', default: true })
   showDailyQuote: boolean;
 
+  /**
+   * Thumbs on daily quotes by catalogue id: 1 up, -1 down, and the reader's day
+   * it was given. Written only by one jsonb UPDATE in DailyQuoteService, never
+   * by a whole-row save.
+   */
+  @Column({
+    name: 'quote_votes',
+    type: 'jsonb',
+    default: () => "'{}'::jsonb",
+    update: false,
+    select: false,
+  })
+  quoteVotes: Record<string, { vote: 1 | -1; on: string }>;
+
   /** Overviews show whole units; off shows every amount with cents. */
   @Column({ name: 'round_amounts', type: 'boolean', default: true })
   roundAmounts: boolean;

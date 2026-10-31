@@ -12,6 +12,7 @@ import { useDailyQuote } from '@/app/hooks/useDailyQuote';
 import { useWorkspaceId } from '@/app/hooks/useWorkspaceId';
 import { useIntlayer } from '@/app/i18n';
 import { tokens } from '@/lib/theme-tokens';
+import { QuoteThumbs } from './QuoteThumbs';
 import { useAttentionItems } from './useAttentionItems';
 
 /** Pages whose own content fills the screen; the quote stays off there. */
@@ -74,6 +75,9 @@ function readDismissed(workspaceId: string | null): string | null {
  * Hidden while an urgent insight banner is showing, so the two never stack, and
  * for good once the user turns it off in Settings → Appearance. Never shown on
  * the pages listed in HIDDEN_ON.
+ * Thumbs up or down tell which quotes to show more or less of: a thumbed-down
+ * quote never comes back, and from the next day look-alikes of the thumbed
+ * ones (same author, same themes) come up more or less often.
  */
 export function DailyQuoteBanner(): React.JSX.Element | null {
   const t = useIntlayer('insights');
@@ -184,6 +188,7 @@ export function DailyQuoteBanner(): React.JSX.Element | null {
             )}
           </Typography>
         </Box>
+        <QuoteThumbs quoteId={quote.quote.id} vote={quote.vote} />
         <IconButton size="small" aria-label={t.quoteDismiss.value} onClick={dismiss}>
           <X size={16} />
         </IconButton>

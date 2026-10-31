@@ -6,7 +6,7 @@ import { todayKey } from '@/app/hooks/useDailyQuote';
 import { DailyQuoteBanner } from './DailyQuoteBanner';
 import { insightPage } from '@/app/test/fixtures/contracts';
 
-const apiMocks = vi.hoisted(() => ({ get: vi.fn() }));
+const apiMocks = vi.hoisted(() => ({ get: vi.fn(), put: vi.fn() }));
 const auth = vi.hoisted(() => ({ user: { showDailyQuote: true } as { showDailyQuote?: boolean } }));
 const route = vi.hoisted(() => ({ pathname: '/dashboard' }));
 
@@ -31,6 +31,7 @@ const quote = {
   },
   theme: 'temperance',
   reason: { insightId: 'i1', type: 'stoic.intent_gap', title: 'Leisure takes more than you planned' },
+  vote: null,
 };
 
 describe('DailyQuoteBanner', () => {
@@ -138,6 +139,57 @@ describe('DailyQuoteBanner', () => {
     await waitFor(() => expect(apiMocks.get).toHaveBeenCalledTimes(2));
     await new Promise(resolve => setTimeout(resolve, 50));
     expect(screen.queryByText(quote.quote.text)).toBeNull();
+  });
+
+  it('presses a thumb, sends it for the reader day, and takes it back on a second press', async () => {
+    apiMocks.put
+      .mockReset()
+      .mockImplementation((_url: string, body: { vote: number }) =>
+        Promise.resolve({ data: { vote: body.vote === 0 ? null : body.vote } }),
+      );
+    renderWithQuery(<DailyQuoteBanner />);
+    const more = await screen.findByRole('button', { name: 'quoteMore' });
+    const url = `/insights/daily-quote/${quote.quote.id}/vote`;
+
+    fireEvent.click(more);
+    await waitFor(() => expect(more.getAttribute('aria-pressed')).toBe('true'));
+    expect(apiMocks.put).toHaveBeenLastCalledWith(url, { vote: 1, date: quote.date });
+
+    fireEvent.click(screen.getByRole('button', { name: 'quoteLess' }));
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'quoteLess' }).getAttribute('aria-pressed')).toBe(
+        'true',
+      ),
+    );
+    expect(more.getAttribute('aria-pressed')).toBe('false');
+    expect(apiMocks.put).toHaveBeenLastCalledWith(url, { vote: -1, date: quote.date });
+
+    fireEvent.click(screen.getByRole('button', { name: 'quoteLess' }));
+    expect(apiMocks.put).toHaveBeenLastCalledWith(url, { vote: 0, date: quote.date });
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'quoteLess' }).getAttribute('aria-pressed')).toBe(
+        'false',
+      ),
+    );
+    // The quote stays on screen: a thumb is not a close.
+    expect(screen.getByText(quote.quote.text)).toBeTruthy();
+  });
+
+  it('puts the previous thumb back when the vote fails', async () => {
+    let fail: (error: Error) => void = () => undefined;
+    apiMocks.put.mockReset().mockReturnValue(
+      new Promise((_, reject) => {
+        fail = reject;
+      }),
+    );
+    renderWithQuery(<DailyQuoteBanner />);
+    const more = await screen.findByRole('button', { name: 'quoteMore' });
+
+    fireEvent.click(more);
+    await waitFor(() => expect(more.getAttribute('aria-pressed')).toBe('true'));
+    fail(new Error('offline'));
+    await waitFor(() => expect(more.getAttribute('aria-pressed')).toBe('false'));
+    expect(apiMocks.put).toHaveBeenCalledTimes(1);
   });
 
   it('comes back when the day changes', async () => {

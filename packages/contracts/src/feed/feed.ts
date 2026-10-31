@@ -78,8 +78,14 @@ export const DailyQuote = Schema.Struct({
   reason: Schema.NullOr(
     Schema.Struct({ insightId: Schema.String, type: Schema.String, title: Schema.String }),
   ),
+  /** The reader's thumb on this quote: 1 up, -1 down, null none. */
+  vote: Schema.NullOr(Schema.Literals([1, -1])),
 });
 export type DailyQuote = Wire<typeof DailyQuote>;
+
+/** `PUT /insights/daily-quote/:quoteId/vote`: the thumb now stored on that quote. */
+export const QuoteVote = Schema.Struct({ vote: Schema.NullOr(Schema.Literals([1, -1])) });
+export type QuoteVote = Wire<typeof QuoteVote>;
 
 /** `POST /review-inbox/transactions/approve`. */
 export const ReviewApproved = Schema.Struct({ approved: Schema.Number });

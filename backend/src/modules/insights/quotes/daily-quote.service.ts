@@ -1,11 +1,13 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, MoreThan, type Repository } from 'typeorm';
+import { appError } from '../../../common/errors/app-error';
 import { Insight, InsightCategory } from '../../../entities/insight.entity';
 import { User } from '../../../entities/user.entity';
 import { toDateOnly } from '../../goals/goal-money.util';
 import { isStoicKey } from '../stoic-texts';
 import { QUOTES } from './catalog';
+import { pickQuote, votesBefore } from './quote-preference';
 import { SITUATION_THEMES } from './situation-themes';
 import { QUOTE_TEXTS } from './texts';
 import type { QuoteTheme } from './types';
@@ -26,7 +28,12 @@ export interface DailyQuote {
   theme: QuoteTheme | null;
   /** The advice the quote answers, so the banner can say why it is today's. */
   reason: { insightId: string; type: string; title: string } | null;
+  /** The reader's thumb on this quote, so the banner shows it pressed. */
+  vote: 1 | -1 | null;
 }
+
+/** More thumbs than the catalogue holds quotes can only be someone filling the column. */
+const MAX_VOTES = QUOTES.length;
 
 function hash(text: string): number {
   let value = 0;
@@ -40,7 +47,9 @@ function hash(text: string): number {
  * One quote a day from a curated, source-checked catalogue — never generated.
  * Which one depends on the user's current advice: the few most important
  * situations take turns day by day, and within a situation's theme the quotes
- * rotate too, so the banner stays relevant without repeating itself.
+ * rotate too, so the banner stays relevant without repeating itself. The
+ * reader's thumbs steer the rotation: a thumbed-down quote stays away, and
+ * quotes like the ones they thumbed up come round more often.
  */
 @Injectable()
 export class DailyQuoteService {
@@ -64,6 +73,7 @@ export class DailyQuoteService {
         select: {
           id: true,
           locale: true,
+          quoteVotes: true,
         },
       }),
       this.insightRepository.find({
@@ -99,14 +109,16 @@ export class DailyQuoteService {
 
     const themed = theme ? QUOTES.filter(quote => quote.themes.includes(theme)) : [];
     const pool = themed.length > 0 ? themed : QUOTES;
-    const quote = pool[(day + hash(userId)) % pool.length];
+    const date = toDateOnly(now);
+    const stored = user?.quoteVotes ?? {};
+    const quote = pickQuote(pool, votesBefore(stored, date), day + hash(userId));
     const texts =
       (locale ? QUOTE_TEXTS[locale] : undefined) ??
       QUOTE_TEXTS[user?.locale ?? 'en'] ??
       QUOTE_TEXTS.en;
 
     return {
-      date: toDateOnly(now),
+      date,
       quote: {
         id: quote.id,
         text: texts.quotes[quote.id] ?? QUOTE_TEXTS.en.quotes[quote.id],
@@ -118,6 +130,44 @@ export class DailyQuoteService {
       reason: situation
         ? { insightId: situation.id, type: situation.type, title: situation.title }
         : null,
+      vote: stored[quote.id]?.vote ?? null,
     };
+  }
+
+  /**
+   * Stores a thumb on a catalogue quote (0 takes it back), dated with the
+   * reader's day so it steers the picks from the next day on. One jsonb UPDATE,
+   * so no other column is read back and rewritten; an unknown id is refused.
+   */
+  async vote(
+    userId: string,
+    quoteId: string,
+    vote: 1 | -1 | 0,
+    now = new Date(),
+  ): Promise<{ vote: 1 | -1 | null }> {
+    if (!QUOTES.some(quote => quote.id === quoteId)) {
+      throw new NotFoundException(appError('ENTRY_NOT_FOUND'));
+    }
+    if (vote === 0) {
+      await this.userRepository.query(
+        `UPDATE "users" SET "quote_votes" = "quote_votes" - $2::text WHERE "id" = $1`,
+        [userId, quoteId],
+      );
+      return { vote: null };
+    }
+    await this.userRepository.query(
+      `UPDATE "users"
+       SET "quote_votes" = "quote_votes" || jsonb_build_object(
+         $2::text,
+         jsonb_build_object('vote', $3::int, 'on', $5::text)
+       )
+       WHERE "id" = $1
+         AND (
+           ("quote_votes" -> $2::text) IS NOT NULL
+           OR (SELECT count(*) FROM jsonb_object_keys("quote_votes")) < $4
+         )`,
+      [userId, quoteId, vote, MAX_VOTES, toDateOnly(now)],
+    );
+    return { vote };
   }
 }
