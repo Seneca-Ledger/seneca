@@ -4,6 +4,7 @@ import {
   dateFilterToRange,
   documentHref,
   documentOf,
+  groupByDocument,
   groupByPayee,
   monthDateFilter,
   moveCursor,
@@ -110,6 +111,46 @@ describe('review inbox model', () => {
     expect(targetIds(new Set(['c', 'a']), items, 1)).toEqual(['a', 'c']);
     expect(targetIds(new Set(), items, 1)).toEqual(['b']);
     expect(targetIds(new Set(), items, -1)).toEqual([]);
+  });
+});
+
+describe('groupByDocument', () => {
+  const statement = (id: string) => ({
+    source: 'statement' as const,
+    id,
+    fileName: `${id}.pdf`,
+    fileType: 'pdf',
+  });
+  const onStatement = (id: string, statementId: string, date: string) => ({
+    ...tx(id, 'ACME Store'),
+    date,
+    statementId,
+    document: statement(statementId),
+  });
+
+  it("keeps a statement's rows together under its newest one, in the page's order", () => {
+    const groups = groupByDocument([
+      onStatement('a', 'jan', '2026-01-30'),
+      tx('manual', 'Corner Bakery'),
+      onStatement('b', 'feb', '2026-01-20'),
+      onStatement('c', 'jan', '2026-01-10'),
+    ]);
+    expect(groups.map(g => [g.document?.id ?? null, g.items.map(i => i.id)])).toEqual([
+      ['jan', ['a', 'c']],
+      [null, ['manual']],
+      ['feb', ['b']],
+    ]);
+  });
+
+  it('leaves receipts and rows without a document on their own', () => {
+    const receipt = { source: 'receipt' as const, id: 'r-1', fileName: null, fileType: null };
+    const groups = groupByDocument([
+      { ...tx('a', 'ACME Store'), document: receipt },
+      { ...tx('b', 'ACME Store'), document: receipt },
+      tx('c', 'Corner Bakery'),
+      tx('d', 'Corner Bakery'),
+    ]);
+    expect(groups.map(g => g.items.map(i => i.id))).toEqual([['a'], ['b'], ['c'], ['d']]);
   });
 });
 

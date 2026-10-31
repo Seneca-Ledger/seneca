@@ -3446,6 +3446,31 @@
   }
 }
 
+// Review: a statement's line, built from the Documents row. Its "Confirm all"
+// is always shown, unlike a row's "Approve as is": it is the line's one action.
+.seneca-review-group {
+  &__confirm {
+    border: 0;
+    background: none;
+    padding: 4px 0;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+    color: var(--primary);
+    cursor: pointer;
+
+    &:hover:not(:disabled) {
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    &:disabled {
+      cursor: not-allowed;
+    }
+  }
+}
+
 // Review tab counts: "Receipts 0", the zero greyed out so only real work stands out.
 .seneca-review-tab-count {
   font-variant-numeric: tabular-nums;

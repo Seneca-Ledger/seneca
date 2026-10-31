@@ -57,16 +57,20 @@ import {
   dateFilterToRange,
   documentHref,
   documentOf,
+  groupByDocument,
   groupByPayee,
+  isFolded,
   payeeOf,
   REVIEW_INBOX_KINDS,
   type ReviewInboxDocument,
   type ReviewInboxItem,
   type ReviewInboxKind,
+  targetIds,
+  toggleSelection,
 } from '../lib/review-inbox-model';
+import { ReviewDocumentGroup } from './ReviewDocumentGroup';
 import { ReviewRowsSkeleton } from './ReviewRowsSkeleton';
-
-const SWIPE_THRESHOLD_PX = 80;
+import { SwipeableRow } from './SwipeableRow';
 
 /** One line icon per tab, from the set every empty state uses. */
 const EMPTY_ICONS: Record<ReviewInboxKind, React.ReactNode> = {
@@ -139,6 +143,8 @@ export function ReviewInboxView({ state }: Props) {
   // The thumbnail opens the file in the same viewer Documents uses.
   const preview = useStatementPreview();
   const [grouped, setGrouped] = useState(false);
+  // Statements whose rows are open under their line.
+  const [openDocuments, setOpenDocuments] = useState<ReadonlySet<string>>(new Set());
   const [categoryId, setCategoryId] = useState('');
   // The row whose empty category slot was clicked: the category drawer is open for it.
   const [categoryRowId, setCategoryRowId] = useState<string | null>(null);
@@ -219,16 +225,29 @@ export function ReviewInboxView({ state }: Props) {
   );
 
   const groups = useMemo(() => (grouped ? groupByPayee(items) : null), [grouped, items]);
+  // Rows tab only: a duplicate is settled one by one, never as a statement.
+  const documentGroups = useMemo(
+    () =>
+      kind === 'transaction'
+        ? groupByDocument(items)
+        : items.map(item => ({ document: null, items: [item] })),
+    [kind, items],
+  );
+  // A folded statement's rows live in its own panel, out of the cursor's way.
   const orderedItems = useMemo(
-    () => (groups ? groups.flatMap(group => group.items) : items),
-    [groups, items],
+    () =>
+      groups
+        ? groups.flatMap(group => group.items)
+        : documentGroups.flatMap(group => (isFolded(group) ? [] : group.items)),
+    [groups, documentGroups],
   );
 
+  // The cursor counts rows in the order they are shown, which grouping changes.
   const approveWithCategory = useCallback(
     (ids?: string[]) => {
-      void approve(categoryId || undefined, ids);
+      void approve(categoryId || undefined, ids ?? targetIds(selected, orderedItems, cursor));
     },
-    [approve, categoryId],
+    [approve, categoryId, selected, orderedItems, cursor],
   );
 
   useKeyboardShortcuts(
@@ -600,14 +619,14 @@ export function ReviewInboxView({ state }: Props) {
         </div>
         {/* An invisible copy of the first row's buttons, so this column is as
             wide as theirs and Amount sits right above the amounts. */}
-        {orderedItems[0] ? (
+        {items[0] ? (
           <Box
             data-column-id="action"
             aria-hidden
             inert
             sx={{ display: 'flex', gap: 1, flex: '0 0 auto', visibility: 'hidden', height: 0 }}
           >
-            {renderActions(orderedItems[0])}
+            {renderActions(items[0])}
           </Box>
         ) : null}
       </Box>
@@ -620,7 +639,7 @@ export function ReviewInboxView({ state }: Props) {
       selectCellSx={SELECT_CELL_SX}
       showCategory={showCategoryColumn}
     />
-  ) : orderedItems.length === 0 ? (
+  ) : items.length === 0 ? (
     <EmptyState icon={EMPTY_ICONS[kind]} title={t.empty.value} compact />
   ) : groups ? (
     groups.map(group => {
@@ -655,7 +674,26 @@ export function ReviewInboxView({ state }: Props) {
       );
     })
   ) : (
-    orderedItems.map((item, index) => renderRow(item, index))
+    documentGroups.map(group => {
+      const { document, items: rows } = group;
+      if (!(document && isFolded(group))) {
+        return rows.map(item => renderRow(item, orderedItems.indexOf(item)));
+      }
+      return (
+        <ReviewDocumentGroup
+          key={document.id}
+          document={document}
+          items={rows}
+          expanded={openDocuments.has(document.id)}
+          onToggle={() => setOpenDocuments(open => toggleSelection(open, document.id))}
+          onOpen={() => router.push(documentHref(document))}
+          columnStyle={columnStyle}
+          selectCellSx={SELECT_CELL_SX}
+          isMobile={isMobile}
+          onOpenPreview={openPreview}
+        />
+      );
+    })
   );
 
   // Laid out like the statements list: tabs with the page's controls on one
@@ -813,7 +851,7 @@ export function ReviewInboxView({ state }: Props) {
                 <Button
                   variant="outlined"
                   disabled={busy || (selected.size === 0 && cursor < 0)}
-                  onClick={() => void approve(undefined)}
+                  onClick={() => void approve(undefined, targetIds(selected, orderedItems, cursor))}
                 >
                   {t.approveAsIs.value}
                 </Button>
@@ -870,54 +908,5 @@ export function ReviewInboxView({ state }: Props) {
         }}
       />
     </div>
-  );
-}
-
-/** Right past the threshold approves, left skips; anything shorter snaps back. */
-function SwipeableRow({
-  children,
-  disabled,
-  onApprove,
-  onSkip,
-}: {
-  children: React.ReactNode;
-  disabled: boolean;
-  onApprove: () => void;
-  onSkip: () => void;
-}) {
-  const startX = useRef<number | null>(null);
-  const [dx, setDx] = useState(0);
-
-  return (
-    <Box
-      data-testid="swipe-row"
-      onTouchStart={event => {
-        if (disabled) return;
-        startX.current = event.touches[0]?.clientX ?? null;
-      }}
-      onTouchMove={event => {
-        if (startX.current === null) return;
-        setDx((event.touches[0]?.clientX ?? startX.current) - startX.current);
-      }}
-      onTouchEnd={() => {
-        if (startX.current === null) return;
-        if (dx > SWIPE_THRESHOLD_PX) onApprove();
-        else if (dx < -SWIPE_THRESHOLD_PX) onSkip();
-        startX.current = null;
-        setDx(0);
-      }}
-      sx={{
-        transform: `translateX(${dx}px)`,
-        transition: dx === 0 ? 'transform 150ms ease-out' : 'none',
-        bgcolor:
-          dx > SWIPE_THRESHOLD_PX
-            ? 'var(--color-success-soft-bg, transparent)'
-            : dx < -SWIPE_THRESHOLD_PX
-              ? 'action.hover'
-              : 'transparent',
-      }}
-    >
-      {children}
-    </Box>
   );
 }

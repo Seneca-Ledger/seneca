@@ -91,6 +91,45 @@ export function groupByPayee<T extends ReviewInboxItem>(items: T[]): PayeeGroup<
     .sort((a, b) => b.items.length - a.items.length || a.payee.localeCompare(b.payee));
 }
 
+export interface DocumentGroup<T extends ReviewInboxItem = ReviewInboxItem> {
+  /** Set only on a statement's group; every other row stands alone. */
+  document: ReviewInboxDocument | null;
+  items: T[];
+}
+
+/**
+ * Rows by the statement they came from, so an import of a hundred rows is one
+ * line in the queue. A statement sits where its newest row would, the page's
+ * order kept inside it; a receipt or a row of no document stands alone.
+ */
+export function groupByDocument<T extends ReviewInboxItem>(items: T[]): DocumentGroup<T>[] {
+  const groups: DocumentGroup<T>[] = [];
+  const byStatement = new Map<string, DocumentGroup<T>>();
+  for (const item of items) {
+    const document = documentOf(item);
+    if (document?.source !== 'statement') {
+      groups.push({ document: null, items: [item] });
+      continue;
+    }
+    const group = byStatement.get(document.id);
+    if (group) {
+      group.items.push(item);
+    } else {
+      const created = { document, items: [item] };
+      byStatement.set(document.id, created);
+      groups.push(created);
+    }
+  }
+  return groups;
+}
+
+/** A statement with more than one waiting row: one line, its rows in a panel under it. */
+export function isFolded(group: DocumentGroup): group is DocumentGroup & {
+  document: ReviewInboxDocument;
+} {
+  return group.document !== null && group.items.length > 1;
+}
+
 /** Keyboard cursor: clamps inside the list and wraps nothing, so `j` at the end stays put. */
 export function moveCursor(current: number, delta: number, length: number): number {
   if (length === 0) return -1;

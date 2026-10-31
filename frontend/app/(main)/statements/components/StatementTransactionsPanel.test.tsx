@@ -5,6 +5,7 @@ import { categoryRef, transactionItem } from '@/app/test/fixtures/contracts';
 import { renderWithQuery } from '@/app/test/query-wrapper';
 import { StatementTransactionsPanel } from './StatementTransactionsPanel';
 
+const { confirmedPayee } = vi.hoisted(() => ({ confirmedPayee: 'ACME Store' }));
 const appLocale = vi.hoisted(() => ({ current: 'en' }));
 
 vi.mock('@/app/i18n', async importOriginal => ({
@@ -23,6 +24,7 @@ vi.mock('@/app/lib/query-fn-schema', () => ({
               id: 'tx-1',
               category: categoryRef({ id: 'cat-ads', name: 'Advertising' }),
             }),
+            transactionItem({ id: 'tx-2', counterpartyName: confirmedPayee, isVerified: true }),
           ],
         },
 }));
@@ -54,5 +56,18 @@ describe('StatementTransactionsPanel', () => {
     renderWithQuery(<StatementTransactionsPanel statementId="st-1" />);
 
     expect(await screen.findByText('Advertising', { selector: 'span' })).toBeInTheDocument();
+  });
+
+  it('leaves out confirmed rows when Review opens it', async () => {
+    renderWithQuery(<StatementTransactionsPanel statementId="st-1" unconfirmedOnly />);
+
+    expect(await screen.findByText('Advertising', { selector: 'span' })).toBeInTheDocument();
+    expect(screen.queryByText(confirmedPayee)).toBeNull();
+  });
+
+  it('shows every row in Documents', async () => {
+    renderWithQuery(<StatementTransactionsPanel statementId="st-1" />);
+
+    expect(await screen.findByText(confirmedPayee)).toBeInTheDocument();
   });
 });
