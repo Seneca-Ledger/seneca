@@ -28,11 +28,14 @@ const formatAmount = (amount: number, currency: string | undefined): string =>
 /**
  * The rows of one statement, opened under its line in Documents. Loaded only
  * when opened; a row opens the same transaction drawer the statement page uses.
+ * Review opens it with `unconfirmedOnly`: the rows still waiting there.
  */
 export function StatementTransactionsPanel({
   statementId,
+  unconfirmedOnly = false,
 }: {
   statementId: string;
+  unconfirmedOnly?: boolean;
 }): React.JSX.Element {
   const workspaceId = useWorkspaceId();
   const { locale } = useLocale();
@@ -69,7 +72,10 @@ export function StatementTransactionsPanel({
     enabled: Boolean(workspaceId),
   });
   const categories = categoriesQuery.data ?? [];
-  const dateFormat = new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric' });
+  const dateFormat = new Intl.DateTimeFormat(locale, {
+    month: 'short',
+    day: 'numeric',
+  });
 
   const openRow = (tx: Transaction): void => {
     setOpen(tx);
@@ -93,7 +99,7 @@ export function StatementTransactionsPanel({
     );
   };
 
-  const rows = rowsQuery.data?.rows ?? [];
+  const rows = (rowsQuery.data?.rows ?? []).filter(tx => !(unconfirmedOnly && tx.isVerified));
   const statement = rowsQuery.data?.statement;
   // The drawer names the document the row came from and opens it.
   const source = statement
