@@ -118,8 +118,19 @@
   }
 
   &__tooltip-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
     margin-bottom: 2px;
     color: var(--text-muted);
+  }
+
+  // The hovered slice's colour, so it is not read from the chart alone.
+  &__tooltip-swatch {
+    flex: none;
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
   }
 
   // Text in ink; income and spending carry their bar colour as a small square.

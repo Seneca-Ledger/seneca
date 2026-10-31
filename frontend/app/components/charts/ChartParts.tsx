@@ -15,13 +15,19 @@ export interface ChartTooltipRow {
 export function ChartTooltipCard({
   title,
   rows,
+  color,
 }: {
   title: string;
   rows: ChartTooltipRow[];
+  /** The hovered mark's colour, shown as a square before the title. */
+  color?: string;
 }): React.JSX.Element {
   return (
     <div className="seneca-chart__tooltip">
-      <div className="seneca-chart__tooltip-title">{title}</div>
+      <div className="seneca-chart__tooltip-title">
+        {color && <span className="seneca-chart__tooltip-swatch" style={{ background: color }} />}
+        {title}
+      </div>
       {rows.map((row, index) => (
         <div
           // Two rows can read the same (two coffees at one price on one day).
