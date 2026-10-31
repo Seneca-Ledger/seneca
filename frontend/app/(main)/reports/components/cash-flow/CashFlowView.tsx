@@ -491,15 +491,12 @@ export function CashFlowView({
             transition: 'opacity 150ms',
           }}
         >
-          {/* Narrow tiles from the left: a 30px figure fills one; three full-width cards left it lost. */}
           <Box
             sx={{
               display: 'grid',
-              // A phone fits one tile per row; a fixed-width tile there left a ragged gap on the right.
-              gridTemplateColumns: {
-                xs: 'minmax(0, 1fr)',
-                sm: 'repeat(auto-fill, minmax(240px, 320px))',
-              },
+              // The dashboard's KPI row: four equal shares from 1024px, one tile per row below.
+              gridTemplateColumns: 'minmax(0, 1fr)',
+              '@media (min-width: 1024px)': { gridTemplateColumns: 'repeat(4, minmax(0, 1fr))' },
               gap: 2,
             }}
           >
