@@ -39,8 +39,6 @@ export function slicePercent(value: number, total: number): number {
   return total > 0 ? Math.round((value / total) * 1000) / 10 : 0;
 }
 
-/** How far the hovered slice grows outwards, in px. */
-const ACTIVE_GROW_PX = 6;
 /**
  * Every slice gets at least this many degrees: a 3% share would otherwise be a
  * hairline the pointer can hardly land on. The exact shares are in the list
@@ -50,15 +48,15 @@ const MIN_SLICE_ANGLE = 6;
 /** Gap between the pointer and the tooltip's corner, so the card never sits under it. */
 const TOOLTIP_OFFSET_PX = 12;
 
-/** The slice under the pointer, pushed outwards so it is clear which one it is. */
+/** The slice under the pointer, slightly darkened so it is clear which one it is. */
 function ActiveSlice(props: PieSectorDataItem): React.JSX.Element {
   // recharts passes the slice's `key` among the props; React wants it set
   // directly, never spread, so it is pulled out here.
   const { key, ...sector } = props as PieSectorDataItem & { key?: React.Key };
-  return <Sector key={key} {...sector} outerRadius={(sector.outerRadius ?? 0) + ACTIVE_GROW_PX} />;
+  return <Sector key={key} {...sector} style={{ filter: 'brightness(0.88)' }} />;
 }
 
-/** Donut without labels or legend; the card renders its own list beside it. */
+/** Solid pie without labels or legend; the card renders its own list beside it. */
 export function CategoryDonut({ slices, formatAmount }: CategoryDonutProps): React.JSX.Element {
   const total = slices.reduce((sum, slice) => sum + slice.value, 0);
   // recharts pins a pie tooltip to the middle of the slice's arc, which for a
@@ -112,6 +110,7 @@ export function CategoryDonut({ slices, formatAmount }: CategoryDonutProps): Rea
               return (
                 <ChartTooltipCard
                   title={slice.name}
+                  color={slice.color}
                   rows={[
                     {
                       value: `${formatAmount(slice.value)} · ${slicePercent(slice.value, total)}%`,
@@ -127,8 +126,8 @@ export function CategoryDonut({ slices, formatAmount }: CategoryDonutProps): Rea
             data={slices}
             dataKey="value"
             nameKey="name"
-            // Not 100%: the hovered slice needs room to grow without being clipped.
-            innerRadius="56%"
+            // A solid pie, no hole.
+            innerRadius={0}
             outerRadius="90%"
             paddingAngle={slices.length > 1 ? 2 : 0}
             minAngle={slices.length > 1 ? MIN_SLICE_ANGLE : 0}
