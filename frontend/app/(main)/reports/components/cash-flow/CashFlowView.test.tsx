@@ -20,7 +20,10 @@ vi.mock('@/app/components/ui/lazy-echarts', () => ({
   },
 }));
 const router = vi.hoisted(() => ({ push: vi.fn() }));
-vi.mock('next/navigation', () => ({ useRouter: () => router }));
+vi.mock('next/navigation', () => ({
+  useRouter: () => router,
+  useSearchParams: () => new URLSearchParams(),
+}));
 const statementsList = vi.hoisted(() => vi.fn());
 vi.mock('@/app/lib/query-fn-schema', async importOriginal => ({
   ...(await importOriginal<typeof import('@/app/lib/query-fn-schema')>()),
