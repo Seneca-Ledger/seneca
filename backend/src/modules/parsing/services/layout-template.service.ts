@@ -23,6 +23,7 @@ import {
   templateFromRegions,
   templateSignature,
 } from '../helpers/layout-template.helper';
+import { leadingDate } from '../helpers/pdf-layout-row-date.helper';
 import { readLayoutTable } from '../helpers/pdf-layout-table.helper';
 import type { ParsedStatement } from '../interfaces/parsed-statement.interface';
 import type { IParser } from '../interfaces/parser.interface';
@@ -169,16 +170,18 @@ export class LayoutTemplateService {
     const statement = await this.pdfStatement(id, workspaceId);
     const { rows } = await this.withFile(statement, extractTextAndLayoutFromPdf);
     return {
-      words: rows.flatMap(row =>
-        row.items.map(({ text, page, x, y, width, height }) => ({
+      words: rows.flatMap(row => {
+        const dated = leadingDate([...row.items].sort((a, b) => a.x - b.x)) !== null;
+        return row.items.map(({ text, page, x, y, width, height }) => ({
           text,
           page,
           x,
           y,
           width,
           height,
-        })),
-      ),
+          dated,
+        }));
+      }),
     };
   }
 

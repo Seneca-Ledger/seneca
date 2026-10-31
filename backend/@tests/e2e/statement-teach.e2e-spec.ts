@@ -149,7 +149,10 @@ describe('Teaching a statement layout (e2e)', () => {
       request(server()).get(`/statements/${statement.id}/layout-words`),
     ).expect(200);
     const when = words.body.words.find((word: { text: string }) => word.text === 'When');
-    expect(when).toMatchObject({ page: 1, x: expect.closeTo(40, 0) });
+    expect(when).toMatchObject({ page: 1, x: expect.closeTo(40, 0), dated: false });
+    // Every word of a transaction row knows its line starts with a date.
+    const acme = words.body.words.find((word: { text: string }) => word.text === 'ACME');
+    expect(acme).toMatchObject({ dated: true });
 
     const incomplete = await as(
       owner,

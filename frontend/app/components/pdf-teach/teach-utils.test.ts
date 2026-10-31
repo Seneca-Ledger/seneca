@@ -47,7 +47,7 @@ describe('teach-utils', () => {
   });
 
   it('takes the words whose middle lies inside an area on its page', () => {
-    const word = { text: 'Date', page: 1, x: 2, y: 2, width: 6, height: 4 };
+    const word = { text: 'Date', page: 1, x: 2, y: 2, width: 6, height: 4, dated: false };
     expect(wordsInRegion([word], area('date', 0, 10))).toEqual([word]);
     expect(wordsInRegion([word], area('date', 0, 4))).toEqual([]);
     expect(wordsInRegion([{ ...word, page: 2 }], area('date', 0, 10))).toEqual([]);
@@ -68,13 +68,24 @@ describe('teach-utils', () => {
   });
 
   it('warns of a column tag off the table and a one-figure tag over a column', () => {
-    const word = (text: string, x: number, y: number) => ({ text, page: 1, x, y, width: 20, height: 6 });
+    const word = (text: string, x: number, y: number, dated = y >= 100) => ({
+      text,
+      page: 1,
+      x,
+      y,
+      width: 20,
+      height: 6,
+      dated,
+    });
     const words = [
       word('Northwind', 40, 20),
-      word('01-02-2025', 40, 100),
+      // "02 Sep": the parser's reading of the line decides, not the word's shape.
+      word('02', 40, 100),
+      word('Sep', 55, 100),
       word('ACME', 120, 100),
       word('987.50', 300, 100),
-      word('03-02-2025', 40, 120),
+      word('03', 40, 120),
+      word('Sep', 55, 120),
       word('1,087.50', 300, 120),
     ];
     const on = (tag: TeachRegion['tag'], x0: number, y0: number, x1: number, y1: number) => ({
@@ -86,6 +97,7 @@ describe('teach-utils', () => {
       y1,
     });
     expect(regionWarning(on('date', 30, 10, 80, 30), words)).toBe('notColumn');
+    expect(regionWarning(on('date', 30, 95, 80, 130), words)).toBeNull();
     // A cell of a transaction row is enough: its line starts with a date.
     expect(regionWarning(on('description', 110, 95, 150, 108), words)).toBeNull();
     expect(regionWarning(on('closingBalance', 290, 95, 330, 130), words)).toBe('notOneFigure');
