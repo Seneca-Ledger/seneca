@@ -165,7 +165,8 @@
     },
     "typeorm": {
       "ioredis": "$ioredis"
-    }
+    },
+    "minimatch": "^11.0.3"
   },
   "engines": {
     "node": ">=22.18"
