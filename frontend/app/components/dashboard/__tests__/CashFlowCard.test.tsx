@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import '../test-setup';
@@ -10,6 +10,13 @@ const chartProps = vi.hoisted(() => vi.fn<(props: Record<string, unknown>) => vo
 const entriesMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/app/hooks/useDashboard', () => ({ useCashFlowEntries: entriesMock }));
+const flowProps = vi.hoisted(() => vi.fn());
+vi.mock('../CashFlowFlow', () => ({
+  CashFlowFlow: (props: Record<string, unknown>) => {
+    flowProps(props);
+    return React.createElement('div', { 'data-testid': 'flow' });
+  },
+}));
 
 vi.mock('next/dynamic', () => ({
   default: () => (props: Record<string, unknown>) => {
@@ -36,6 +43,11 @@ vi.mock('@/app/i18n', () => ({
     expense: value('Expense'),
     budgeted: value('Budgeted'),
     noData: value('No data'),
+    viewChart: value('Chart'),
+    viewCalendar: value('Calendar'),
+    viewLabel: value('View'),
+    viewFlow: value('Flow'),
+    viewAll: value('View all'),
   }),
   useLocale: () => ({ locale: 'en' }),
 }));
@@ -157,7 +169,7 @@ describe('CashFlowCard', () => {
     expect(typicalSpend([day('2026-10-01', 500, 0)])).toBe(0);
   });
 
-  it('offers no period switch', () => {
+  it('offers no period switch, only the chart, calendar and flow views', () => {
     render(
       <CashFlowCard
         formatAmount={String}
@@ -166,7 +178,11 @@ describe('CashFlowCard', () => {
       />,
     );
 
-    expect(screen.queryByRole('tab')).not.toBeInTheDocument();
+    expect(screen.getAllByRole('tab').map(tab => tab.textContent)).toEqual([
+      'Chart',
+      'Calendar',
+      'Flow',
+    ]);
   });
 
   it('shows a loss with a typographic minus', () => {
@@ -193,5 +209,82 @@ describe('CashFlowCard', () => {
     expect(container.querySelector('.seneca-chart__total')?.textContent).toBe('$0');
     expect(screen.getByText('No cash flow data yet')).toBeInTheDocument();
     expect(screen.queryByTestId('mock-chart')).not.toBeInTheDocument();
+  });
+
+  describe('calendar view', () => {
+    beforeEach(() => window.localStorage.clear());
+
+    const days = [day('2026-07-01', 900, 4.5), day('2026-07-02', 0, 0), day('2026-07-03', 0, 468)];
+
+    it('lays the same days out as a month, spending and income in each cell', () => {
+      render(<CashFlowCard formatAmount={String} activeMonth="2026-07" days={days} />);
+
+      fireEvent.click(screen.getByRole('tab', { name: 'Calendar' }));
+
+      expect(screen.queryByTestId('mock-chart')).toBeNull();
+      const first = screen.getByRole('button', { name: 'July 1, −4.5, +900' });
+      expect(first).toHaveTextContent('4.5');
+      expect(first).toHaveTextContent('+900');
+      // A day without money is only its number, and opens nothing.
+      expect(screen.getByRole('button', { name: 'July 2' })).toBeDisabled();
+    });
+
+    it("opens a day's rows under the grid and closes them on a second click", () => {
+      const rent = { date: '2026-07-03', name: 'Example Rentals', kind: 'expense', amount: 468, budgeted: 0 };
+      entriesMock.mockReturnValue([rent]);
+      render(<CashFlowCard formatAmount={String} activeMonth="2026-07" days={days} />);
+      fireEvent.click(screen.getByRole('tab', { name: 'Calendar' }));
+
+      const third = screen.getByRole('button', { name: 'July 3, −468' });
+      fireEvent.click(third);
+      expect(third).toHaveAttribute('aria-pressed', 'true');
+      expect(screen.getByText('Example Rentals')).toBeInTheDocument();
+      expect(screen.getByText('−468')).toBeInTheDocument();
+
+      fireEvent.click(third);
+      expect(screen.queryByText('Example Rentals')).toBeNull();
+    });
+
+    it('remembers the view in this browser', () => {
+      const { unmount } = render(
+        <CashFlowCard formatAmount={String} activeMonth="2026-07" days={days} />,
+      );
+      fireEvent.click(screen.getByRole('tab', { name: 'Calendar' }));
+      unmount();
+
+      render(<CashFlowCard formatAmount={String} activeMonth="2026-07" days={days} />);
+      expect(screen.queryByTestId('mock-chart')).toBeNull();
+    });
+  });
+
+  describe('flow view', () => {
+    beforeEach(() => {
+      window.localStorage.clear();
+      flowProps.mockClear();
+    });
+
+    const days = [day('2026-07-01', 900, 4.5)];
+
+    it('asks for the flow only once picked, and links to the same month in Reports', () => {
+      render(<CashFlowCard formatAmount={String} activeMonth="2026-07" days={days} />);
+      expect(flowProps).not.toHaveBeenCalled();
+      expect(screen.queryByText('View all')).toBeNull();
+
+      fireEvent.click(screen.getByRole('tab', { name: 'Flow' }));
+
+      expect(screen.getByTestId('flow')).toBeInTheDocument();
+      expect(screen.queryByTestId('mock-chart')).toBeNull();
+      expect(flowProps).toHaveBeenLastCalledWith(expect.objectContaining({ month: '2026-07' }));
+      expect(screen.getByText('View all').closest('a')).toHaveAttribute(
+        'href',
+        '/reports?tab=cash-flow&from=2026-07-01&to=2026-07-31',
+      );
+    });
+
+    it('comes back as the remembered view', () => {
+      window.localStorage.setItem('seneca.cashFlowView', 'flow');
+      render(<CashFlowCard formatAmount={String} activeMonth="2026-07" days={days} />);
+      expect(screen.getByTestId('flow')).toBeInTheDocument();
+    });
   });
 });

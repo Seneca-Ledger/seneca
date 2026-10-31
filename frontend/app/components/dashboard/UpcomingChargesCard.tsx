@@ -110,7 +110,8 @@ export function UpcomingChargesCard({
             return (
               <ListRow
                 key={item.id}
-                href="/subscriptions"
+                // Rings this subscription on the page, as the flag chips ring theirs.
+                href={`/subscriptions?focus=subscription:${item.id}`}
                 primary={item.vendorName}
                 secondary={
                   day && offset !== null

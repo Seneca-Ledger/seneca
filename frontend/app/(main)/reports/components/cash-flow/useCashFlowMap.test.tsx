@@ -9,6 +9,8 @@ const apiPut = vi.hoisted(() => vi.fn());
 
 vi.mock('@/app/lib/api', () => ({ default: { get: apiGet, put: apiPut } }));
 vi.mock('@/app/hooks/useWorkspaceId', () => ({ useWorkspaceId: () => 'ws-1' }));
+const search = vi.hoisted(() => ({ params: new URLSearchParams() }));
+vi.mock('next/navigation', () => ({ useSearchParams: () => search.params }));
 
 let hook: ReturnType<typeof useCashFlowMap> | null = null;
 
@@ -108,5 +110,27 @@ describe('useCashFlowMap: refunds and the comparison window', () => {
     act(() => hook?.update({ compare: false }));
     await waitFor(() => expect(lastMapParams()).not.toHaveProperty('compare'));
     expect(lastMapParams()).not.toHaveProperty('compareTo');
+  });
+});
+
+describe('useCashFlowMap: the period a link names', () => {
+  beforeEach(() => {
+    apiGet.mockReset();
+    serve(null);
+    hook = null;
+  });
+
+  it('opens on `?from=&to=` when both are days in order', () => {
+    search.params = new URLSearchParams('tab=cash-flow&from=2026-09-01&to=2026-09-30');
+    renderWithQuery(<Probe />);
+    expect(hook?.filters.from).toBe('2026-09-01');
+    expect(hook?.filters.to).toBe('2026-09-30');
+  });
+
+  it('falls back to the first preset on a malformed or reversed period', () => {
+    search.params = new URLSearchParams('from=2026-09-30&to=2026-09-01');
+    renderWithQuery(<Probe />);
+    expect(hook?.filters.from).not.toBe('2026-09-30');
+    search.params = new URLSearchParams();
   });
 });

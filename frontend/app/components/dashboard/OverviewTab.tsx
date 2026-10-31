@@ -31,7 +31,6 @@ import type { KpiSectionId } from './overview-layout';
 import { OverviewMonthProvider } from './overview-month';
 import { RecentTransactionsCard } from './RecentTransactionsCard';
 import { SafeToSpendTile } from './SafeToSpendTile';
-import { SpendCalendarCard } from './SpendCalendarCard';
 import { TaxesCard } from './TaxesCard';
 import { TopCategoriesCard } from './TopCategoriesCard';
 import { UpcomingChargesCard } from './UpcomingChargesCard';
@@ -387,7 +386,6 @@ export function OverviewTab({
               viewAllHref={viewAllHref}
             />
           ),
-          'spend-calendar': <SpendCalendarCard displayMonth={displayMonth} />,
           goals: <GoalsProgressCard month={monthKey(displayMonth)} monthLabel={monthLabel} />,
           ...wealthSections(monthKey(displayMonth), monthLabel),
           budgets: <BudgetSummaryWidget month={monthKey(displayMonth)} monthLabel={monthLabel} />,
