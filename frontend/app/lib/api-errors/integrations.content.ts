@@ -2525,7 +2525,7 @@ const content = {
       en: 'Picture search is unavailable right now',
       kk: 'Сурет іздеу қазір қолжетімсіз',
       de: 'Die Bildsuche ist gerade nicht verfügbar',
-      fr: 'La recherche d\'images est indisponible pour le moment',
+      fr: "La recherche d'images est indisponible pour le moment",
       es: 'La búsqueda de imágenes no está disponible ahora',
       pt: 'A pesquisa de imagens está indisponível agora',
       tr: 'Resim arama şu anda kullanılamıyor',

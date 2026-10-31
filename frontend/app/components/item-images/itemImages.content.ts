@@ -193,7 +193,7 @@ const content = {
       en: 'No pictures under that name. Try a shorter one.',
       kk: 'Бұл атаумен сурет жоқ. Қысқарақ жазып көріңіз.',
       de: 'Unter diesem Namen gibt es keine Bilder. Versuchen Sie es kürzer.',
-      fr: "Aucune image sous ce nom. Essayez plus court.",
+      fr: 'Aucune image sous ce nom. Essayez plus court.',
       es: 'No hay imágenes con ese nombre. Pruebe con uno más corto.',
       pt: 'Não há imagens com esse nome. Tente um mais curto.',
       tr: 'Bu adla resim yok. Daha kısa bir ad deneyin.',
