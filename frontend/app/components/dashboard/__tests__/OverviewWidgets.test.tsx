@@ -223,6 +223,11 @@ describe('UpcomingChargesCard', () => {
     renderWithQuery(<UpcomingChargesCard formatAmount={money} />);
 
     expect(await screen.findByText('Netflix')).toBeInTheDocument();
+    // A row leads to its own subscription, ringed.
+    expect(screen.getByText('Netflix').closest('a')).toHaveAttribute(
+      'href',
+      '/subscriptions?focus=subscription:s-1',
+    );
     // The chip leads to the subscriptions it is about, ringed.
     expect((await screen.findByText('priceChanges')).closest('a')).toHaveAttribute(
       'href',
