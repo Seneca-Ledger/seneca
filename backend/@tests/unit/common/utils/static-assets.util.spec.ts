@@ -25,6 +25,11 @@ describe('static asset mounts', () => {
         prefix: '/uploads/metal-photos',
         ensure: true,
       },
+      {
+        root: '/srv/seneca/uploads/item-images',
+        prefix: '/uploads/item-images',
+        ensure: true,
+      },
     ]);
     // Stated as a property too, so a future mount cannot quietly widen this to
     // the whole uploads tree while still matching a list someone updated.
@@ -38,6 +43,7 @@ describe('static asset mounts', () => {
       '/uploads/goal-covers',
       '/uploads/workspace-backgrounds',
       '/uploads/metal-photos',
+      '/uploads/item-images',
     ]);
   });
 });

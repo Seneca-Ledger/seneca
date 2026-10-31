@@ -19,6 +19,10 @@ const value = (v: string) =>
 
 const appLocale = vi.hoisted(() => ({ current: 'en' }));
 
+// The item picture fetches on its own and has its own tests; here the category badge shows.
+vi.mock('@/app/components/item-images/ItemImageBadge', () => ({
+  ItemImageBadge: ({ children }: { children: React.ReactNode }) => children,
+}));
 vi.mock('@/app/i18n', () => ({
   useIntlayer: () => ({
     title: value('Recent transactions'),

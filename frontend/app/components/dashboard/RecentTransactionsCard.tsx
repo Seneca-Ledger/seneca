@@ -5,6 +5,7 @@ import clsx from 'clsx';
 import type React from 'react';
 import { useMemo } from 'react';
 import { parseDateOnly, resolveLocale } from '@/app/(main)/dashboard/helpers/dashboard-helpers';
+import { ItemImageBadge } from '@/app/components/item-images/ItemImageBadge';
 import { PRIVATE_CLASS } from '@/app/components/ui/private-amount';
 import type { DashboardData } from '@/app/hooks/useDashboard';
 import { useIntlayer, useLocale } from '@/app/i18n';
@@ -54,12 +55,14 @@ export function RecentTransactionsCard({
                 href={tx.href ?? undefined}
                 leading={
                   <div title={categoryLabel}>
-                    <CategoryIconBadge
-                      name={tx.categoryName}
-                      color={tx.categoryColor}
-                      icon={tx.categoryIcon}
-                      size={36}
-                    />
+                    <ItemImageBadge transactionId={tx.id} size={36} name={tx.description}>
+                      <CategoryIconBadge
+                        name={tx.categoryName}
+                        color={tx.categoryColor}
+                        icon={tx.categoryIcon}
+                        size={36}
+                      />
+                    </ItemImageBadge>
                   </div>
                 }
                 primary={tx.description}

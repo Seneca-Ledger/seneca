@@ -11,9 +11,9 @@
 import type React from 'react';
 import type { LucideIcon, LucideProps } from '@/app/components/icons';
 
-type IconNode = ReadonlyArray<readonly [string, Record<string, string | number>]>;
+export type IconNode = ReadonlyArray<readonly [string, Record<string, string | number>]>;
 
-function lineIcon(node: IconNode, name: string): LucideIcon {
+export function lineIcon(node: IconNode, name: string): LucideIcon {
   // biome-ignore lint/correctness/noComponentHookFactories: called once per icon at module level, never while rendering.
   function CategoryLineIcon({
     size = 24,

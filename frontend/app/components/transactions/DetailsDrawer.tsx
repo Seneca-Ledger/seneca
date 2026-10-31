@@ -8,7 +8,7 @@ import { NotesPanel } from '@/app/components/notes/NotesPanel';
 import { useIntlayer, useLocale } from '@/app/i18n';
 import { FALLBACK_CURRENCY } from '@/app/lib/currency';
 import { formatMoney } from '@/app/lib/format-money';
-
+import { ItemImageBadge } from '../item-images/ItemImageBadge';
 import { DrawerShell } from '../ui/drawer-shell';
 import { PRIVATE_CLASS } from '../ui/private-amount';
 import { TextTabs } from '../ui/text-tabs';
@@ -78,6 +78,16 @@ function TransactionSummary({
 
   return (
     <div className="seneca-tx-summary">
+      {/* A visual anchor: the picked picture, or the vendor's mark; nothing otherwise. */}
+      <div className="seneca-tx-summary__anchor">
+        <ItemImageBadge
+          transactionId={transaction.id}
+          size={48}
+          name={transaction.counterpartyName}
+        >
+          {null}
+        </ItemImageBadge>
+      </div>
       <div className="seneca-tx-summary__merchant">
         {transaction.isPrivate ? EMPTY : transaction.counterpartyName || EMPTY}
       </div>

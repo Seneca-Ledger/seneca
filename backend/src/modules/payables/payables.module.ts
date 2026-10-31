@@ -10,6 +10,7 @@ import { Wallet } from '../../entities/wallet.entity';
 import { Workspace } from '../../entities/workspace.entity';
 import { AuditModule } from '../audit/audit.module';
 import { ExchangeRatesModule } from '../exchange-rates/exchange-rates.module';
+import { ItemImagesModule } from '../item-images/item-images.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { WorkspaceCurrencyModule } from '../workspaces/workspace-currency.module';
 import { PayablesController } from './payables.controller';
@@ -33,6 +34,8 @@ import { UnbookedPaymentsService } from './unbooked-payments.service';
     ]),
     AuditModule,
     ExchangeRatesModule,
+    // Pictures of what a bill or its payment was for; app.module is at its size limit.
+    ItemImagesModule,
     NotificationsModule,
     WorkspaceCurrencyModule,
   ],

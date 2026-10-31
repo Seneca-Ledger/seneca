@@ -5,6 +5,8 @@ import type { Payable } from '@/app/lib/payables-api';
 import PayablesList from './PayablesList';
 
 vi.mock('@/app/hooks/useIsMobile', () => ({ useIsMobile: () => false }));
+// The picture tile fetches on its own and has its own tests.
+vi.mock('@/app/components/item-images/ItemThumb', () => ({ ItemThumb: () => null }));
 vi.mock('@/app/i18n', () => ({
   useIntlayer: () => ({ notInAccount: { value: 'not in an account yet' } }),
 }));

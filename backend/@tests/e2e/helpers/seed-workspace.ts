@@ -417,4 +417,10 @@ export async function seedWorkspace(
   await send('receipt tag', 'put', `/receipts/${receipt.id}/tags`, { tagIds: [tag.body.id] });
   // A payable_tags row, for the same reason.
   await send('payable tag', 'put', `/payables/${payable.body.id}`, { tagIds: [tag.body.id] });
+  // Item pictures, one on a transaction and one on a bill: picking one needs Wikidata, so straight in.
+  await dataSource.query(
+    `INSERT INTO item_images (workspace_id, transaction_id, payable_id, file_name, label, wikidata_id)
+     VALUES ($1, $2, NULL, 'seed-item.png', $4, 'Q1'), ($1, NULL, $3, 'seed-bill.png', $4, 'Q2')`,
+    [owner.workspaceId, transaction.id, payable.body.id, `${marker} item`],
+  );
 }

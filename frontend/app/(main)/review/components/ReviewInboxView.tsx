@@ -26,7 +26,6 @@ import {
 import { StatementsToolbarButton } from '@/app/(main)/statements/components/StatementsToolbarButton';
 import { CategoryPickerField } from '@/app/components/categories/CategoryPickerField';
 import { hasChosenCategory, NoCategoryBadge } from '@/app/components/categories/NoCategoryBadge';
-import { DocumentThumbnailPreview } from '@/app/components/DocumentThumbnailPreview';
 import { CategoryIconBadge } from '@/app/components/dashboard/CategoryIconBadge';
 import { ChevronDown, X } from '@/app/components/icons';
 import { PDFPreviewModal } from '@/app/components/PDFPreviewModal';
@@ -70,6 +69,7 @@ import {
 } from '../lib/review-inbox-model';
 import { ReviewDocumentGroup } from './ReviewDocumentGroup';
 import { ReviewRowsSkeleton } from './ReviewRowsSkeleton';
+import { ReviewRowThumb } from './ReviewRowThumb';
 import { SwipeableRow } from './SwipeableRow';
 
 /** One line icon per tab, from the set every empty state uses. */
@@ -523,20 +523,7 @@ export function ReviewInboxView({ state }: Props) {
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flex: 1, minWidth: 0 }}>
           <div style={columnStyle('receipt')}>
-            {document ? (
-              <DocumentThumbnailPreview
-                fileId={document.id}
-                fileName={document.fileName ?? payeeOf(item)}
-                fileType={
-                  document.source === 'receipt'
-                    ? 'pdf'
-                    : (document.fileType ?? document.fileName ?? '')
-                }
-                source={document.source}
-                onOpen={() => openPreview(document)}
-                testId={`review-thumbnail-${item.id}`}
-              />
-            ) : null}
+            <ReviewRowThumb item={item} document={document} onOpen={openPreview} />
           </div>
           <div style={columnStyle('merchant')}>{renderMerchant(item)}</div>
           {showCategoryColumn && item.kind === 'transaction' ? (

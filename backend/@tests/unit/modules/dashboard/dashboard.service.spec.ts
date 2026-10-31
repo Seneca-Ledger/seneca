@@ -1084,6 +1084,8 @@ describe('DashboardService', () => {
       },
     ]);
     transactionRepo.createQueryBuilder.mockReturnValue(qb);
+    payableRepo.manager = { getRepository: () => ({ find: vi.fn(async () => []) }) };
+    payableRepo.find.mockResolvedValue([]);
 
     const [row] = await (service as any).getRecentTransactions(
       'ws-1',
@@ -1091,8 +1093,19 @@ describe('DashboardService', () => {
       new Date('2026-10-31'),
     );
 
-    // No document behind it: no link, not one to /storage/null.
+    // No document and no bill behind it: no link, not one to /storage/null.
     expect(row.href).toBeNull();
+
+    // Marked received from a sale: it opens the sale in Income, ringed.
+    payableRepo.find.mockResolvedValue([
+      { id: 'sale-1', direction: 'receivable', linkedTransactionId: 'tx-manual' },
+    ]);
+    const [sale] = await (service as any).getRecentTransactions(
+      'ws-1',
+      new Date('2026-10-01'),
+      new Date('2026-10-31'),
+    );
+    expect(sale.href).toBe(`/statements/receive?focus=${encodeURIComponent('payable:sale-1')}`);
   });
 
   it('getMemberRole returns correct role', async () => {
